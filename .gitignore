@@ -9,9 +9,6 @@
 build/
 .gradletasknamecache
 
-# Keep only the Gradle wrapper JAR (required for builds)
-!gradle/wrapper/gradle-wrapper.jar
-
 ############ JVM / COMPILATION #########
 *.class
 # Ignore archive files (prevents accidental library commits)
@@ -21,6 +18,10 @@ build/
 *.zip
 *.tar.gz
 *.rar
+
+# Keep only the Gradle wrapper JAR (required for builds)
+# Added below .jar for exception to work
+!gradle/wrapper/gradle-wrapper.jar
 
 hs_err_pid*           # JVM crash logs
 replay_pid*           # JVM replay logs

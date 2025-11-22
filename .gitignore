@@ -1,43 +1,94 @@
-.gradle
-build/
-!gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
-.kotlin
+########################################
+#   JAVA + KOTLIN + GRADLE PROJECT     #
+#   CLEAN, MAINTAINABLE, THESIS-READY  #
+########################################
 
-### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/libraries/
-*.iws
+########## GRADLE BUILD SYSTEM #########
+# Ignore Gradle cache and build outputs
+.gradle/
+build/
+.gradletasknamecache
+
+# Keep only the Gradle wrapper JAR (required for builds)
+!gradle/wrapper/gradle-wrapper.jar
+
+############ JVM / COMPILATION #########
+*.class
+# Ignore archive files (prevents accidental library commits)
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+hs_err_pid*           # JVM crash logs
+replay_pid*           # JVM replay logs
+
+################# LOGS ##################
+*.log
+logs/
+
+############### INTELLIJ IDEA ##########
+# Ignore entire .idea folder — user-specific files,
+# regenerated automatically, avoids merge conflicts
+.idea/
+
+# IntelliJ compilation output
+out/
+# Legacy IntelliJ files
 *.iml
 *.ipr
-out/
-!**/src/main/**/out/
-!**/src/test/**/out/
+*.iws
 
-### Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-bin/
-!**/src/main/**/bin/
-!**/src/test/**/bin/
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-
-### VS Code ###
+############### VS CODE ################
 .vscode/
 
-### Mac OS ###
+############### SONARCLOUD / SONARQUBE #
+# Ignore local scanner caches and generated files
+.sonarqube/
+.scannerwork/
+.sonar/
+
+############### KOTLIN ##################
+# No special rules needed — Kotlin plugin stores
+# data in .idea/ or .gradle/, both ignored above.
+
+############ OPERATING SYSTEM FILES ####
+# Windows
+Thumbs.db
+desktop.ini
+
+# macOS
 .DS_Store
+
+# Linux temporary files
+*~
+
+######## CREDENTIALS & ENV FILES #######
+.env
+.env.*
+*.key
+*.pem
+*.crt
+*.p12
+*.jks
+google-credentials.json
+google-service-account.json
+
+########## LOCAL BACKUPS ################
+# System will generate local DB backups — ignore them
+/backup/
+/backups/
+/local-backups/
+/db-backups/
+
+############# TEMPORARY FILES ###########
+# Excel temporary lock files
+~$*.xlsx
+*.tmp
+*.bak
+
+########################################
+#      END OF GITIGNORE                #
+########################################

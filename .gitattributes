@@ -1,0 +1,14 @@
+# Ensure consistent line endings and script handling
+* text=auto
+
+# Windows batch files should keep CRLF
+*.bat text eol=crlf
+
+# Shell scripts should use LF (useful for GitHub CI)
+*.sh text eol=lf
+
+# Gradle wrapper script for Unix CI runners
+gradlew text eol=lf
+
+# Keep properties & config files normalized
+*.properties text

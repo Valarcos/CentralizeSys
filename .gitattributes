@@ -1,14 +1,61 @@
-# Ensure consistent line endings and script handling
+# ============================================
+#   NORMALIZE TEXT FILES (CROSS-PLATFORM)
+# ============================================
 * text=auto
 
-# Windows batch files should keep CRLF
+# ============================================
+#   WINDOWS-SPECIFIC SETTINGS
+# ============================================
+# Windows batch scripts must use CRLF
 *.bat text eol=crlf
 
-# Shell scripts should use LF (useful for GitHub CI)
+# PowerShell scripts also use CRLF
+*.ps1 text eol=crlf
+
+# ============================================
+#   LINUX/CI SCRIPT SETTINGS
+# ============================================
+# Shell scripts for CI runners (GitHub Actions) use LF
 *.sh text eol=lf
 
-# Gradle wrapper script for Unix CI runners
+# Gradle wrapper shell script (used in CI)
 gradlew text eol=lf
 
-# Keep properties & config files normalized
+# ============================================
+#   GRADLE, PROPERTIES, AND CONFIG FILES
+# ============================================
 *.properties text
+*.gradle text
+*.gradle.kts text
+settings.gradle.kts text
+build.gradle.kts text
+
+# =====================
+#   KOTLIN / JAVA
+# =====================
+*.kt text
+*.java text
+*.kts text
+
+# ============================================
+#   MARKDOWN / DOCUMENTATION FILES
+# ============================================
+*.md text
+*.txt text
+
+# ============================================
+#   BINARY FILES (DO NOT MODIFY EOL)
+# ============================================
+*.jar binary
+*.war binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.exe binary
+*.dll binary
+*.p12 binary
+*.jks binary
+*.svg text

@@ -1,5 +1,6 @@
 plugins {
     id("java")
+    id("org.sonarqube") version "6.0.1.5171" // Add this line (check for the latest version)
 }
 
 group = "org.example"
@@ -17,4 +18,12 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+sonar {
+    properties {
+        property("sonar.projectKey", "Valarcos_sinpen_thesis") // Replace it with your actual key from SonarCloud
+        property("sonar.organization", "valarcos")        // Replace with your actual org
+        property("sonar.host.url", "https://sonarcloud.io")
+    }
 }

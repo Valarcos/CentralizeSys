@@ -37,6 +37,11 @@ build.gradle.kts text
 *.java text
 *.kts text
 
+# Force LF for all Kotlin/Java files to avoid CRLF/LF warnings
+*.kt eol=lf
+*.kts eol=lf
+*.java eol=lf
+
 # ============================================
 #   MARKDOWN / DOCUMENTATION FILES
 # ============================================

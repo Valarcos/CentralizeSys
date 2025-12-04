@@ -33,6 +33,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
+          build-root-directory: "backend"
           # 3.2. Enable build scan (optional)
           build-scan-publish: true
           build-scan-terms-of-use-url: "https://gradle.com/terms-of-service"
@@ -40,14 +41,23 @@ jobs:
 
       # 4. Ensure gradlew is executable (from File B)
       - name: Make gradlew executable
-        run: chmod +x gradlew
+        run: chmod +x backend/gradlew
 
-      # 5. Build & Test
-      - name: Build with Gradle
-        run: ./gradlew build
+      # 5. Build & Test + generate coverage
+      - name: Run tests with coverage
+        working-directory: backend
+        run: ./gradlew test jacocoTestReport
+#      The following block was the original. It was commented because running ./gradlew test
+#      already depends on compilation and fails if there are errors in the code.
+#      ./gradlew build would be useful if I was building a docker image, deploying an artifact
+#      or uploading the JAR somewhere. This is based on AI recommendation, be mindful of that.
+#      - name: Build with Gradle
+#        working-directory: backend
+#        run: ./gradlew build
 
       # 6. SonarCloud Analysis
       - name: SonarCloud Analyze
+        working-directory: backend
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -59,4 +69,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-report-junit
-          path: build/test-results/test/
+          path: backend/build/test-results/test/

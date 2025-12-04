@@ -26,9 +26,17 @@ build/
 hs_err_pid*           # JVM crash logs
 replay_pid*           # JVM replay logs
 
-# Ignore local SQLite DB
-database/*.db
+# ============================
+# Local data files (Excel, SQLite, backups, etc.)
+# ============================
+data/*
+!data/.gitkeep
+
+# Avoid committing any SQLite database files anywhere
 *.db
+*.sqlite
+*.sqlite3
+*.db-journal
 
 ################# LOGS ##################
 *.log

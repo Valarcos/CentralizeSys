@@ -43,10 +43,17 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x backend/gradlew
 
-      # 5. Build & Test
-      - name: Build with Gradle
+      # 5. Build & Test + generate coverage
+      - name: Run tests with coverage
         working-directory: backend
-        run: ./gradlew build
+        run: ./gradlew test jacocoTestReport
+#      The following block was the original. It was commented because running ./gradlew test
+#      already depends on compilation and fails if there are errors in the code.
+#      ./gradlew build would be useful if I was building a docker image, deploying an artifact
+#      or uploading the JAR somewhere. This is based on AI recommendation, be mindful of that.
+#      - name: Build with Gradle
+#        working-directory: backend
+#        run: ./gradlew build
 
       # 6. SonarCloud Analysis
       - name: SonarCloud Analyze

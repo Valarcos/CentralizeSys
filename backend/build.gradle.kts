@@ -3,6 +3,7 @@ plugins {
     id("org.sonarqube") version "6.0.1.5171" // Add this line (check for the latest version)
     id("org.springframework.boot") version "3.3.3"
     id("io.spring.dependency-management") version "1.1.5"
+    jacoco
 }
 
 group = "com.centralizesys"
@@ -36,6 +37,18 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)   // Sonar needs this
+        html.required.set(true)  // For your local inspection
+    }
 }
 
 sonar {

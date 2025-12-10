@@ -25,8 +25,14 @@ dependencies {
 
     // SQLite JDBC driver
     implementation("org.xerial:sqlite-jdbc")
+    // If Gradle sync fails or complains it can't find the dependency, then add the version 3.45.1.0 back
+    //implementation("org.xerial:sqlite-jdbc:3.45.1.0")
 
     implementation("org.hibernate.validator:hibernate-validator")
+
+    // Add Lombok to remove boilerplate and fix Sonar duplication
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")

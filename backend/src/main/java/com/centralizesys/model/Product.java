@@ -1,53 +1,41 @@
 package com.centralizesys.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class Product {
 
     private Long id;
-    private String name;
-    private Integer stock;
-    private Double price;
+    private String codigo;
+    private String descripcion;
+    private Double precioCosto;
+    private Double precioMayorista;
+    private Double precioMinorista;
 
-    public Product(Long id, String name, Integer stock, Double price) {
+    // Read-Only field. Logic handled by DB Triggers.
+    // Lombok's @Setter on the class generates setters for everything,
+    // so we specifically disable it for this field.
+    // No setter provided to prevent accidental Java-side modifications.
+    @Setter(lombok.AccessLevel.NONE)
+    private Integer cantidadStock;
+
+    // Full Constructor (Used by RowMapper)
+    public Product(Long id, String codigo, String descripcion, Double precioCosto,
+                   Double precioMayorista, Double precioMinorista, Integer cantidadStock) {
         this.id = id;
-        this.name = name;
-        this.stock = stock;
-        this.price = price;
+        this.codigo = codigo;
+        this.descripcion = descripcion;
+        this.precioCosto = precioCosto;
+        this.precioMayorista = precioMayorista;
+        this.precioMinorista = precioMinorista;
+        this.cantidadStock = cantidadStock;
     }
 
-    // Case of constructor chaining. Eliminates the need of writing null for the ID everytime one is created
-    public Product(String name, Integer stock, Double price) {
-        this(null, name, stock, price);
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public Integer getStock() {
-        return stock;
-    }
-
-    public void setStock(Integer stock) {
-        this.stock = stock;
-    }
-
-    public Double getPrice() {
-        return price;
-    }
-
-    public void setPrice(Double price) {
-        this.price = price;
+    // Constructor for New Products (Stock is 0 until Locations are added)
+    public Product(String codigo, String descripcion, Double precioCosto,
+                   Double precioMayorista, Double precioMinorista) {
+        this(null, codigo, descripcion, precioCosto, precioMayorista, precioMinorista, 0);
     }
 }

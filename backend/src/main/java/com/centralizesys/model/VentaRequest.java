@@ -1,5 +1,6 @@
 package com.centralizesys.model;
 
+import com.centralizesys.model.enums.DiscountType;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -23,8 +24,14 @@ public class VentaRequest {
         private Long productoId;
         private Integer cantidad;
 
-        // Frontend sends the agreed price (allows discounts/manual overrides)
-        private Double precioUnitario;
+        // We removed explicit 'precioUnitario' input preference.
+        // Now the system calculates it, OR the user overrides it via discounts.
+        // If the user wants to manually type a final price, they can use FIXED discount
+        // calculating the difference, or we can keep 'precioManual' as an override.
+        // For this rule, we stick to Discount Logic:
+
+        private DiscountType tipoDescuento = DiscountType.NONE; // Default
+        private Double valorDescuento = 0.0;
     }
 
     @Data

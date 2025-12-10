@@ -16,4 +16,7 @@ public class VentaResponse {
     private Double totalVenta;
     private List<DetalleVenta> items;
     private List<PagoVenta> pagos;
+
+    // NEW: List of warning messages (e.g., "Stock negativo para ART-123")
+    private List<String> alertas;
 }

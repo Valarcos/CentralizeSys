@@ -1,13 +1,16 @@
 package com.centralizesys.model;
 
+import lombok.Getter;
+
+@Getter
 public class ProductResponse {
-    private Long id;
-    private String codigo;
-    private String descripcion;
-    private Double precioCosto;
-    private Double precioMayorista;
-    private Double precioMinorista;
-    private Integer cantidadStock;
+    private final Long id;
+    private final String codigo;
+    private final String descripcion;
+    private final Double precioCosto;
+    private final Double precioMayorista;
+    private final Double precioMinorista;
+    private final Integer cantidadStock;
 
     public ProductResponse(Product product) {
         this.id = product.getId();
@@ -18,13 +21,4 @@ public class ProductResponse {
         this.precioMinorista = product.getPrecioMinorista();
         this.cantidadStock = product.getCantidadStock();
     }
-
-    // Getters
-    public Long getId() { return id; }
-    public String getCodigo() { return codigo; }
-    public String getDescripcion() { return descripcion; }
-    public Double getPrecioCosto() { return precioCosto; }
-    public Double getPrecioMayorista() { return precioMayorista; }
-    public Double getPrecioMinorista() { return precioMinorista; }
-    public Integer getCantidadStock() { return cantidadStock; }
 }

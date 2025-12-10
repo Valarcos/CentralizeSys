@@ -30,6 +30,10 @@ dependencies {
 
     implementation("org.hibernate.validator:hibernate-validator")
 
+    // Add Lombok to remove boilerplate and fix Sonar duplication
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation(platform("org.junit:junit-bom:5.10.0"))

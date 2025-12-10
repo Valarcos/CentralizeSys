@@ -1,5 +1,10 @@
 package com.centralizesys.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
 public class Product {
 
     private Long id;
@@ -9,8 +14,11 @@ public class Product {
     private Double precioMayorista;
     private Double precioMinorista;
 
-    // Read-Only field. Calculated by DB Triggers.
+    // Read-Only field. Logic handled by DB Triggers.
+    // Lombok's @Setter on the class generates setters for everything,
+    // so we specifically disable it for this field.
     // No setter provided to prevent accidental Java-side modifications.
+    @Setter(lombok.AccessLevel.NONE)
     private Integer cantidadStock;
 
     // Full Constructor (Used by RowMapper)
@@ -30,21 +38,4 @@ public class Product {
                    Double precioMayorista, Double precioMinorista) {
         this(null, codigo, descripcion, precioCosto, precioMayorista, precioMinorista, 0);
     }
-
-    // Getters
-    public Long getId() { return id; }
-    public String getCodigo() { return codigo; }
-    public String getDescripcion() { return descripcion; }
-    public Double getPrecioCosto() { return precioCosto; }
-    public Double getPrecioMayorista() { return precioMayorista; }
-    public Double getPrecioMinorista() { return precioMinorista; }
-    public Integer getCantidadStock() { return cantidadStock; }
-
-    // Setters (Only for editable fields)
-    public void setId(Long id) { this.id = id; }
-    public void setCodigo(String codigo) { this.codigo = codigo; }
-    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
-    public void setPrecioCosto(Double precioCosto) { this.precioCosto = precioCosto; }
-    public void setPrecioMayorista(Double precioMayorista) { this.precioMayorista = precioMayorista; }
-    public void setPrecioMinorista(Double precioMinorista) { this.precioMinorista = precioMinorista; }
 }

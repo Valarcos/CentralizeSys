@@ -1,5 +1,6 @@
 package com.centralizesys.config;
 
+import org.sqlite.SQLiteConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -8,7 +9,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.datasource.init.DataSourceInitializer;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
-import org.sqlite.SQLiteConfig;                                             // Requiere la librería xerial/sqlite-jdbc"
 
 import javax.sql.DataSource;
 
@@ -36,7 +36,6 @@ public class DatabaseConfig {
 
         // Use the injected variable instead of hardcoded string
         dataSource.setUrl(dbUrl);
-
         dataSource.setConnectionProperties(config.toProperties());
         return dataSource;
     }
@@ -57,10 +56,15 @@ public class DatabaseConfig {
     @Bean
     public DataSourceInitializer dataSourceInitializer(DataSource dataSource) {
         ResourceDatabasePopulator resourceDatabasePopulator = new ResourceDatabasePopulator();
+
+        // 1. Load the Structure
         resourceDatabasePopulator.addScript(new ClassPathResource("schema.sql"));
 
-        // Set the separator to double semicolon (;;)
-        // This prevents Spring from splitting the Trigger definitions in half.
+        // 2. Load the Data (THIS WAS MISSING)
+        resourceDatabasePopulator.addScript(new ClassPathResource("data.sql"));
+
+        // CRITICAL: Since schema.sql uses ";;" for triggers,
+        // data.sql MUST ALSO use ";;" as the separator.
         resourceDatabasePopulator.setSeparator(";;");
 
         DataSourceInitializer dataSourceInitializer = new DataSourceInitializer();

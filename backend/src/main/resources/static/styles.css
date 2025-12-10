@@ -1,0 +1,41 @@
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: #f4f4f9; padding-bottom: 80px; } /* Padding bottom allows scrolling past the fixed cart button on mobile */
+
+/* Header Mobile-Friendly */
+.header { background: #2c3e50; color: white; padding: 1rem; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.header nav { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.header button { background: #34495e; color: white; border: none; padding: 12px 15px; cursor: pointer; font-size: 0.9rem; border-radius: 4px; }
+.header button:hover, .header button:active { background: #1abc9c; }
+
+.tab-content { display: none; padding: 10px; }
+.tab-content.active { display: block; }
+
+/* Desktop View (Default) */
+.split-view { display: flex; gap: 20px; height: 85vh; }
+.panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex: 1; overflow-y: auto; }
+.cart-panel { flex: 0.6; display: flex; flex-direction: column; }
+
+/* --- MOBILE OVERRIDES (The Magic Part) --- */
+@media (max-width: 768px) {
+    .split-view { display: flex; flex-direction: column; height: auto; }
+    .panel { height: auto; max-height: 50vh; } /* Catalog scrollable */
+    .cart-panel { max-height: none; border-top: 5px solid #2c3e50; }
+    .header h1 { font-size: 1.5rem; margin: 0; }
+}
+
+/* List Items */
+.item-list div { padding: 15px 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.item-list button { background: #3498db; color: white; border: none; width: 40px; height: 40px; font-size: 1.2rem; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+/* Cart Styling */
+.cart-items { flex-grow: 1; overflow-y: auto; border: 1px solid #eee; margin: 10px 0; padding: 10px; min-height: 100px; }
+.cart-row { display: flex; justify-content: space-between; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px dotted #ccc; font-size: 0.9rem; }
+
+.totals { background: #ecf0f1; padding: 15px; border-radius: 8px; }
+.btn-pay { width: 100%; padding: 15px; background: #27ae60; color: white; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; margin-top: 10px; border-radius: 5px; }
+.btn-pay:active { background: #219150; transform: scale(0.98); }
+
+input, select { padding: 12px; width: 100%; margin-bottom: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
+
+table { width: 100%; border-collapse: collapse; background: white; font-size: 0.9rem; }
+th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+th { background: #bdc3c7; }

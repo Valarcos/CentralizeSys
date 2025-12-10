@@ -1,6 +1,6 @@
 plugins {
     id("java")
-    id("org.sonarqube") version "6.0.1.5171" // Add this line (check for the latest version)
+    id("org.sonarqube") version "6.0.1.5171"
     id("org.springframework.boot") version "3.3.3"
     id("io.spring.dependency-management") version "1.1.5"
     jacoco
@@ -9,6 +9,7 @@ plugins {
 group = "com.centralizesys"
 version = "0.0.2-SNAPSHOT"
 
+// CRITICAL FIX: Ensure we are strictly using Java 21
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
@@ -24,15 +25,14 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
 
     // SQLite JDBC driver
-    implementation("org.xerial:sqlite-jdbc")
-    // If Gradle sync fails or complains it can't find the dependency, then add the version 3.45.1.0 back
-    //implementation("org.xerial:sqlite-jdbc:3.45.1.0")
+    // FIX: Uncommented specific version to ensure DatabaseConfig finds "SQLiteConfig"
+    implementation("org.xerial:sqlite-jdbc:3.45.1.0")
 
     implementation("org.hibernate.validator:hibernate-validator")
 
-    // Add Lombok to remove boilerplate and fix Sonar duplication
-    compileOnly("org.projectlombok:lombok")
-    annotationProcessor("org.projectlombok:lombok")
+    // CRITICAL FIX: Force Lombok 1.18.34 to prevent "ExceptionInInitializerError" on Java 21
+    compileOnly("org.projectlombok:lombok:1.18.34")
+    annotationProcessor("org.projectlombok:lombok:1.18.34")
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
@@ -45,6 +45,11 @@ tasks.test {
     useJUnitPlatform()
 }
 
+// CRITICAL FIX: Handle Spanish accents in source code
+tasks.withType<JavaCompile> {
+    options.encoding = "UTF-8"
+}
+
 jacoco {
     toolVersion = "0.8.12"
 }
@@ -52,8 +57,8 @@ jacoco {
 tasks.jacocoTestReport {
     dependsOn(tasks.test)
     reports {
-        xml.required.set(true)   // Sonar needs this
-        html.required.set(true)  // For your local inspection
+        xml.required.set(true)
+        html.required.set(true)
     }
 }
 

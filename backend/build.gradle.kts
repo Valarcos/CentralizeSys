@@ -25,6 +25,8 @@ dependencies {
 
     // SQLite JDBC driver
     implementation("org.xerial:sqlite-jdbc")
+    // If Gradle sync fails or complains it can't find the dependency, then add the version 3.45.1.0 back
+    //implementation("org.xerial:sqlite-jdbc:3.45.1.0")
 
     implementation("org.hibernate.validator:hibernate-validator")
 

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CentralizeSys - POS</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="header">
+    <h1>CentralizeSys <span style="font-size:0.5em; color:#ddd;">v1.0</span></h1>
+    <nav>
+        <button onclick="showTab('venta')">Nueva Venta</button>
+        <button onclick="showTab('productos')">Productos</button>
+        <button onclick="showTab('historial')">Historial</button>
+        <button onclick="showTab('importar')" style="background:#e67e22;">Importar Excel</button>
+    </nav>
+</div>
+
+<div id="venta" class="tab-content active">
+    <div class="split-view">
+        <div class="panel">
+            <h2>Catálogo</h2>
+            <input type="text" id="search-box" placeholder="Buscar producto..." onkeyup="filterProducts()">
+            <div id="product-list" class="item-list"></div>
+        </div>
+        <div class="panel cart-panel">
+            <h2>Carrito</h2>
+            <input type="text" id="cliente-nombre" placeholder="Nombre del Cliente (Opcional)">
+            <div id="cart-items" class="cart-items"></div>
+
+            <div class="totals">
+                <h3>Total: $<span id="total-amount">0.00</span></h3>
+                <select id="payment-method"></select>
+                <button class="btn-pay" onclick="procesarVenta()">CONFIRMAR VENTA</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="productos" class="tab-content">
+    <h2>Inventario Actual</h2>
+    <button onclick="loadProducts()">Refrescar</button>
+    <table id="inventory-table">
+        <thead><tr><th>Código</th><th>Descripción</th><th>Precio</th><th>Stock</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div id="historial" class="tab-content">
+    <h2>Historial de Ventas</h2>
+    <button onclick="loadHistory()">Refrescar</button>
+    <table id="history-table">
+        <thead><tr><th>ID</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Acción</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div id="importar" class="tab-content">
+    <div class="panel" style="max-width: 500px; margin: 0 auto; text-align: center;">
+        <h2>Importación de Datos</h2>
+        <p>Seleccione el archivo Excel (.xlsx) o CSV para sincronizar precios y stock.</p>
+        <input type="file" id="excel-file" accept=".csv, .xlsx">
+        <br><br>
+        <button onclick="mockImport()" class="btn-pay" style="background: #27ae60;">SUBIR Y PROCESAR</button>
+        <p id="import-status" style="margin-top: 20px; font-weight: bold;"></p>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

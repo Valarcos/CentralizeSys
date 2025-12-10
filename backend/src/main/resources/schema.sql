@@ -77,11 +77,22 @@ CREATE TABLE IF NOT EXISTS detalles_venta (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     venta_id INTEGER NOT NULL,
     producto_id INTEGER,
+
+    -- Snapshots
     descripcion_snapshot TEXT NOT NULL,
     codigo_snapshot TEXT NOT NULL,
+
+    -- Values
     cantidad INTEGER NOT NULL,
-    precio_unitario REAL NOT NULL,
-    subtotal REAL NOT NULL,
+    precio_lista REAL NOT NULL,      -- NEW: The original price BEFORE discount
+
+    -- Discount Info
+    descuento_tipo TEXT DEFAULT 'NONE', -- 'PERCENTAGE', 'FIXED', 'NONE'
+    descuento_valor REAL DEFAULT 0,     -- The number input (e.g., 10 or 500)
+
+    precio_unitario REAL NOT NULL,   -- The FINAL price after discount
+    subtotal REAL NOT NULL,          -- cantidad * precio_unitario
+
     FOREIGN KEY (venta_id) REFERENCES ventas(id),
     FOREIGN KEY (producto_id) REFERENCES productos(id)
 );;

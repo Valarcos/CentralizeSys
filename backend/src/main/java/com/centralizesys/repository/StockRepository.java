@@ -49,6 +49,20 @@ public class StockRepository {
         jdbcTemplate.update(sql, productId, locationId, newQuantity);
     }
 
+    /**
+     * ATOMIC DECREMENT.
+     * Subtracts amount from the current quantity in the DB.
+     * This prevents race conditions where two users overwrite each other's data.
+     */
+    public void subtractStock(Long locationId, Long productoId, int amountToSubtract) {
+        String sql = """
+            UPDATE stock_por_ubicacion 
+            SET cantidad = cantidad - ? 
+            WHERE location_id = ? AND producto_id = ?
+        """;
+        jdbcTemplate.update(sql, amountToSubtract, locationId, productoId);
+    }
+
     // Helper to Create a new Location (e.g. "Caja 5") dynamically
     public Long createLocation(String name) {
         String sql = "INSERT INTO ubicaciones (nombre) VALUES (?)";

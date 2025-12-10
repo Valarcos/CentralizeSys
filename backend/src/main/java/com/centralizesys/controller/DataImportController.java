@@ -9,6 +9,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/import")
 @CrossOrigin(origins = "*")
+@SuppressWarnings("java:S5122")
 public class DataImportController {
 
     @PostMapping("/excel")

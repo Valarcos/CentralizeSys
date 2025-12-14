@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -174,7 +175,7 @@ public class VentaService {
 
         // A. Header
         Venta venta = new Venta();
-        venta.setFecha(LocalDate.now().toString());
+        venta.setFecha(LocalDate.now().toString()); // Result: "ej.: 2025-12-14"
         venta.setClienteNombre(request.getClienteNombre());
         venta.setTotalVenta(processedData.getTotalVenta());
 

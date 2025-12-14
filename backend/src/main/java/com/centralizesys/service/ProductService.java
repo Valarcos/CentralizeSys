@@ -27,13 +27,11 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
     }
 
-    // UPDATED: Now uses the "Smart Search" (Code OR Description)
+    // Uses the "Smart Search" (Code OR Description)
     public List<Product> search(String query) {
         return repository.search(query);
     }
 
-    // UPDATED: Validation logic now checks Spanish fields
-    // REMOVED: Stock validation (Stock is handled separately via Locations)
     private void validate(Product product) {
         if (product.getCodigo() == null || product.getCodigo().isBlank()) {
             throw new BusinessRuleException("El código del producto (ART) es obligatorio.");
@@ -60,10 +58,10 @@ public class ProductService {
         // Open the box to see if there is a product inside
         Optional<Product> existingOpt = repository.findByCodigo(product.getCodigo());
 
+        // PRESERVED LOGIC: Allow duplicates ONLY if code is "1"
         if (existingOpt.isPresent() && !"1".equals(product.getCodigo())) {
-                throw new BusinessRuleException("Ya existe un producto con el código: " + product.getCodigo());
+            throw new BusinessRuleException("Ya existe un producto con el código: " + product.getCodigo());
         }
-
 
         return repository.save(product);
     }
@@ -80,11 +78,12 @@ public class ProductService {
         String newCode = product.getCodigo();
         String oldCode = existingProduct.getCodigo();
 
+        // PRESERVED LOGIC: Check collision only if code changed and is not "1"
         if (!newCode.equals(oldCode) && !"1".equals(newCode)) {
-                repository.findByCodigo(newCode).ifPresent(collision -> {
-                    throw new BusinessRuleException("El código " + newCode + " ya está en uso por otro producto.");
-                });
-            }
+            repository.findByCodigo(newCode).ifPresent(collision -> {
+                throw new BusinessRuleException("El código " + newCode + " ya está en uso por otro producto.");
+            });
+        }
 
 
         // 4. Attach the ID to the incoming object

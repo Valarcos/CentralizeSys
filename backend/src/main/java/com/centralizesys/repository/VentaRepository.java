@@ -1,9 +1,9 @@
 package com.centralizesys.repository;
 
 import com.centralizesys.exception.InfrastructureException;
-import com.centralizesys.model.DetalleVenta;
-import com.centralizesys.model.PagoVenta;
-import com.centralizesys.model.Venta;
+import com.centralizesys.model.sales.DetalleVenta;
+import com.centralizesys.model.sales.PagoVenta;
+import com.centralizesys.model.sales.Venta;
 import com.centralizesys.model.enums.DiscountType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -49,7 +49,7 @@ public class VentaRepository {
                 rs.getLong("producto_id"),
                 rs.getString("codigo_snapshot"),
                 rs.getString("descripcion_snapshot"),
-                rs.getInt("cantidad"),
+                rs.getLong("cantidad"),
                 rs.getDouble("precio_lista"),
                 type, // Use the safe variable
                 rs.getDouble("descuento_valor"),
@@ -97,11 +97,11 @@ public class VentaRepository {
 
     /**
      * Bulk inserts items.
-     * Fixed: Batch size is now passed as a direct Integer.
+     * Fixed: Batch size is now passed as a direct Long.
      */
     public void saveDetalles(List<DetalleVenta> detalles) {
         String sql = """
-            INSERT INTO detalles_venta 
+            INSERT INTO detalles_venta
             (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad, 
              precio_lista, descuento_tipo, descuento_valor, precio_unitario, subtotal) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -112,7 +112,7 @@ public class VentaRepository {
             ps.setLong(2, detalle.getProductoId());
             ps.setString(3, detalle.getCodigoSnapshot());
             ps.setString(4, detalle.getDescripcionSnapshot());
-            ps.setInt(5, detalle.getCantidad());
+            ps.setLong(5, detalle.getCantidad());
 
             // New Sets
             ps.setDouble(6, detalle.getPrecioLista());
@@ -135,7 +135,7 @@ public class VentaRepository {
         jdbcTemplate.batchUpdate(
                 sql,
                 pagos,
-                pagos.size(), // FIX: Direct int
+                pagos.size(),
                 (PreparedStatement ps, PagoVenta pago) -> {
                     ps.setLong(1, pago.getVentaId());
                     ps.setLong(2, pago.getMetodoPagoId());

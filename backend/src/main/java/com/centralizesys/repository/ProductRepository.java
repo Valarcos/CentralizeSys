@@ -1,6 +1,6 @@
 package com.centralizesys.repository;
 
-import com.centralizesys.model.Product;
+import com.centralizesys.model.product.Product;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -30,7 +30,7 @@ public class ProductRepository {
                     rs.getDouble("precio_costo"),
                     rs.getObject("precio_mayorista", Double.class), // Handle Nullable
                     rs.getDouble("precio_minorista"),
-                    rs.getInt("cantidad_stock")
+                    rs.getLong("cantidad_stock")
             );
 
     public List<Product> findAll() {
@@ -104,8 +104,8 @@ public class ProductRepository {
         // TODO: this update should be monitored. The code shouldn't be updated, but based on the case of low quality
         // products with NO inherent code, it may be required.
         String sql = """
-            UPDATE productos 
-            SET codigo = ?, descripcion = ?, precio_costo = ?, 
+            UPDATE productos
+            SET codigo = ?, descripcion = ?, precio_costo = ?,
                 precio_mayorista = ?, precio_minorista = ?
             WHERE id = ?
         """;

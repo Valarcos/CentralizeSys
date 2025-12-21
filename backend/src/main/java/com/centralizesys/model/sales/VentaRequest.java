@@ -1,4 +1,4 @@
-package com.centralizesys.model;
+package com.centralizesys.model.sales;
 
 import com.centralizesys.model.enums.DiscountType;
 import lombok.Data;
@@ -22,7 +22,7 @@ public class VentaRequest {
     @NoArgsConstructor
     public static class ItemRequest {
         private Long productoId;
-        private Integer cantidad;
+        private Long cantidad;
 
         // We removed explicit 'precioUnitario' input preference.
         // Now the system calculates it, OR the user overrides it via discounts.

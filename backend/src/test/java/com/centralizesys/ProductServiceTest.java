@@ -2,7 +2,7 @@ package com.centralizesys;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
-import com.centralizesys.model.Product;
+import com.centralizesys.model.product.Product;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,7 +30,7 @@ class ProductServiceTest {
     void testGetAll() {
         // Create a dummy product using the NEW Constructor
         // Product(id, codigo, descripcion, precioCosto, precioMayorista, precioMinorista, stock)
-        Product p = new Product(1L, "CODE1", "Remera Test", 500.0, 800.0, 1000.0, 10);
+        Product p = new Product(1L, "CODE1", "Remera Test", 500.0, 800.0, 1000.0, 10L);
 
         when(repository.findAll()).thenReturn(List.of(p));
 
@@ -42,7 +42,7 @@ class ProductServiceTest {
 
     @Test
     void testGetByIdFound() {
-        Product p = new Product(1L, "CODE1", "Remera Test", 500.0, 800.0, 1000.0, 10);
+        Product p = new Product(1L, "CODE1", "Remera Test", 500.0, 800.0, 1000.0, 10L);
         when(repository.findById(1L)).thenReturn(Optional.of(p));
 
         Product result = service.getById(1L);
@@ -76,7 +76,7 @@ class ProductServiceTest {
     @Test
     void testCreateDuplicateCodeThrowsException() {
         Product p = new Product("DUPLICATE", "Remera", 400.0, 700.0, 900.0);
-        Product existing = new Product(1L, "DUPLICATE", "Old", 400.0, 700.0, 900.0, 5);
+        Product existing = new Product(1L, "DUPLICATE", "Old", 400.0, 700.0, 900.0, 5L);
 
         // Mock that the code ALREADY exists
         when(repository.findByCodigo("DUPLICATE")).thenReturn(Optional.of(existing));
@@ -92,7 +92,7 @@ class ProductServiceTest {
     void testCreateCode1Allowed() {
         // "1" is the generic code, duplicates are allowed
         Product p = new Product("1", "Genérico", 100.0, 200.0, 300.0);
-        Product existing = new Product(55L, "1", "Otro Genérico", 100.0, 200.0, 300.0, 10);
+        Product existing = new Product(55L, "1", "Otro Genérico", 100.0, 200.0, 300.0, 10L);
 
         // Even if "1" exists...
         when(repository.findByCodigo("1")).thenReturn(Optional.of(existing));

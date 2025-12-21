@@ -1,7 +1,7 @@
 package com.centralizesys.controller;
 
-import com.centralizesys.model.DeudaResponse;
-import com.centralizesys.model.PagoDeudaRequest;
+import com.centralizesys.model.debt.DeudaResponse;
+import com.centralizesys.model.debt.PagoDeudaRequest;
 import com.centralizesys.service.DeudoresService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

@@ -1,6 +1,6 @@
 package com.centralizesys.repository;
 
-import com.centralizesys.model.DeudaResponse;
+import com.centralizesys.model.debt.DeudaResponse;
 import com.centralizesys.model.enums.DebtStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;

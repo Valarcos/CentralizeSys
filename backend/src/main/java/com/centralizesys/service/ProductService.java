@@ -2,7 +2,7 @@ package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
-import com.centralizesys.model.Product;
+import com.centralizesys.model.product.Product;
 import com.centralizesys.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 

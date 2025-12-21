@@ -2,8 +2,10 @@ package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
-import com.centralizesys.model.*;
 import com.centralizesys.model.enums.DiscountType;
+import com.centralizesys.model.product.Product;
+import com.centralizesys.model.product.StockLocation;
+import com.centralizesys.model.sales.*;
 import com.centralizesys.repository.DeudoresRepository;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.repository.StockRepository;
@@ -13,7 +15,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -95,7 +96,7 @@ public class VentaService {
         ProcessedSaleResult result = new ProcessedSaleResult();
         result.setDetalles(new ArrayList<>());
         result.setAlertas(new ArrayList<>());
-        double totalAcumulado = 0.0;
+        Double totalAcumulado = 0.0;
 
         for (VentaRequest.ItemRequest itemReq : itemsReq) {
             // A. Fetch Product
@@ -111,21 +112,21 @@ public class VentaService {
 
             // C. CALCULATE PRICES (The New Business Rule)
             // ---------------------------------------------------------
-            double precioBase = producto.getPrecioMinorista(); // Official DB Price
+            Double precioBase = producto.getPrecioMinorista(); // Official DB Price
             detalle.setPrecioLista(precioBase);
 
             DiscountType type = itemReq.getTipoDescuento() != null ? itemReq.getTipoDescuento() : DiscountType.NONE;
-            double valorDescuento = itemReq.getValorDescuento() != null ? itemReq.getValorDescuento() : 0.0;
+            Double valorDescuento = itemReq.getValorDescuento() != null ? itemReq.getValorDescuento() : 0.0;
 
             // Logic to calculate final price
-            double precioFinal = calculateFinalPrice(precioBase, type, valorDescuento, producto.getDescripcion());
+            Double precioFinal = calculateFinalPrice(precioBase, type, valorDescuento, producto.getDescripcion());
 
             detalle.setDescuentoTipo(type);
             detalle.setDescuentoValor(valorDescuento);
             detalle.setPrecioUnitario(precioFinal);
             // ---------------------------------------------------------
 
-            double subtotal = itemReq.getCantidad() * precioFinal;
+            Double subtotal = itemReq.getCantidad() * precioFinal;
             detalle.setSubtotal(subtotal);
 
             result.getDetalles().add(detalle);
@@ -145,12 +146,12 @@ public class VentaService {
     /**
      * Helper to handle the math and validation of discounts
      */
-    private double calculateFinalPrice(double basePrice, DiscountType type, double value, String productName) {
+    private Double calculateFinalPrice(Double basePrice, DiscountType type, Double value, String productName) {
         if (value < 0) {
             throw new BusinessRuleException("El descuento no puede ser negativo para: " + productName);
         }
 
-        double finalPrice = switch (type) {
+        Double finalPrice = switch (type) {
             case PERCENTAGE -> {
                 if (value > 100) {
                     throw new BusinessRuleException("El porcentaje de descuento no puede superar 100% para: " + productName);
@@ -229,13 +230,13 @@ public class VentaService {
     }
 
     private void handleDebt(Long ventaId, String clienteNombre, Double totalVenta, List<PagoVenta> pagosPersistidos) {
-        double totalPagado = pagosPersistidos.stream()
+        Double totalPagado = pagosPersistidos.stream()
                 .mapToDouble(PagoVenta::getMonto)
                 .sum();
 
         // Precision check (allow 0.01 difference)
         if (totalPagado < totalVenta - 0.01) {
-            double deuda = totalVenta - totalPagado;
+            Double deuda = totalVenta - totalPagado;
             if (clienteNombre == null || clienteNombre.isBlank()) {
                 throw new BusinessRuleException("Para dejar una deuda (Fiado), se requiere el nombre del cliente.");
             }
@@ -246,15 +247,15 @@ public class VentaService {
     /**
      * ATOMIC DECREMENT LOGIC
      */
-    private String deductStockFromInventory(Long productId, String productName, int quantityNeeded) {
+    private String deductStockFromInventory(Long productId, String productName, Long quantityNeeded) {
         List<StockLocation> locations = stockRepository.findByProductId(productId);
-        int remainingToDeduct = quantityNeeded;
+        Long remainingToDeduct = quantityNeeded;
 
         for (StockLocation loc : locations) {
             if (remainingToDeduct <= 0) break;
-            int available = loc.getCantidad();
+            Long available = loc.getCantidad();
             if (available > 0) {
-                int toTake = Math.min(available, remainingToDeduct);
+                Long toTake = Math.min(available, remainingToDeduct);
                 stockRepository.subtractStock(loc.getLocationId(), productId, toTake);
                 remainingToDeduct -= toTake;
             }

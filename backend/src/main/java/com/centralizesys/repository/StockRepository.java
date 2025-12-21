@@ -1,6 +1,6 @@
 package com.centralizesys.repository;
 
-import com.centralizesys.model.StockLocation;
+import com.centralizesys.model.product.StockLocation;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -21,7 +21,7 @@ public class StockRepository {
             rs.getLong("producto_id"),
             rs.getLong("location_id"),
             rs.getString("location_name"), // Joined column
-            rs.getInt("cantidad")
+            rs.getLong("cantidad")
     );
 
     // Get all locations where a specific product is stored
@@ -37,7 +37,7 @@ public class StockRepository {
 
     // Update stock in a specific box
     // Trigger will automatically update the Product Total
-    public void updateQuantity(Long productId, Long locationId, int newQuantity) {
+    public void updateQuantity(Long productId, Long locationId, Long newQuantity) {
         // Upsert logic (Insert if not exists, Update if exists)
         // SQLite supports 'INSERT OR REPLACE' but 'ON CONFLICT' is better for preserving IDs
         String sql = """
@@ -50,14 +50,33 @@ public class StockRepository {
     }
 
     /**
+     * Adds stock to a specific location (INCREMENTAL).
+     * Logic from File 1:
+     * If the record exists, it ADDS to the current quantity.
+     * If it doesn't exist, it creates it with the given quantity.
+     */
+    public void addStock(Long productoId, Long locationId, Long quantityToAdd) {
+        String sql = """
+            INSERT INTO stock_por_ubicacion (producto_id, location_id, cantidad)
+            VALUES (?, ?, ?)
+            ON CONFLICT(producto_id, location_id)
+            DO UPDATE SET cantidad = cantidad + excluded.cantidad
+        """;
+
+        // 'excluded.cantidad' refers to the value we tried to insert (quantityToAdd)
+        // This effectively does: new_total = current_total + quantityToAdd
+        jdbcTemplate.update(sql, productoId, locationId, quantityToAdd);
+    }
+
+    /**
      * ATOMIC DECREMENT.
      * Subtracts amount from the current quantity in the DB.
      * This prevents race conditions where two users overwrite each other's data.
      */
-    public void subtractStock(Long locationId, Long productoId, int amountToSubtract) {
+    public void subtractStock(Long locationId, Long productoId, Long amountToSubtract) {
         String sql = """
-            UPDATE stock_por_ubicacion 
-            SET cantidad = cantidad - ? 
+            UPDATE stock_por_ubicacion
+            SET cantidad = cantidad - ?
             WHERE location_id = ? AND producto_id = ?
         """;
         jdbcTemplate.update(sql, amountToSubtract, locationId, productoId);

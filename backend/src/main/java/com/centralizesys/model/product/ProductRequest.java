@@ -1,4 +1,4 @@
-package com.centralizesys.model;
+package com.centralizesys.model.product;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;

@@ -1,4 +1,4 @@
-package com.centralizesys.model;
+package com.centralizesys.model.sales;
 
 import com.centralizesys.model.enums.DiscountType;
 import lombok.AllArgsConstructor;
@@ -16,7 +16,7 @@ public class DetalleVenta {
     private String codigoSnapshot;
     private String descripcionSnapshot;
 
-    private Integer cantidad;
+    private Long cantidad;
 
     private Double precioLista;         // Original Price
     private DiscountType descuentoTipo; // Enum

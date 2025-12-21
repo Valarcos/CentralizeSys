@@ -1,4 +1,4 @@
-package com.centralizesys.model;
+package com.centralizesys.model.product;
 
 import lombok.Getter;
 
@@ -10,7 +10,7 @@ public class ProductResponse {
     private final Double precioCosto;
     private final Double precioMayorista;
     private final Double precioMinorista;
-    private final Integer cantidadStock;
+    private final Long cantidadStock;
 
     public ProductResponse(Product product) {
         this.id = product.getId();

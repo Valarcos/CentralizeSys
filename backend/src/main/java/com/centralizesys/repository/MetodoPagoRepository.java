@@ -1,6 +1,6 @@
 package com.centralizesys.repository;
 
-import com.centralizesys.model.MetodoPago;
+import com.centralizesys.model.sales.MetodoPago;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;

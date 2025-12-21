@@ -1,4 +1,4 @@
-package com.centralizesys.model;
+package com.centralizesys.model.sales;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

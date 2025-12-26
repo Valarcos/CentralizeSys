@@ -1,4 +1,4 @@
-package com.centralizesys.model;
+package com.centralizesys.model.product;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,5 +12,5 @@ public class StockLocation {
     private Long productoId;
     private Long locationId;
     private String locationName; // Helpful for UI ("Caja 1")
-    private Integer cantidad;
+    private Long cantidad;
 }

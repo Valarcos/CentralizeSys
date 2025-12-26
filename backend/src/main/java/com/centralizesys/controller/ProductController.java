@@ -1,8 +1,8 @@
 package com.centralizesys.controller;
 
-import com.centralizesys.model.Product;
-import com.centralizesys.model.ProductRequest;
-import com.centralizesys.model.ProductResponse;
+import com.centralizesys.model.product.Product;
+import com.centralizesys.model.product.ProductRequest;
+import com.centralizesys.model.product.ProductResponse;
 import com.centralizesys.service.ProductService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

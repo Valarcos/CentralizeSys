@@ -1,9 +1,11 @@
 package com.centralizesys.repository;
 
-import com.centralizesys.model.DeudaResponse;
+import com.centralizesys.model.debt.DeudaResponse;
 import com.centralizesys.model.enums.DebtStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
@@ -14,9 +16,11 @@ import java.util.Optional;
 public class DeudoresRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
     public DeudoresRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
     }
 
     private final RowMapper<DeudaResponse> rowMapper = (rs, rowNum) -> new DeudaResponse(
@@ -34,9 +38,15 @@ public class DeudoresRepository {
 
         String sql = """
             INSERT INTO deudores (venta_id, cliente_nombre, monto_deuda, fecha_deuda, estado)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (:ventaId, :clienteNombre, :montoDeuda, :fechaDeuda, :estado)
         """;
-        jdbcTemplate.update(sql, ventaId, clienteNombre, montoDeuda, fechaHoy, DebtStatus.PENDIENTE.name());
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("ventaId", ventaId)
+                .addValue("clienteNombre", clienteNombre)
+                .addValue("montoDeuda", montoDeuda)
+                .addValue("fechaDeuda", fechaHoy)
+                .addValue("estado", DebtStatus.PENDIENTE.name());
+        namedJdbcTemplate.update(sql, params);
     }
 
     public List<DeudaResponse> findAll() {
@@ -47,8 +57,8 @@ public class DeudoresRepository {
     // Returns Optional<DeudaResponse> because a query by ID might result in 0 rows.
     // This forces the Service layer to explicitly handle the "Not Found" scenario.
     public Optional<DeudaResponse> findById(Long id) {
-        String sql = "SELECT * FROM deudores WHERE id = ?";
-        List<DeudaResponse> list = jdbcTemplate.query(sql, rowMapper, id);
+        String sql = "SELECT * FROM deudores WHERE id = :id";
+        List<DeudaResponse> list = namedJdbcTemplate.query(sql, new MapSqlParameterSource("id", id), rowMapper);
         return list.stream().findFirst();
     }
 
@@ -58,7 +68,11 @@ public class DeudoresRepository {
         // Or strictly keep "fecha_deuda" as creation?
         // Usually, we update 'fecha_pago' if state becomes PAGADO.
 
-        String sql = "UPDATE deudores SET monto_deuda = ?, estado = ? WHERE id = ?";
-        jdbcTemplate.update(sql, nuevoMonto, nuevoEstado, id);
+        String sql = "UPDATE deudores SET monto_deuda = :nuevoMonto, estado = :nuevoEstado WHERE id = :id";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("nuevoMonto", nuevoMonto)
+                .addValue("nuevoEstado", nuevoEstado)
+                .addValue("id", id);
+        namedJdbcTemplate.update(sql, params);
     }
 }

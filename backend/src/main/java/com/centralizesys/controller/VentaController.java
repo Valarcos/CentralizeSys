@@ -1,9 +1,9 @@
 package com.centralizesys.controller;
 
-import com.centralizesys.model.Venta;
-import com.centralizesys.model.MetodoPago;
-import com.centralizesys.model.VentaRequest;
-import com.centralizesys.model.VentaResponse;
+import com.centralizesys.model.sales.Venta;
+import com.centralizesys.model.sales.MetodoPago;
+import com.centralizesys.model.sales.VentaRequest;
+import com.centralizesys.model.sales.VentaResponse;
 import com.centralizesys.repository.MetodoPagoRepository;
 import com.centralizesys.service.VentaService;
 import org.springframework.http.HttpStatus;

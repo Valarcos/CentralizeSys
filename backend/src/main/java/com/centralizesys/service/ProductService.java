@@ -2,12 +2,11 @@ package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
-import com.centralizesys.model.Product;
+import com.centralizesys.model.product.Product;
 import com.centralizesys.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ProductService {
@@ -25,6 +24,11 @@ public class ProductService {
     public Product getById(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+    }
+
+    // Specific method to retrieve strict matches for logic/validation
+    public List<Product> getVariantsByCode(String codigo) {
+        return repository.findAllByCodigo(codigo);
     }
 
     // Uses the "Smart Search" (Code OR Description)
@@ -55,12 +59,18 @@ public class ProductService {
     public Product create(Product product) {
         validate(product);
 
-        // Open the box to see if there is a product inside
-        Optional<Product> existingOpt = repository.findByCodigo(product.getCodigo());
+        // Check for exact duplicate (Code + Cost + RetailPrice)
+        // The DB constraint 'unique_producto_variante' handles this,
+        // but checking here gives a friendlier error message.
+        List<Product> variants = repository.findAllByCodigo(product.getCodigo());
 
-        // PRESERVED LOGIC: Allow duplicates ONLY if code is "1"
-        if (existingOpt.isPresent() && !"1".equals(product.getCodigo())) {
-            throw new BusinessRuleException("Ya existe un producto con el código: " + product.getCodigo());
+        boolean exactMatchExists = variants.stream().anyMatch(p ->
+                compareDouble(p.getPrecioCosto(), product.getPrecioCosto()) &&
+                        compareDouble(p.getPrecioMinorista(), product.getPrecioMinorista())
+        );
+
+        if (exactMatchExists && !"1".equals(product.getCodigo())) {
+            throw new BusinessRuleException("Ya existe una variante exacta de este producto (Mismo Código, Costo y Precio Venta).");
         }
 
         return repository.save(product);
@@ -70,29 +80,46 @@ public class ProductService {
         // 1. Basic Validation
         validate(product);
 
-        // 2. Fetch Existing Data (Required to compare codes)
+        // 2. Fetch Existing Data
         Product existingProduct = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
-        // 3. Check for Code Changes (Unique Constraint Logic)
-        String newCode = product.getCodigo();
-        String oldCode = existingProduct.getCodigo();
+        // 3. Unique Constraint Check (The Fix)
+        // We only check for collision if relevant fields changed
+        boolean codeChanged = !product.getCodigo().equals(existingProduct.getCodigo());
+        boolean costChanged = !compareDouble(product.getPrecioCosto(), existingProduct.getPrecioCosto());
+        boolean priceChanged = !compareDouble(product.getPrecioMinorista(), existingProduct.getPrecioMinorista());
 
-        // PRESERVED LOGIC: Check collision only if code changed and is not "1"
-        if (!newCode.equals(oldCode) && !"1".equals(newCode)) {
-            repository.findByCodigo(newCode).ifPresent(collision -> {
-                throw new BusinessRuleException("El código " + newCode + " ya está en uso por otro producto.");
-            });
+        if ((codeChanged || costChanged || priceChanged) && !"1".equals(product.getCodigo())) {
+
+            // Get all OTHER products with this code
+            List<Product> variants = repository.findAllByCodigo(product.getCodigo());
+
+            boolean collision = variants.stream()
+                    .filter(p -> !p.getId().equals(id)) // Exclude self
+                    .anyMatch(p ->
+                            compareDouble(p.getPrecioCosto(), product.getPrecioCosto()) &&
+                                    compareDouble(p.getPrecioMinorista(), product.getPrecioMinorista())
+                    );
+
+            if (collision) {
+                throw new BusinessRuleException("Ya existe otra variante exacta con Código: " + product.getCodigo()
+                        + ", Costo: " + product.getPrecioCosto()
+                        + ", Precio: " + product.getPrecioMinorista());
+            }
         }
 
-
-        // 4. Attach the ID to the incoming object
+        // 4. Attach ID and Persist
         // CRITICAL: The 'product' object coming from the Controller has ID = null.
         // We must set it here so the Repository knows to perform an UPDATE (WHERE id = X), not an INSERT.
         product.setId(id);
-
-        // 5. Persist
         repository.save(product);
+    }
+
+    // Helper to avoid floating point comparison issues for double comparison (precision safety)
+    private boolean compareDouble(Double a, Double b) {
+        if (a == null || b == null) return false;
+        return Math.abs(a - b) < 0.001;
     }
 
     public void deleteById(Long id) {

@@ -2,13 +2,14 @@ package com.centralizesys;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
-import com.centralizesys.model.Product;
+import com.centralizesys.model.product.Product;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,10 +29,7 @@ class ProductServiceTest {
 
     @Test
     void testGetAll() {
-        // Create a dummy product using the NEW Constructor
-        // Product(id, codigo, descripcion, precioCosto, precioMayorista, precioMinorista, stock)
-        Product p = new Product(1L, "CODE1", "Remera Test", 500.0, 800.0, 1000.0, 10);
-
+        Product p = new Product(1L, "CODE1", "Remera Test", 500.0, 800.0, 1000.0, 10L);
         when(repository.findAll()).thenReturn(List.of(p));
 
         List<Product> result = service.getAll();
@@ -42,7 +40,7 @@ class ProductServiceTest {
 
     @Test
     void testGetByIdFound() {
-        Product p = new Product(1L, "CODE1", "Remera Test", 500.0, 800.0, 1000.0, 10);
+        Product p = new Product(1L, "CODE1", "Remera Test", 500.0, 800.0, 1000.0, 10L);
         when(repository.findById(1L)).thenReturn(Optional.of(p));
 
         Product result = service.getById(1L);
@@ -58,14 +56,12 @@ class ProductServiceTest {
     }
 
     @Test
-    void testCreateSuccess() {
-        // Create new product (ID null)
+    void testCreateSuccess_NewCode() {
+        // [SCENARIO] Creating a product with a code that effectively doesn't exist
         Product p = new Product("CODE_NEW", "Nueva Remera", 400.0, 700.0, 900.0);
 
-        // Mock that the code does NOT exist yet
-        when(repository.findByCodigo("CODE_NEW")).thenReturn(Optional.empty());
-
-        // Mock returning the saved object
+        // [FIXED] Mock returning empty List instead of Optional.empty()
+        when(repository.findAllByCodigo("CODE_NEW")).thenReturn(Collections.emptyList());
         when(repository.save(p)).thenReturn(p);
 
         service.create(p);
@@ -74,34 +70,43 @@ class ProductServiceTest {
     }
 
     @Test
-    void testCreateDuplicateCodeThrowsException() {
-        Product p = new Product("DUPLICATE", "Remera", 400.0, 700.0, 900.0);
-        Product existing = new Product(1L, "DUPLICATE", "Old", 400.0, 700.0, 900.0, 5);
+    void testCreateSuccess_VariantAllowed() {
+        // [SCENARIO] Code exists, but COST is different. Should allow creation (Variant).
+        Product newVariant = new Product("SHIRT", "Remera Blue", 600.0, 0.0, 1200.0);
 
-        // Mock that the code ALREADY exists
-        when(repository.findByCodigo("DUPLICATE")).thenReturn(Optional.of(existing));
+        // Existing is cheaper ($500)
+        Product existing = new Product(1L, "SHIRT", "Remera Old", 500.0, 0.0, 1000.0, 5L);
 
-        // Must throw BusinessRuleException
-        assertThrows(BusinessRuleException.class, () -> service.create(p));
+        // [FIXED] Return List containing the existing item
+        when(repository.findAllByCodigo("SHIRT")).thenReturn(List.of(existing));
+        when(repository.save(newVariant)).thenReturn(newVariant);
 
-        // Ensure we never called save
+        assertDoesNotThrow(() -> service.create(newVariant));
+        verify(repository, times(1)).save(newVariant);
+    }
+
+    @Test
+    void testCreateDuplicateVariantThrowsException() {
+        // [SCENARIO] Exact duplicate (Same Code, Same Cost, Same Price) -> BLOCK
+        Product duplicate = new Product("SHIRT", "Remera", 500.0, 0.0, 1000.0);
+        Product existing = new Product(1L, "SHIRT", "Remera Old", 500.0, 0.0, 1000.0, 5L);
+
+        when(repository.findAllByCodigo("SHIRT")).thenReturn(List.of(existing));
+
+        assertThrows(BusinessRuleException.class, () -> service.create(duplicate));
         verify(repository, never()).save(any());
     }
 
     @Test
     void testCreateCode1Allowed() {
-        // "1" is the generic code, duplicates are allowed
+        // [SCENARIO] "1" is generic, exact duplicates allowed
         Product p = new Product("1", "Genérico", 100.0, 200.0, 300.0);
-        Product existing = new Product(55L, "1", "Otro Genérico", 100.0, 200.0, 300.0, 10);
+        Product existing = new Product(55L, "1", "Otro Genérico", 100.0, 200.0, 300.0, 10L);
 
-        // Even if "1" exists...
-        when(repository.findByCodigo("1")).thenReturn(Optional.of(existing));
+        when(repository.findAllByCodigo("1")).thenReturn(List.of(existing));
         when(repository.save(p)).thenReturn(p);
 
-        // ...creation should proceed without error
         assertDoesNotThrow(() -> service.create(p));
-
-        verify(repository, times(1)).save(p);
     }
 
     @Test

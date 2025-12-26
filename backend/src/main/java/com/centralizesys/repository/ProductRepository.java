@@ -44,11 +44,23 @@ public class ProductRepository {
         return results.stream().findFirst();
     }
 
+    // [ADDED] Fetch multiple IDs at once to avoid N+1 problem
+    public List<Product> findAllById(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        // Dynamic placeholders generation (?,?,?)
+        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
+        String sql = String.format("SELECT * FROM productos WHERE id IN (%s)", placeholders);
+
+        return jdbcTemplate.query(sql, rowMapper, ids.toArray());
+    }
+
     // Buscador por Código ART (Fundamental para sync con Excel)
-    public Optional<Product> findByCodigo(String codigo) {
+    // Uses List<Product> to support multiple variants (same code, different cost)
+    public List<Product> findAllByCodigo(String codigo) {
         String sql = "SELECT * FROM productos WHERE codigo = ?";
-        List<Product> results = jdbcTemplate.query(sql, rowMapper, codigo);
-        return results.stream().findFirst();
+        return jdbcTemplate.query(sql, rowMapper, codigo);
     }
 
     // Buscador "Smart": Busca coincidencias en Código O Descripción

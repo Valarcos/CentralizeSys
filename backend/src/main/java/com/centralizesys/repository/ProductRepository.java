@@ -3,12 +3,14 @@ package com.centralizesys.repository;
 import com.centralizesys.model.product.Product;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
-import java.sql.PreparedStatement;
-import java.sql.Statement;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,9 +18,11 @@ import java.util.Optional;
 public class ProductRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
     public ProductRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
     }
 
     // Mapeo exacto de Columnas DB (Español) -> Objeto Java
@@ -39,28 +43,27 @@ public class ProductRepository {
     }
 
     public Optional<Product> findById(Long id) {
-        String sql = "SELECT * FROM productos WHERE id = ?";
-        List<Product> results = jdbcTemplate.query(sql, rowMapper, id);
+        String sql = "SELECT * FROM productos WHERE id = :id";
+        List<Product> results = namedJdbcTemplate.query(sql, new MapSqlParameterSource("id", id), rowMapper);
         return results.stream().findFirst();
     }
 
-    // [ADDED] Fetch multiple IDs at once to avoid N+1 problem
+    // Fetch multiple IDs at once to avoid N+1 problem
     public List<Product> findAllById(List<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
-        // Dynamic placeholders generation (?,?,?)
-        String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
-        String sql = String.format("SELECT * FROM productos WHERE id IN (%s)", placeholders);
-
-        return jdbcTemplate.query(sql, rowMapper, ids.toArray());
+        // Static SQL allows DB caching and satisfies Sonar
+        String sql = "SELECT * FROM productos WHERE id IN (:ids)";
+        MapSqlParameterSource parameters = new MapSqlParameterSource("ids", ids);
+        return namedJdbcTemplate.query(sql, parameters, rowMapper);
     }
 
     // Buscador por Código ART (Fundamental para sync con Excel)
     // Uses List<Product> to support multiple variants (same code, different cost)
     public List<Product> findAllByCodigo(String codigo) {
-        String sql = "SELECT * FROM productos WHERE codigo = ?";
-        return jdbcTemplate.query(sql, rowMapper, codigo);
+        String sql = "SELECT * FROM productos WHERE codigo = :codigo";
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("codigo", codigo), rowMapper);
     }
 
     // Buscador "Smart": Busca coincidencias en Código O Descripción
@@ -68,8 +71,8 @@ public class ProductRepository {
     public List<Product> search(String query) {
         if (query == null) return List.of();
         String term = "%" + query.trim() + "%";
-        String sql = "SELECT * FROM productos WHERE codigo LIKE ? OR descripcion LIKE ?";
-        return jdbcTemplate.query(sql, rowMapper, term, term);
+        String sql = "SELECT * FROM productos WHERE codigo LIKE :term OR descripcion LIKE :term";
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("term", term), rowMapper);
     }
 
     public Product save(Product producto) {
@@ -84,23 +87,13 @@ public class ProductRepository {
         // NOTA: No insertamos cantidad_stock explícitamente, dejamos el DEFAULT 0
         String sql = """
             INSERT INTO productos (codigo, descripcion, precio_costo, precio_mayorista, precio_minorista)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (:codigo, :descripcion, :precioCosto, :precioMayorista, :precioMinorista)
         """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
+        SqlParameterSource params = new BeanPropertySqlParameterSource(p);
 
-        jdbcTemplate.update(connection -> {
-            PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
-            ps.setString(1, p.getCodigo());
-            ps.setString(2, p.getDescripcion());
-            ps.setDouble(3, p.getPrecioCosto());
-            // Manejo de nulos para Double
-            if (p.getPrecioMayorista() != null) ps.setDouble(4, p.getPrecioMayorista());
-            else ps.setNull(4, java.sql.Types.REAL);
-
-            ps.setDouble(5, p.getPrecioMinorista());
-            return ps;
-        }, keyHolder);
+        namedJdbcTemplate.update(sql, params, keyHolder);
 
         Number key = keyHolder.getKey();
         if (key != null) {
@@ -117,25 +110,18 @@ public class ProductRepository {
         // products with NO inherent code, it may be required.
         String sql = """
             UPDATE productos
-            SET codigo = ?, descripcion = ?, precio_costo = ?,
-                precio_mayorista = ?, precio_minorista = ?
-            WHERE id = ?
+            SET codigo = :codigo, descripcion = :descripcion, precio_costo = :precioCosto,
+                precio_mayorista = :precioMayorista, precio_minorista = :precioMinorista
+            WHERE id = :id
         """;
-
-        jdbcTemplate.update(sql,
-                p.getCodigo(),
-                p.getDescripcion(),
-                p.getPrecioCosto(),
-                p.getPrecioMayorista(),
-                p.getPrecioMinorista(),
-                p.getId()
-        );
+        SqlParameterSource params = new BeanPropertySqlParameterSource(p);
+        namedJdbcTemplate.update(sql, params);
         return p;
     }
 
     public void deleteById(Long id) {
         // El DELETE CASCADE en la DB se encargará de borrar el stock asociado
-        String sql = "DELETE FROM productos WHERE id = ?";
-        jdbcTemplate.update(sql, id);
+        String sql = "DELETE FROM productos WHERE id = :id";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
     }
 }

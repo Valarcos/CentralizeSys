@@ -34,7 +34,6 @@ public class DeudoresRepository {
 
     public void save(Long ventaId, String clienteNombre, Double montoDeuda) {
         // Use native ISO format for SQLite compatibility
-        String fechaHoy = LocalDate.now().toString();
 
         String sql = """
             INSERT INTO deudores (venta_id, cliente_nombre, monto_deuda, fecha_deuda, estado)
@@ -44,7 +43,7 @@ public class DeudoresRepository {
                 .addValue("ventaId", ventaId)
                 .addValue("clienteNombre", clienteNombre)
                 .addValue("montoDeuda", montoDeuda)
-                .addValue("fechaDeuda", fechaHoy)
+                .addValue("fechaDeuda", LocalDate.now().toString())
                 .addValue("estado", DebtStatus.PENDIENTE.name());
         namedJdbcTemplate.update(sql, params);
     }
@@ -64,10 +63,6 @@ public class DeudoresRepository {
 
     public void updateMontoAndEstado(Long id, Double nuevoMonto, String nuevoEstado) {
         // We update the Payment Date to NOW whenever the state changes/payment is made
-        // Logic: If paying, we update the "last activity" date?
-        // Or strictly keep "fecha_deuda" as creation?
-        // Usually, we update 'fecha_pago' if state becomes PAGADO.
-
         String sql = "UPDATE deudores SET monto_deuda = :nuevoMonto, estado = :nuevoEstado WHERE id = :id";
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("nuevoMonto", nuevoMonto)

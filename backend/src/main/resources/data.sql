@@ -24,7 +24,7 @@ INSERT OR IGNORE INTO productos (codigo, descripcion, precio_costo, precio_minor
 ('ACC-CINT', 'Cinturón Cuero', 5000.0, 12500.0, 0);;
 
 -- 4. STOCK (Assign stock so you can sell immediately)
-INSERT OR IGNORE INTO stock_por_ubicacion (producto_id, location_id, cantidad) VALUES
+INSERT OR IGNORE INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad) VALUES
 (1, 1, 10), -- 10 Musculosas en Salón
 (2, 1, 8),  -- 8 Remeras
 (3, 2, 5),  -- 5 Pantalones en Depósito

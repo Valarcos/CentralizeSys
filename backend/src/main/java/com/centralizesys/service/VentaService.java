@@ -246,6 +246,8 @@ public class VentaService {
 
     /**
      * ATOMIC DECREMENT LOGIC
+     * Manages stock deduction across multiple locations.
+     * If stock is not enough, it forces a negative balance on the first available location.
      */
     private String deductStockFromInventory(Long productId, String productName, Long quantityNeeded) {
         List<StockLocation> locations = stockRepository.findByProductId(productId);
@@ -254,18 +256,24 @@ public class VentaService {
         for (StockLocation loc : locations) {
             if (remainingToDeduct <= 0) break;
             Long available = loc.getCantidad();
+
+            // We take from this box if it has positive stock
             if (available > 0) {
                 Long toTake = Math.min(available, remainingToDeduct);
-                stockRepository.subtractStock(loc.getLocationId(), productId, toTake);
+                stockRepository.subtractStock(loc.getUbicacionId(), productId, toTake);
                 remainingToDeduct -= toTake;
             }
         }
 
+        // If we still need to deduct stock (e.g. need 5, only found 3, remaining is 2)
         if (remainingToDeduct > 0) {
             if (locations.isEmpty()) {
+                // Scenario: Product exists in DB but has NO entry in 'stock_por_ubicacion'
                 return "CRÍTICO: El producto '" + productName + "' se vendió pero NO tiene ubicación de stock asignada.";
             } else {
-                Long defaultLocId = locations.getFirst().getLocationId();
+                // Scenario: Product exists in 'stock_por_ubicacion' but sum is 0 or low.
+                // We force the subtraction on the first location found, making it negative.
+                Long defaultLocId = locations.getFirst().getUbicacionId();
                 stockRepository.subtractStock(defaultLocId, productId, remainingToDeduct);
                 return "ATENCIÓN: Stock insuficiente para '" + productName + "'. El sistema registró stock negativo.";
             }

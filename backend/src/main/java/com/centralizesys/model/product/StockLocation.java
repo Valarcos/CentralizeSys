@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 public class StockLocation {
     private Long id;
     private Long productoId;
-    private Long locationId;
-    private String locationName; // Helpful for UI ("Caja 1")
+    private Long ubicacionId;      // Was locationId
+    private String nombreUbicacion; // Was locationName
     private Long cantidad;
 }

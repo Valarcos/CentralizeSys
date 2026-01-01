@@ -71,8 +71,9 @@ public class ProductRepository {
     public List<Product> search(String query) {
         if (query == null) return List.of();
         String term = "%" + query.trim() + "%";
-        String sql = "SELECT * FROM productos WHERE codigo LIKE :term OR descripcion LIKE :term";
-        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("term", term), rowMapper);
+        String sql = "SELECT * FROM productos WHERE codigo LIKE :termino OR descripcion LIKE :termino";
+
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("termino", term), rowMapper);
     }
 
     public Product save(Product producto) {
@@ -85,6 +86,7 @@ public class ProductRepository {
 
     private Product insert(Product p) {
         // NOTA: No insertamos cantidad_stock explícitamente, dejamos el DEFAULT 0
+        // [NOTE] Params (:codigo, :descripcion, etc) match DTO fields automatically via BeanPropertySqlParameterSource
         String sql = """
             INSERT INTO productos (codigo, descripcion, precio_costo, precio_mayorista, precio_minorista)
             VALUES (:codigo, :descripcion, :precioCosto, :precioMayorista, :precioMinorista)
@@ -110,8 +112,11 @@ public class ProductRepository {
         // products with NO inherent code, it may be required.
         String sql = """
             UPDATE productos
-            SET codigo = :codigo, descripcion = :descripcion, precio_costo = :precioCosto,
-                precio_mayorista = :precioMayorista, precio_minorista = :precioMinorista
+            SET codigo = :codigo,
+                descripcion = :descripcion, 
+                precio_costo = :precioCosto,
+                precio_mayorista = :precioMayorista, 
+                precio_minorista = :precioMinorista
             WHERE id = :id
         """;
         SqlParameterSource params = new BeanPropertySqlParameterSource(p);

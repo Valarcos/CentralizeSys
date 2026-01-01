@@ -32,11 +32,11 @@ CREATE TABLE IF NOT EXISTS ubicaciones (
 CREATE TABLE IF NOT EXISTS stock_por_ubicacion (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     producto_id INTEGER NOT NULL,
-    location_id INTEGER NOT NULL,
+    ubicacion_id INTEGER NOT NULL,
     cantidad INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
-    FOREIGN KEY (location_id) REFERENCES ubicaciones(id),
-    UNIQUE(producto_id, location_id)
+    FOREIGN KEY (ubicacion_id) REFERENCES ubicaciones(id),
+    UNIQUE(producto_id, ubicacion_id)
 );;
 
 -- 4. Compra de mercaderia
@@ -223,7 +223,7 @@ BEGIN
     UPDATE deudores
     SET fecha_pago = CASE
          WHEN NEW.estado IN ('PARCIAL', 'PAGADO') THEN strftime('%Y-%m-%d', 'now', 'localtime')
-         ELSE NULL
+         --ELSE NULL this line is redundant because it returns NULL automatically. Normal SQLite behavior.
         END
     WHERE id = NEW.id;
 END;;

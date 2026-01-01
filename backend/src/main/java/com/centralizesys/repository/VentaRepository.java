@@ -21,7 +21,7 @@ public class VentaRepository {
     private final JdbcTemplate jdbcTemplate;
     private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
-    public static final String VENTA_ID = "ventaId";
+    private static final String VENTA_ID = "venta_id";
 
     public VentaRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -48,7 +48,7 @@ public class VentaRepository {
 
         return new DetalleVenta(
                 rs.getLong("id"),
-                rs.getLong("venta_id"),
+                rs.getLong(VENTA_ID),
                 rs.getLong("producto_id"),
                 rs.getString("codigo_snapshot"),
                 rs.getString("descripcion_snapshot"),
@@ -63,7 +63,7 @@ public class VentaRepository {
 
     private final RowMapper<PagoVenta> pagoMapper = (rs, rowNum) -> new PagoVenta(
             rs.getLong("id"),
-            rs.getLong("venta_id"),
+            rs.getLong(VENTA_ID),
             rs.getLong("metodo_pago_id"),
             rs.getDouble("monto")
     );
@@ -74,6 +74,7 @@ public class VentaRepository {
      * Saves the Header (Venta) and returns the generated ID.
      */
     public Long saveVenta(Venta venta) {
+        // [NOTE] Using BeanPropertySqlParameterSource matches params to DTO fields automatically.
         String sql = """
             INSERT INTO ventas (fecha, cliente_nombre, total_venta, usuario_id)
             VALUES (:fecha, :clienteNombre, :totalVenta, :usuarioId)
@@ -93,7 +94,6 @@ public class VentaRepository {
 
     /**
      * Bulk inserts items.
-     * Fixed: Batch size is now passed as a direct Long.
      */
     public void saveDetalles(List<DetalleVenta> detalles) {
         String sql = """
@@ -121,7 +121,7 @@ public class VentaRepository {
                         .addValue("descripcionSnapshot", d.getDescripcionSnapshot())
                         .addValue("cantidad", d.getCantidad())
                         .addValue("precioLista", d.getPrecioLista())
-                        .addValue("descuentoTipo", d.getDescuentoTipo().name())
+                        .addValue("descuentoTipo", d.getDescuentoTipo().name()) // Enum to String
                         .addValue("descuentoValor", d.getDescuentoValor())
                         .addValue("precioUnitario", d.getPrecioUnitario())
                         .addValue("subtotal", d.getSubtotal()))
@@ -154,11 +154,11 @@ public class VentaRepository {
 
     public List<DetalleVenta> findDetallesByVentaId(Long ventaId) {
         String sql = "SELECT * FROM detalles_venta WHERE venta_id = :ventaId";
-        return namedJdbcTemplate.query(sql, new MapSqlParameterSource(VENTA_ID, ventaId), detalleMapper);
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("ventaId", ventaId), detalleMapper);
     }
 
     public List<PagoVenta> findPagosByVentaId(Long ventaId) {
         String sql = "SELECT * FROM pagos_venta WHERE venta_id = :ventaId";
-        return namedJdbcTemplate.query(sql, new MapSqlParameterSource(VENTA_ID, ventaId), pagoMapper);
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("ventaId", ventaId), pagoMapper);
     }
 }

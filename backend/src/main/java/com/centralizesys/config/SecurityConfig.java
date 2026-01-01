@@ -18,6 +18,7 @@ public class SecurityConfig {
      * We DISABLE standard protections (CSRF, default login form) because
      * this is a local desktop-like app, and we want to handle Login manually via our Controller.
      */
+    // TODO: Consider for the future implementing proper CRSF protection and enable it
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http

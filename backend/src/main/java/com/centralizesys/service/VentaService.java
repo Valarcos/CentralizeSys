@@ -26,15 +26,17 @@ public class VentaService {
     private final ProductRepository productRepository;
     private final StockRepository stockRepository;
     private final DeudoresRepository deudoresRepository;
+    private final AuditoriaService auditoriaService;
 
     public VentaService(VentaRepository ventaRepository,
                         ProductRepository productRepository,
                         StockRepository stockRepository,
-                        DeudoresRepository deudoresRepository) {
+                        DeudoresRepository deudoresRepository, AuditoriaService auditoriaService) {
         this.ventaRepository = ventaRepository;
         this.productRepository = productRepository;
         this.stockRepository = stockRepository;
         this.deudoresRepository = deudoresRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     /**
@@ -56,7 +58,14 @@ public class VentaService {
         // 4. Handle Debt (Fiados)
         handleDebt(txInfo.getVentaId(), request.getClienteNombre(), processedData.getTotalVenta(), txInfo.getPagosPersistidos());
 
-        // 5. Build Response
+        // 5. Audit Log (The Sale itself)
+        auditoriaService.registrarAccion(
+                request.getUsuarioId(),
+                "VENTA",
+                "Venta ID " + txInfo.getVentaId() + " a " + request.getClienteNombre() + ". Total: $" + processedData.getTotalVenta()
+        );
+
+        // 6. Build Response
         return new VentaResponse(
                 txInfo.getVentaId(),
                 LocalDate.now().toString(),
@@ -179,6 +188,8 @@ public class VentaService {
         venta.setFecha(LocalDate.now().toString()); // Result: "ej.: 2025-12-14"
         venta.setClienteNombre(request.getClienteNombre());
         venta.setTotalVenta(processedData.getTotalVenta());
+        // If the frontend sends null, this will be null in DB (allowed by schema if not strict, but good for traceability)
+        venta.setUsuarioId(request.getUsuarioId());
 
         Long ventaId = ventaRepository.saveVenta(venta);
         info.setVentaId(ventaId);

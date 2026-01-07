@@ -11,6 +11,8 @@ import java.util.List;
 public class VentaRequest {
     private String clienteNombre;
 
+    private Long usuarioId; // Enables traceability of who made the sale
+
     // The list of products being bought
     private List<ItemRequest> items;
 

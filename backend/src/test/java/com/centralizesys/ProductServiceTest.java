@@ -4,6 +4,7 @@ import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.repository.ProductRepository;
+import com.centralizesys.service.AuditoriaService;
 import com.centralizesys.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,11 +21,12 @@ class ProductServiceTest {
 
     private ProductRepository repository;
     private ProductService service;
+    private AuditoriaService auditoriaService;
 
     @BeforeEach
     void setUp() {
         repository = Mockito.mock(ProductRepository.class);
-        service = new ProductService(repository);
+        service = new ProductService(repository, auditoriaService);
     }
 
     @Test

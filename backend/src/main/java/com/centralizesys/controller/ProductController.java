@@ -84,10 +84,10 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
-    // DELETE /api/productos/{id}
+    // DELETE /api/productos/{id}?usuarioId=1
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        service.deleteById(id);
+    public ResponseEntity<Void> delete(@PathVariable Long id, @RequestParam Long usuarioId) {
+        service.deleteById(id, usuarioId); // Pass it down
         return ResponseEntity.noContent().build();
     }
 }

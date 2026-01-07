@@ -12,10 +12,14 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditoriaService auditoriaService;
 
-    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+    public UsuarioService(UsuarioRepository usuarioRepository,
+                          PasswordEncoder passwordEncoder,
+                          AuditoriaService auditoriaService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
+        this.auditoriaService = auditoriaService;
     }
 
     /**
@@ -30,6 +34,9 @@ public class UsuarioService {
         if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
             throw new BusinessRuleException("La contraseña es incorrecta.");
         }
+
+        // After successful check:
+        auditoriaService.registrarAccion(user.getId(), "LOGIN", "Inicio de sesión exitoso.");
 
         return user;
     }

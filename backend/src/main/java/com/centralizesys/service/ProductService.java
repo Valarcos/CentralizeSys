@@ -12,9 +12,13 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository repository;
+    private final AuditoriaService auditoriaService; // [NEW DEPENDENCY]
 
-    public ProductService(ProductRepository repository) {
+    private static final String PRODUCT = "Product";
+
+    public ProductService(ProductRepository repository, AuditoriaService auditoriaService) {
         this.repository = repository;
+        this.auditoriaService = auditoriaService;
     }
 
     public List<Product> getAll() {
@@ -23,7 +27,7 @@ public class ProductService {
 
     public Product getById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+                .orElseThrow(() -> new ResourceNotFoundException(PRODUCT, id));
     }
 
     // Specific method to retrieve strict matches for logic/validation
@@ -82,7 +86,7 @@ public class ProductService {
 
         // 2. Fetch Existing Data
         Product existingProduct = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+                .orElseThrow(() -> new ResourceNotFoundException(PRODUCT, id));
 
         // 3. Unique Constraint Check (The Fix)
         // We only check for collision if relevant fields changed
@@ -122,12 +126,17 @@ public class ProductService {
         return Math.abs(a - b) < 0.001;
     }
 
-    public void deleteById(Long id) {
+    // [CHANGED SIGNATURE] Added usuarioId
+    public void deleteById(Long id, Long usuarioId) {
         // Note: The DB handles cascading delete of stock_por_ubicacion
         // But we check existence first to throw a proper 404 if needed
-        if (repository.findById(id).isEmpty()) {
-            throw new ResourceNotFoundException("Product", id);
-        }
+        Product p = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(PRODUCT, id)); // Check existence to get name for log
+
         repository.deleteById(id);
+
+        // Log the action with description for clarity
+        auditoriaService.registrarAccion(usuarioId, "DELETE_PRODUCT",
+                "Eliminado producto ID " + id + ": " + p.getDescripcion());
     }
 }

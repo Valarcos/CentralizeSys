@@ -29,13 +29,16 @@ public class CompraService {
     private final CompraRepository compraRepository;
     private final StockRepository stockRepository;
     private final ProductRepository productRepository;
+    private final AuditoriaService auditoriaService;
 
     public CompraService(CompraRepository compraRepository,
                          StockRepository stockRepository,
-                         ProductRepository productRepository) {
+                         ProductRepository productRepository,
+                         AuditoriaService auditoriaService) {
         this.compraRepository = compraRepository;
         this.stockRepository = stockRepository;
         this.productRepository = productRepository;
+        this.auditoriaService = auditoriaService;
     }
 
     @Transactional
@@ -127,7 +130,15 @@ public class CompraService {
         detallesToSave.forEach(d -> d.setCompraId(compraId));
         compraRepository.saveDetalles(detallesToSave);
 
-        // 6. Return Response
+        // [NEW] 6. Audit Log
+        // We log the high-level action. Details are in the DB if needed.
+        auditoriaService.registrarAccion(
+                request.getUsuarioId(),
+                "COMPRA",
+                "Registrada Compra ID " + compraId + " (Prov: " + request.getProveedor() + ") - Total: $" + totalCompra
+        );
+
+        // 7. Return Response
         return new CompraResponse(
                 compraId,
                 fechaActual,

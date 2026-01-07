@@ -17,9 +17,11 @@ import java.util.List;
 public class DeudoresService {
 
     private final DeudoresRepository repository;
+    private final AuditoriaService auditoriaService;
 
-    public DeudoresService(DeudoresRepository repository) {
+    public DeudoresService(DeudoresRepository repository, AuditoriaService auditoriaService) {
         this.repository = repository;
+        this.auditoriaService = auditoriaService;
     }
 
     public List<DeudaResponse> getAll() {
@@ -27,7 +29,7 @@ public class DeudoresService {
     }
 
     @Transactional
-    public DeudaResponse registrarPago(Long id, Double montoPago) {
+    public DeudaResponse registrarPago(Long id, Double montoPago, Long usuarioId) {
         if (montoPago < 0) {
             // Using Constant for message
             throw new BusinessRuleException(Constants.ERR_PAYMENT_NEGATIVE);
@@ -60,6 +62,10 @@ public class DeudoresService {
         // 4. Update Object to return
         deuda.setMontoDeuda(saldoFinal);
         deuda.setEstado(nuevoEstado.name());
+
+        // After persist:
+        auditoriaService.registrarAccion(usuarioId, "PAGO_DEUDA",
+                "Registrado pago de $" + montoPago + " para deuda ID " + id + " (" + deuda.getClienteNombre() + ")");
 
         return deuda;
     }

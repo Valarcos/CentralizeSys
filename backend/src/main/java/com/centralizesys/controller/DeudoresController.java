@@ -1,5 +1,6 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.model.debt.DeudaResponse;
 import com.centralizesys.model.debt.PagoDeudaRequest;
 import com.centralizesys.service.DeudoresService;
@@ -31,9 +32,18 @@ public class DeudoresController {
             @PathVariable Long id,
             @RequestBody PagoDeudaRequest request) {
 
-        // Full object in the request because the endpoint may evolve and ask for more than
-        // just the amount of money paid, like the way it was paid.
-        DeudaResponse updated = service.registrarPago(id, request.getMontoPago());
+        // Validation: Ensure we know who is processing the payment
+        if (request.getUsuarioId() == null) {
+            throw new BusinessRuleException("Usuario ID es obligatorio para registrar un pago.");
+        }
+
+        // Pass the extracted ID to the Service
+        DeudaResponse updated = service.registrarPago(
+                id,
+                request.getMontoPago(),
+                request.getUsuarioId() // [PASSED HERE]
+        );
+
         return ResponseEntity.ok(updated);
     }
 }

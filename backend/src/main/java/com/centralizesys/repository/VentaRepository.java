@@ -4,10 +4,13 @@ import com.centralizesys.exception.InfrastructureException;
 import com.centralizesys.model.sales.DetalleVenta;
 import com.centralizesys.model.sales.PagoVenta;
 import com.centralizesys.model.sales.Venta;
-import com.centralizesys.model.enums.DiscountType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.*;
+import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
@@ -37,16 +40,9 @@ public class VentaRepository {
             rs.getObject("usuario_id", Long.class)
     );
 
-    private final RowMapper<DetalleVenta> detalleMapper = (rs, rowNum) -> {
-        String discountStr = rs.getString("descuento_tipo");
-        DiscountType type;
-        try {
-            type = (discountStr != null) ? DiscountType.valueOf(discountStr) : DiscountType.NONE;
-        } catch (IllegalArgumentException e) {
-            type = DiscountType.NONE;
-        }
-
-        return new DetalleVenta(
+    // We now map directly to the simplified numeric-only constructor.
+    private final RowMapper<DetalleVenta> detalleMapper = (rs, rowNum) ->
+        new DetalleVenta(
                 rs.getLong("id"),
                 rs.getLong(VENTA_ID),
                 rs.getLong("producto_id"),
@@ -54,12 +50,10 @@ public class VentaRepository {
                 rs.getString("descripcion_snapshot"),
                 rs.getLong("cantidad"),
                 rs.getDouble("precio_lista"),
-                type, // Use the safe variable
                 rs.getDouble("descuento_valor"),
                 rs.getDouble("precio_unitario"),
                 rs.getDouble("subtotal")
-        );
-    };
+    );
 
     private final RowMapper<PagoVenta> pagoMapper = (rs, rowNum) -> new PagoVenta(
             rs.getLong("id"),
@@ -99,20 +93,18 @@ public class VentaRepository {
         String sql = """
             INSERT INTO detalles_venta
             (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad, 
-             precio_lista, descuento_tipo, descuento_valor, precio_unitario, subtotal) 
+             precio_lista, descuento_valor, precio_unitario, subtotal) 
             VALUES (:ventaId,
                     :productoId,
                     :codigoSnapshot,
                     :descripcionSnapshot,
                     :cantidad, 
                     :precioLista,
-                    :descuentoTipo,
                     :descuentoValor,
                     :precioUnitario,
                     :subtotal)
         """;
 
-        // Manual mapping ensures we handle Enum.name() correctly
         List<MapSqlParameterSource> batchParams = detalles.stream()
                 .map(d -> new MapSqlParameterSource()
                         .addValue(VENTA_ID, d.getVentaId())
@@ -121,7 +113,6 @@ public class VentaRepository {
                         .addValue("descripcionSnapshot", d.getDescripcionSnapshot())
                         .addValue("cantidad", d.getCantidad())
                         .addValue("precioLista", d.getPrecioLista())
-                        .addValue("descuentoTipo", d.getDescuentoTipo().name()) // Enum to String
                         .addValue("descuentoValor", d.getDescuentoValor())
                         .addValue("precioUnitario", d.getPrecioUnitario())
                         .addValue("subtotal", d.getSubtotal()))

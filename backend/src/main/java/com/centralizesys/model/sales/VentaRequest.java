@@ -1,6 +1,5 @@
 package com.centralizesys.model.sales;
 
-import com.centralizesys.model.enums.DiscountType;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -32,7 +31,6 @@ public class VentaRequest {
         // calculating the difference, or we can keep 'precioManual' as an override.
         // For this rule, we stick to Discount Logic:
 
-        private DiscountType tipoDescuento = DiscountType.NONE; // Default
         private Double valorDescuento = 0.0;
     }
 

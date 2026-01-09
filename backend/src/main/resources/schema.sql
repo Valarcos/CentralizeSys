@@ -87,7 +87,6 @@ CREATE TABLE IF NOT EXISTS detalles_venta (
     precio_lista REAL NOT NULL,      -- NEW: The original price BEFORE discount
 
     -- Discount Info
-    descuento_tipo TEXT DEFAULT 'NONE', -- 'PERCENTAGE', 'FIXED', 'NONE'
     descuento_valor REAL DEFAULT 0,     -- The number input (e.g., 10 or 500)
 
     precio_unitario REAL NOT NULL,   -- The FINAL price after discount

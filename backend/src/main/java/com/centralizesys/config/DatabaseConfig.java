@@ -1,5 +1,6 @@
 package com.centralizesys.config;
 
+import org.springframework.context.annotation.Profile;
 import org.sqlite.SQLiteConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +14,7 @@ import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import javax.sql.DataSource;
 
 @Configuration
+@Profile("!test")
 public class DatabaseConfig {
 
     // Read the URL from application.properties

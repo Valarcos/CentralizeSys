@@ -24,7 +24,8 @@ public class VentaRepository {
     private final JdbcTemplate jdbcTemplate;
     private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
-    private static final String VENTA_ID = "venta_id";
+    private static final String VENTA_ID_COLUMN = "venta_id";
+    private static final String VENTA_ID_PARAM = "ventaId";
 
     public VentaRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -44,7 +45,7 @@ public class VentaRepository {
     private final RowMapper<DetalleVenta> detalleMapper = (rs, rowNum) ->
         new DetalleVenta(
                 rs.getLong("id"),
-                rs.getLong(VENTA_ID),
+                rs.getLong(VENTA_ID_COLUMN),
                 rs.getLong("producto_id"),
                 rs.getString("codigo_snapshot"),
                 rs.getString("descripcion_snapshot"),
@@ -57,7 +58,7 @@ public class VentaRepository {
 
     private final RowMapper<PagoVenta> pagoMapper = (rs, rowNum) -> new PagoVenta(
             rs.getLong("id"),
-            rs.getLong(VENTA_ID),
+            rs.getLong(VENTA_ID_COLUMN),
             rs.getLong("metodo_pago_id"),
             rs.getDouble("monto")
     );
@@ -92,13 +93,13 @@ public class VentaRepository {
     public void saveDetalles(List<DetalleVenta> detalles) {
         String sql = """
             INSERT INTO detalles_venta
-            (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad, 
-             precio_lista, descuento_valor, precio_unitario, subtotal) 
+            (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad,
+             precio_lista, descuento_valor, precio_unitario, subtotal)
             VALUES (:ventaId,
                     :productoId,
                     :codigoSnapshot,
                     :descripcionSnapshot,
-                    :cantidad, 
+                    :cantidad,
                     :precioLista,
                     :descuentoValor,
                     :precioUnitario,
@@ -107,7 +108,7 @@ public class VentaRepository {
 
         List<MapSqlParameterSource> batchParams = detalles.stream()
                 .map(d -> new MapSqlParameterSource()
-                        .addValue(VENTA_ID, d.getVentaId())
+                        .addValue(VENTA_ID_PARAM, d.getVentaId())
                         .addValue("productoId", d.getProductoId())
                         .addValue("codigoSnapshot", d.getCodigoSnapshot())
                         .addValue("descripcionSnapshot", d.getDescripcionSnapshot())
@@ -145,11 +146,11 @@ public class VentaRepository {
 
     public List<DetalleVenta> findDetallesByVentaId(Long ventaId) {
         String sql = "SELECT * FROM detalles_venta WHERE venta_id = :ventaId";
-        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("ventaId", ventaId), detalleMapper);
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource(VENTA_ID_PARAM, ventaId), detalleMapper);
     }
 
     public List<PagoVenta> findPagosByVentaId(Long ventaId) {
         String sql = "SELECT * FROM pagos_venta WHERE venta_id = :ventaId";
-        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("ventaId", ventaId), pagoMapper);
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource(VENTA_ID_PARAM, ventaId), pagoMapper);
     }
 }

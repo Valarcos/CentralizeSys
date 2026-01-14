@@ -26,7 +26,7 @@ public class AuditoriaService {
      * Use of Propagation.SUPPORTS allows it to participate in existing transactions
      * but the try-catch ensures it doesn't crash the main business logic if it fails.
      */
-    @Transactional(propagation = Propagation.SUPPORTS)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registrarAccion(Long usuarioId, String accion, String detalles) {
         try {
             repository.save(usuarioId, accion, detalles);

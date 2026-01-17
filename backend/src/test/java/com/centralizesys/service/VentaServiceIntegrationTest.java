@@ -1,6 +1,7 @@
 package com.centralizesys.service;
 
 import com.centralizesys.BaseIntegrationTest;
+import com.centralizesys.exception.ResourceNotFoundException;
 import com.centralizesys.model.sales.VentaRequest;
 import com.centralizesys.model.sales.VentaResponse;
 import com.centralizesys.repository.VentaRepository; // Specific to this test
@@ -8,7 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.Map;
@@ -86,7 +87,8 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
 
         // Act & Assert - Checking the exception thrown should be enough proof the rollback worked, since the true rollback
         // happens after the test ends and there is no way to cleanly check the DB is empty after the exceptions was thrown
-        assertThrows(DataAccessException.class, () -> ventaService.registrarVenta(request));
+        // [CHANGED]
+        assertThrows(DataIntegrityViolationException.class, () -> ventaService.registrarVenta(request));
 
         // TODO: make real test in production to make sure the commented assertion works in a real environment
         // PROOF that rollback worked:
@@ -96,7 +98,7 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
 
     @Test
     @DisplayName("IT-03: Persistence verifies Foreign Keys")
-    void persistence_VerifiesForeignKeys() {
+    void transaction_Aborts_WhenProductNotFound_BeforeInsert    () {
         // Arrange: Try to sell a non-existent product ID
         VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
         item.setProductoId(9999L);
@@ -106,8 +108,8 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
         request.setItems(List.of(item));
 
         // Act & Assert
-        // This confirms SQLiteConfig.enforceForeignKeys(true) is working
-        assertThrows(RuntimeException.class, () -> ventaService.registrarVenta(request));
+        // [CHANGED]
+        assertThrows(ResourceNotFoundException.class, () -> ventaService.registrarVenta(request));
     }
 
     @Test

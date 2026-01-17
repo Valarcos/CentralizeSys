@@ -1,17 +1,18 @@
 package com.centralizesys.service;
 
+import com.centralizesys.exception.BusinessRuleException;
+import com.centralizesys.exception.ResourceNotFoundException;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.model.purchase.Compra;
 import com.centralizesys.model.purchase.CompraItemRequest;
 import com.centralizesys.model.purchase.CompraRequest;
-import com.centralizesys.model.purchase.DetalleCompra;
 import com.centralizesys.model.purchase.CompraResponse;
+import com.centralizesys.model.purchase.DetalleCompra;
 import com.centralizesys.model.purchase.DetalleCompraResponse;
 import com.centralizesys.repository.CompraRepository;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.repository.StockRepository;
-import com.centralizesys.exception.BusinessRuleException;
-import com.centralizesys.exception.ResourceNotFoundException;
+import lombok.Data;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,29 +42,88 @@ public class CompraService {
         this.auditoriaService = auditoriaService;
     }
 
+    /**
+     * Orchestrates the purchase entry process.
+     */
     @Transactional
     public CompraResponse registrarCompra(CompraRequest request) {
         // 1. Validate Payload
+        validateRequest(request);
+
+        // 2. Fetch Products (Batch)
+        // [EXTRACTED] Fetching logic moved to keep main method clean
+        Map<Long, Product> productMap = fetchProducts(request.getItems());
+
+        // 3. Process Items (Logic + Calculations)
+        // [EXTRACTED] Loops through items, validates costs, and prepares entities/response
+        ProcessedPurchaseResult result = processItems(request.getItems(), productMap);
+
+        // 4. Persist (DB Inserts)
+        Long compraId = saveTransaction(request, result);
+
+        // 5. Update Stock (DB Writes)
+        // [MOVED] Stock update is now a distinct step after persistence preparation
+        updateStockFromDetails(request.getItems());
+
+        // 6. Audit
+        auditoriaService.registrarAccion(
+                request.getUsuarioId(),
+                "COMPRA",
+                "Registrada Compra ID " + compraId + " (Prov: " + request.getProveedor() + ") - Total: $" + result.getTotalCompra()
+        );
+
+        // 7. Return Response
+        return new CompraResponse(
+                compraId,
+                LocalDate.now().toString(),
+                request.getProveedor(),
+                request.getNroComprobante(),
+                result.getTotalCompra(),
+                result.getItemsResponse()
+        );
+    }
+
+    // --- HELPER CLASSES (Internal DTO) ---
+
+    @Data
+    static class ProcessedPurchaseResult {
+        private List<DetalleCompra> detallesToSave;
+        private List<DetalleCompraResponse> itemsResponse;
+        private Double totalCompra;
+    }
+
+    // --- HELPER METHODS ---
+
+    private void validateRequest(CompraRequest request) {
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new BusinessRuleException("La compra debe tener al menos un producto.");
         }
+    }
 
-        // 2. Batch Fetch Products (Prevent N+1 Queries)
-        // We collect IDs first to make a single DB call
-        List<Long> productIds = request.getItems().stream()
+    private Map<Long, Product> fetchProducts(List<CompraItemRequest> items) {
+        List<Long> productIds = items.stream()
                 .map(CompraItemRequest::getProductoId)
                 .distinct()
                 .toList();
 
-        Map<Long, Product> productMap = productRepository.findAllById(productIds).stream()
+        return productRepository.findAllById(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
+    }
 
-        // 3. Processing Loop (Validate, Calculate, Update Stock)
-        List<DetalleCompra> detallesToSave = new ArrayList<>();
-        List<DetalleCompraResponse> itemsResponse = new ArrayList<>();
-        Double totalCompra = 0.0;
+    /**
+     * Loops through items to validate business rules and calculate totals.
+     * Package-private for Unit Testing.
+     */
+    ProcessedPurchaseResult processItems(List<CompraItemRequest> items, Map<Long, Product> productMap) {
+        ProcessedPurchaseResult result = new ProcessedPurchaseResult();
+        result.setDetallesToSave(new ArrayList<>());
+        result.setItemsResponse(new ArrayList<>());
+        Double totalAcumulado = 0.0;
 
-        for (CompraItemRequest itemReq : request.getItems()) {
+        for (CompraItemRequest itemReq : items) {
+            // Validate Input Data
+            validateItemInput(itemReq);
+
             Product product = productMap.get(itemReq.getProductoId());
 
             // A. Existence Check
@@ -71,18 +131,13 @@ public class CompraService {
                 throw new ResourceNotFoundException("Producto", itemReq.getProductoId());
             }
 
-            // B. Cost Consistency Check (Variant Logic)
-            // The DB dictates the cost. The request must match the DB cost for this specific ID.
-            if (!compareDouble(itemReq.getCostoUnitario(), product.getPrecioCosto())) {
-                throw new BusinessRuleException(String.format(
-                        "Inconsistencia de Costos: El producto '%s' (ID: %d) tiene un costo registrado de $%.2f, pero se intentó comprar a $%.2f. Seleccione la variante correcta.",
-                        product.getDescripcion(), product.getId(), product.getPrecioCosto(), itemReq.getCostoUnitario()
-                ));
-            }
+            // B. Cost Consistency Check (Business Rule)
+            // [EXTRACTED] Specific rule for variants
+            validateCostConsistency(product, itemReq.getCostoUnitario());
 
             // C. Calculations
             Double subtotal = itemReq.getCantidad() * itemReq.getCostoUnitario();
-            totalCompra += subtotal;
+            totalAcumulado += subtotal;
 
             // D. Prepare Detail Entity (For DB)
             DetalleCompra detalle = new DetalleCompra();
@@ -90,63 +145,52 @@ public class CompraService {
             detalle.setCantidad(itemReq.getCantidad());
             detalle.setCostoUnitario(itemReq.getCostoUnitario());
             detalle.setSubtotal(subtotal);
-            detallesToSave.add(detalle);
+            result.getDetallesToSave().add(detalle);
 
             // E. Prepare Response Item (For UI)
-            itemsResponse.add(new DetalleCompraResponse(
+            result.getItemsResponse().add(new DetalleCompraResponse(
                     product.getCodigo(),
                     product.getDescripcion(),
                     itemReq.getCantidad(),
                     itemReq.getCostoUnitario(),
                     subtotal
             ));
-
-            // F. Stock Update
-            // We do this immediately to ensure the location exists before saving the purchase.
-            try {
-                stockRepository.addStock(product.getId(), itemReq.getUbicacionId(), itemReq.getCantidad());
-            } catch (DataAccessException e) {
-                throw new BusinessRuleException("Error al agregar stock: Verifique que la Ubicación ID " + itemReq.getUbicacionId() + " exista.");
-            }
         }
 
-        // 4. Persist Header (Compra)
-        // Note: Repository generates LocalDate.now() internally, but we capture strict time here
-        // to ensure the response matches logically.
-        String fechaActual = LocalDate.now().toString();
+        result.setTotalCompra(totalAcumulado);
+        return result;
+    }
 
-        Compra compra = new Compra();
-        compra.setFecha(fechaActual);
-        compra.setProveedor(request.getProveedor());
-        compra.setNroComprobante(request.getNroComprobante());
-        compra.setUsuarioId(request.getUsuarioId());
-        compra.setTotalCompra(totalCompra);
+    /**
+     * Validates that quantity is positive and cost is non-negative.
+     * Package-private for Unit Testing if needed.
+     */
+    void validateItemInput(CompraItemRequest item) {
+        if (item.getCantidad() == null || item.getCantidad() <= 0) {
+            throw new BusinessRuleException(
+                    "La cantidad debe ser mayor a cero. Producto ID: " + item.getProductoId()
+            );
+        }
+        if (item.getCostoUnitario() == null || item.getCostoUnitario() <= 0) {
+            throw new BusinessRuleException(
+                    "El costo unitario debe ser mayor a cero. Producto ID: " + item.getProductoId()
+            );
+        }
+    }
 
-        // Returns the ID from the GeneratedKeyHolder
-        Long compraId = compraRepository.saveCompra(compra);
-
-        // 5. Persist Details (Batch Insert)
-        // Link the new Compra ID to the details
-        detallesToSave.forEach(d -> d.setCompraId(compraId));
-        compraRepository.saveDetalles(detallesToSave);
-
-        // [NEW] 6. Audit Log
-        // We log the high-level action. Details are in the DB if needed.
-        auditoriaService.registrarAccion(
-                request.getUsuarioId(),
-                "COMPRA",
-                "Registrada Compra ID " + compraId + " (Prov: " + request.getProveedor() + ") - Total: $" + totalCompra
-        );
-
-        // 7. Return Response
-        return new CompraResponse(
-                compraId,
-                fechaActual,
-                request.getProveedor(),
-                request.getNroComprobante(),
-                totalCompra,
-                itemsResponse
-        );
+    /**
+     * Ensures the incoming cost matches the DB variant cost.
+     * Package-private for Unit Testing.
+     */
+    void validateCostConsistency(Product product, Double incomingCost) {
+        // Uses the helper to check equality.
+        // Since compareDouble returns TRUE if they match, we negate it (!) to find the mismatch.
+        if (!compareDouble(incomingCost, product.getPrecioCosto())) {
+            throw new BusinessRuleException(String.format(
+                    "Inconsistencia de Costos: El producto '%s' (ID: %d) tiene un costo registrado de $%.2f, pero se intentó comprar a $%.2f. Seleccione la variante correcta.",
+                    product.getDescripcion(), product.getId(), product.getPrecioCosto(), incomingCost
+            ));
+        }
     }
 
     /**
@@ -156,5 +200,38 @@ public class CompraService {
     private boolean compareDouble(Double a, Double b) {
         if (a == null || b == null) return false;
         return Math.abs(a - b) < 0.001;
+    }
+
+    private Long saveTransaction(CompraRequest request, ProcessedPurchaseResult result) {
+        Compra compra = new Compra();
+        compra.setFecha(LocalDate.now().toString());
+        compra.setProveedor(request.getProveedor());
+        compra.setNroComprobante(request.getNroComprobante());
+        compra.setUsuarioId(request.getUsuarioId());
+        compra.setTotalCompra(result.getTotalCompra());
+
+        // Returns the ID from the GeneratedKeyHolder
+        Long compraId = compraRepository.saveCompra(compra);
+
+        // Link details to parent ID
+        result.getDetallesToSave().forEach(d -> d.setCompraId(compraId));
+        compraRepository.saveDetalles(result.getDetallesToSave());
+
+        return compraId;
+    }
+
+    /**
+     * Increments stock.
+     * Package-private for Unit Testing.
+     */
+    void updateStockFromDetails(List<CompraItemRequest> items) {
+        for (CompraItemRequest item : items) {
+            try {
+                stockRepository.addStock(item.getProductoId(), item.getUbicacionId(), item.getCantidad());
+            } catch (DataAccessException e) {
+                // [KEPT] This is a critical check for Location Existence
+                throw new BusinessRuleException("Error al agregar stock: Verifique que la Ubicación ID " + item.getUbicacionId() + " exista.");
+            }
+        }
     }
 }

@@ -9,10 +9,11 @@ plugins {
 group = "com.centralizesys"
 version = "0.0.2-SNAPSHOT"
 
-// CRITICAL FIX: Ensure we are strictly using Java 21
+// CRITICAL FIX: Ensure we are strictly using Java 21 Toolchain
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 repositories {
@@ -33,9 +34,9 @@ dependencies {
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
 
-    // CRITICAL FIX: Force Lombok 1.18.34 to prevent "ExceptionInInitializerError" on Java 21
-    compileOnly("org.projectlombok:lombok:1.18.34")
-    annotationProcessor("org.projectlombok:lombok:1.18.34")
+    // CRITICAL FIX: Force Lombok 1.18.36 to prevent "ExceptionInInitializerError" on Java 21+
+    compileOnly("org.projectlombok:lombok:1.18.36")
+    annotationProcessor("org.projectlombok:lombok:1.18.36")
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")

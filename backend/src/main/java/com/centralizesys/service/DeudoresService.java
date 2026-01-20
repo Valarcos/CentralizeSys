@@ -9,8 +9,6 @@ import com.centralizesys.util.Constants;// Using Constants
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 
 @Service
@@ -38,17 +36,20 @@ public class DeudoresService {
         // --- OPTIONAL USAGE EXPLANATION ---
         // usage: repository.findById(id) returns Optional<DeudaResponse>.
         // Reason: The ID provided by the frontend might be fake or old.
-        // If the Optional is empty, we must throw an exception to stop execution immediately.
+        // If the Optional is empty, we must throw an exception to stop execution
+        // immediately.
         DeudaResponse deuda = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Constants.ERR_DEBT_NOT_FOUND, id));
 
         // 1. Update Balance
-        BigDecimal saldoActual = BigDecimal.valueOf(deuda.getMontoDeuda());
-        BigDecimal pago = BigDecimal.valueOf(montoPago);
+        // We use Math.round to ensure 2 decimal precision without BigDecimal
+        double saldoActual = deuda.getMontoDeuda();
 
-        // Subtract payment (Note: If payment is correction/negative elsewhere, logic holds)
-        BigDecimal nuevoSaldo = saldoActual.subtract(pago);
-        Double saldoFinal = nuevoSaldo.setScale(2, RoundingMode.HALF_UP).doubleValue();
+        // Calculate new balance: Balance - Payment
+        double rawNewBalance = saldoActual - montoPago;
+
+        // Explicit Rounding: Multiply by 100, round, divide by 100
+        double saldoFinal = Math.round(rawNewBalance * 100.0) / 100.0;
 
         // 2. DYNAMIC STATE RECALCULATION
         // This logic runs every time, allowing "backwards" movement (PAGADO -> PARCIAL)
@@ -72,7 +73,8 @@ public class DeudoresService {
 
     /**
      * Helper to determine status based purely on the remaining money.
-     * This ensures the DB state never gets "stuck" in PAGADO if money is still owed.
+     * This ensures the DB state never gets "stuck" in PAGADO if money is still
+     * owed.
      */
     private DebtStatus calculateStatus(Double currentDebt) {
         // Floating point safety check (0.01 margin)

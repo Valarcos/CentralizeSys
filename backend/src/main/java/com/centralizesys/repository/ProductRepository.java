@@ -26,16 +26,14 @@ public class ProductRepository {
     }
 
     // Mapeo exacto de Columnas DB (Español) -> Objeto Java
-    private final RowMapper<Product> rowMapper = (rs, rowNum) ->
-            new Product(
-                    rs.getLong("id"),
-                    rs.getString("codigo"),
-                    rs.getString("descripcion"),
-                    rs.getDouble("precio_costo"),
-                    rs.getObject("precio_mayorista", Double.class), // Handle Nullable
-                    rs.getDouble("precio_minorista"),
-                    rs.getLong("cantidad_stock")
-            );
+    private final RowMapper<Product> rowMapper = (rs, rowNum) -> new Product(
+            rs.getLong("id"),
+            rs.getString("codigo"),
+            rs.getString("descripcion"),
+            rs.getDouble("precio_costo"),
+            rs.getObject("precio_mayorista", Double.class), // Handle Nullable
+            rs.getDouble("precio_minorista"),
+            rs.getLong("cantidad_stock"));
 
     public List<Product> findAll() {
         String sql = "SELECT * FROM productos";
@@ -69,9 +67,11 @@ public class ProductRepository {
     // Buscador "Smart": Busca coincidencias en Código O Descripción
     // Útil para la UI "Super Intuitiva" donde el usuario escribe en un solo campo
     public List<Product> search(String query) {
-        if (query == null) return List.of();
+        if (query == null)
+            return List.of();
         String term = "%" + query.trim() + "%";
-        String sql = "SELECT * FROM productos WHERE codigo LIKE :termino OR descripcion LIKE :termino";
+        // STRICT: Limit to 100 to prevent UI performance issues
+        String sql = "SELECT * FROM productos WHERE codigo LIKE :termino OR descripcion LIKE :termino LIMIT 100";
 
         return namedJdbcTemplate.query(sql, new MapSqlParameterSource("termino", term), rowMapper);
     }
@@ -86,11 +86,12 @@ public class ProductRepository {
 
     private Product insert(Product p) {
         // NOTA: No insertamos cantidad_stock explícitamente, dejamos el DEFAULT 0
-        // [NOTE] Params (:codigo, :descripcion, etc) match DTO fields automatically via BeanPropertySqlParameterSource
+        // [NOTE] Params (:codigo, :descripcion, etc) match DTO fields automatically via
+        // BeanPropertySqlParameterSource
         String sql = """
-            INSERT INTO productos (codigo, descripcion, precio_costo, precio_mayorista, precio_minorista)
-            VALUES (:codigo, :descripcion, :precioCosto, :precioMayorista, :precioMinorista)
-        """;
+                    INSERT INTO productos (codigo, descripcion, precio_costo, precio_mayorista, precio_minorista)
+                    VALUES (:codigo, :descripcion, :precioCosto, :precioMayorista, :precioMinorista)
+                """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         SqlParameterSource params = new BeanPropertySqlParameterSource(p);
@@ -108,17 +109,18 @@ public class ProductRepository {
         // NOTA: NO actualizamos cantidad_stock aquí.
         // El stock se modifica SOLO moviendo items en stock_por_ubicacion (Triggers).
 
-        // TODO: this update should be monitored. The code shouldn't be updated, but based on the case of low quality
+        // TODO: this update should be monitored. The code shouldn't be updated, but
+        // based on the case of low quality
         // products with NO inherent code, it may be required.
         String sql = """
-            UPDATE productos
-            SET codigo = :codigo,
-                descripcion = :descripcion, 
-                precio_costo = :precioCosto,
-                precio_mayorista = :precioMayorista, 
-                precio_minorista = :precioMinorista
-            WHERE id = :id
-        """;
+                    UPDATE productos
+                    SET codigo = :codigo,
+                        descripcion = :descripcion,
+                        precio_costo = :precioCosto,
+                        precio_mayorista = :precioMayorista,
+                        precio_minorista = :precioMinorista
+                    WHERE id = :id
+                """;
         SqlParameterSource params = new BeanPropertySqlParameterSource(p);
         namedJdbcTemplate.update(sql, params);
         return p;

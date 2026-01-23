@@ -1,0 +1,234 @@
+package com.centralizesys.service;
+
+import com.centralizesys.exception.BusinessRuleException;
+import com.centralizesys.exception.ResourceNotFoundException;
+import com.centralizesys.model.product.Product;
+import com.centralizesys.repository.ProductRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class ProductServiceTest {
+
+    @Mock
+    private ProductRepository repository;
+
+    @Mock
+    private AuditoriaService auditoriaService;
+
+    @org.mockito.InjectMocks
+    private ProductService service;
+
+    // --- Read / Pass-through Tests ---
+
+    @Test
+    @DisplayName("getAll returns list from repository")
+    void getAll_ReturnsList() {
+        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L);
+        when(repository.findAll()).thenReturn(List.of(p));
+        List<Product> result = service.getAll();
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @DisplayName("getById returns product when found")
+    void getById_Success() {
+        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L);
+        when(repository.findById(1L)).thenReturn(Optional.of(p));
+
+        Product result = service.getById(1L);
+        assertNotNull(result);
+        assertEquals("C", result.getCodigo());
+    }
+
+    @Test
+    @DisplayName("getById throws when not found")
+    void getById_NotFound() {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.getById(99L));
+    }
+
+    @Test
+    @DisplayName("getVariantsByCode delegates to repository")
+    void getVariantsByCode_Delegates() {
+        when(repository.findAllByCodigo("ABC")).thenReturn(Collections.emptyList());
+        assertTrue(service.getVariantsByCode("ABC").isEmpty());
+        verify(repository).findAllByCodigo("ABC");
+    }
+
+    @Test
+    @DisplayName("search delegates to repository")
+    void search_Delegates() {
+        when(repository.search("query")).thenReturn(Collections.emptyList());
+        assertTrue(service.search("query").isEmpty());
+        verify(repository).search("query");
+    }
+
+    @Test
+    @DisplayName("Validate throws for null code")
+    void validate_NullCode() {
+        Product p = new Product(null, "Desc", 10.0, 10.0, 10.0);
+        assertThrows(BusinessRuleException.class, () -> service.validate(p));
+    }
+
+    @Test
+    @DisplayName("Validate throws for blank description")
+    void validate_BlankDescription() {
+        Product p = new Product("A", "", 10.0, 10.0, 10.0);
+        assertThrows(BusinessRuleException.class, () -> service.validate(p));
+    }
+
+    @Test
+    @DisplayName("Validate throws for negative retail price")
+    void validate_NegativeRetail() {
+        Product p = new Product("A", "Desc", 10.0, 10.0, -1.0);
+        assertThrows(BusinessRuleException.class, () -> service.validate(p));
+    }
+
+    @Test
+    @DisplayName("Validate throws for negative cost")
+    void validate_NegativeCost() {
+        Product p = new Product("A", "Desc", -1.0, 10.0, 10.0);
+        assertThrows(BusinessRuleException.class, () -> service.validate(p));
+    }
+
+    // --- CompareDouble Tests ---
+
+    @Test
+    @DisplayName("CompareDouble handles nulls gracefully")
+    void compareDouble_Nulls() {
+        assertFalse(service.compareDouble(null, 10.0));
+        assertFalse(service.compareDouble(10.0, null));
+        assertFalse(service.compareDouble(null, null));
+    }
+
+    @Test
+    @DisplayName("CompareDouble detects equality within epsilon")
+    void compareDouble_Equality() {
+        assertTrue(service.compareDouble(10.0, 10.0));
+        assertTrue(service.compareDouble(10.0, 10.0000001));
+    }
+
+    @Test
+    @DisplayName("CompareDouble detects inequality")
+    void compareDouble_Inequality() {
+        assertFalse(service.compareDouble(10.0, 10.01));
+    }
+
+    // --- Create Tests ---
+
+    @Test
+    @DisplayName("Create saves valid product")
+    void create_Success() {
+        Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
+        when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
+        when(repository.save(p)).thenReturn(p);
+
+        Product created = service.create(p);
+        assertNotNull(created);
+        verify(repository).save(p);
+    }
+
+    @Test
+    @DisplayName("Create throws on exact duplicate (Code+Cost+Price)")
+    void create_Duplicate_Throws() {
+        Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
+        Product existing = new Product(1L, "CODE", "Old", 10.0, 10.0, 20.0, 0L);
+
+        when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing));
+
+        assertThrows(BusinessRuleException.class, () -> service.create(p));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Create allows duplicate if code is '1' (Generic)")
+    void create_Generic_AllowsDuplicates() {
+        Product p = new Product("1", "Genérico", 10.0, 10.0, 20.0);
+
+        // Even though existing matches perfectly, "1" bypasses the check purely in
+        // logic
+        when(repository.save(p)).thenReturn(p);
+
+        assertDoesNotThrow(() -> service.create(p));
+        verify(repository).save(p);
+    }
+
+    // --- Update Tests ---
+
+    @Test
+    @DisplayName("Update succeeds when no collision")
+    void update_Success() {
+        // Changing price from 20 to 25
+        Product updateReq = new Product("CODE", "Desc", 10.0, 10.0, 25.0);
+        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing));
+        // findAllByCodigo returns 'existing', but logic excludes 'self'
+
+        service.update(1L, updateReq);
+
+        verify(repository).save(updateReq);
+        assertEquals(1L, updateReq.getId());
+    }
+
+    @Test
+    @DisplayName("Update throws when colliding with ANOTHER product")
+    void update_Collision_Throws() {
+        // Trying to change Price to 30. But there is ANOTHER product (ID 2) with Cost
+        // 10, Price 30.
+        Product updateReq = new Product("CODE", "Desc", 10.0, 10.0, 30.0);
+        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
+        Product other = new Product(2L, "CODE", "Other", 10.0, 10.0, 30.0, 0L);
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing, other));
+
+        assertThrows(BusinessRuleException.class, () -> service.update(1L, updateReq));
+        verify(repository, never()).save(updateReq);
+    }
+
+    // --- Delete Tests ---
+
+    @Test
+    @DisplayName("Delete calls audit service")
+    void delete_Audits() {
+        Product existing = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 10L);
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+
+        service.deleteById(1L, 999L);
+
+        verify(repository).deleteById(1L);
+        verify(auditoriaService).registrarAccion(eq(999L), eq("DELETE_PRODUCT"), contains("D"));
+    }
+
+    @Test
+    @DisplayName("Delete throws if product not found")
+    void delete_NotFound() {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.deleteById(99L, 1L));
+        verify(auditoriaService, never()).registrarAccion(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("Update throws if product not found")
+    void update_NotFound() {
+        Product p = new Product("C", "D", 1.0, 1.0, 1.0);
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.update(99L, p));
+    }
+}

@@ -4,12 +4,14 @@ import com.centralizesys.BaseIntegrationTest;
 import com.centralizesys.exception.ResourceNotFoundException;
 import com.centralizesys.model.sales.VentaRequest;
 import com.centralizesys.model.sales.VentaResponse;
-import com.centralizesys.repository.VentaRepository; // Specific to this test
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -21,9 +23,6 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private VentaService ventaService;
-
-    @Autowired
-    private VentaRepository ventaRepository;
 
     // Note: productRepository, stockRepository, jdbcTemplate are inherited from Base!
 
@@ -68,6 +67,7 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
 
     @Test
     @DisplayName("IT-02: Transaction rolls back on failure (Atomicity)")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void transaction_RollsBack_OnFailure() {
         // Arrange
         VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
@@ -85,20 +85,21 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
 
         request.setPagos(List.of(invalidPago));
 
-        // Act & Assert - Checking the exception thrown should be enough proof the rollback worked, since the true rollback
-        // happens after the test ends and there is no way to cleanly check the DB is empty after the exceptions was thrown
-        // [CHANGED]
+        // Act & Assert
+        // The service is marked @Transactional. It will start a transaction.
+        // When it throws, it should rollback.
         assertThrows(DataIntegrityViolationException.class, () -> ventaService.registrarVenta(request));
 
-        // TODO: make real test in production to make sure the commented assertion works in a real environment
         // PROOF that rollback worked:
-//        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ventas", Integer.class);
-//        assertEquals(0, count, "Transaction rollback failed: Venta header persisted despite exception");
+        // Since we are NOT in a test transaction, we can see the real DB state committed by the Service.
+        // If rollback worked, the header (saved before the error) should be GONE.
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ventas", Integer.class);
+        assertEquals(0, count, "Transaction rollback failed: Venta header persisted despite exception");
     }
 
     @Test
     @DisplayName("IT-03: Persistence verifies Foreign Keys")
-    void transaction_Aborts_WhenProductNotFound_BeforeInsert    () {
+    void transaction_Aborts_WhenProductNotFound_BeforeInsert() {
         // Arrange: Try to sell a non-existent product ID
         VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
         item.setProductoId(9999L);
@@ -160,5 +161,42 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
                 "SELECT cantidad_stock FROM productos WHERE id = ?", Long.class, testProductId);
 
         assertEquals(95L, finalGlobalStock, "Trigger 'update_stock_after_update' failed to fire");
+    }
+
+    @Test
+    @DisplayName("IT-06: Round Trip (Write -> Read) verifies Mappers")
+    void read_GetVentaById_ReturnsFullTree() {
+        // Arrange
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(2L); // 2 * 100 = 200
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Round Trip Client");
+        request.setItems(List.of(item));
+        request.setUsuarioId(testUserId);
+        // Payment
+        VentaRequest.PagoRequest pago = new VentaRequest.PagoRequest();
+        pago.setMetodoPagoId(1L);
+        pago.setMonto(200.0);
+        request.setPagos(List.of(pago));
+
+        // Act 1: Write
+        VentaResponse written = ventaService.registrarVenta(request);
+        Long id = written.getId();
+
+        // Act 2: Read (The untested path)
+        VentaResponse read = ventaService.getVentaById(id);
+
+        // Assert
+        assertEquals(id, read.getId());
+        assertEquals("Round Trip Client", read.getClienteNombre());
+        assertEquals(200.0, read.getTotalVenta());
+        assertEquals(1, read.getItems().size());
+        assertEquals(1, read.getPagos().size());
+
+        // Verify Detail Mapper
+        assertEquals(testProductId, read.getItems().getFirst().getProductoId());
+        assertEquals(200.0, read.getItems().getFirst().getSubtotal());
     }
 }

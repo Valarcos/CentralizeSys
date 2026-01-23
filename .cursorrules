@@ -199,7 +199,6 @@
 *   **Lombok:** Explicit Constructors required for `RowMapper`.
 *   **Error Mapping:** In `sql-error-codes.xml`, map SQLite error codes:
     *   **19, 787, 1555, 2067** -> `DataIntegrityViolationException`.
-
 ---
 
 ## 7. Development Roadmap (Current State)
@@ -207,3 +206,7 @@
 *   **Phase 2:** Data Safety (Backup Service, Excel Import).
 *   **Phase 3:** External (TiendaNube).
 *   **Phase 4:** Frontend (React) / Flutter.
+---
+
+## 8. General Guidelines
+*   **Consistency:** When creating new Unit or Integration Tests, **ALWAYS** use the existing test classes as a base/template to ensure consistency in setup, teardown, and naming conventions.

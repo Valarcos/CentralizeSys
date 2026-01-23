@@ -40,7 +40,8 @@ public class ProductService {
         return repository.search(query);
     }
 
-    private void validate(Product product) {
+    // Package-private for testing
+    void validate(Product product) {
         if (product.getCodigo() == null || product.getCodigo().isBlank()) {
             throw new BusinessRuleException("El código del producto (ART) es obligatorio.");
         }
@@ -62,21 +63,7 @@ public class ProductService {
 
     public Product create(Product product) {
         validate(product);
-
-        // Check for exact duplicate (Code + Cost + RetailPrice)
-        // The DB constraint 'unique_producto_variante' handles this,
-        // but checking here gives a friendlier error message.
-        List<Product> variants = repository.findAllByCodigo(product.getCodigo());
-
-        boolean exactMatchExists = variants.stream().anyMatch(p ->
-                compareDouble(p.getPrecioCosto(), product.getPrecioCosto()) &&
-                        compareDouble(p.getPrecioMinorista(), product.getPrecioMinorista())
-        );
-
-        if (exactMatchExists && !"1".equals(product.getCodigo())) {
-            throw new BusinessRuleException("Ya existe una variante exacta de este producto (Mismo Código, Costo y Precio Venta).");
-        }
-
+        checkVariantCollision(product, null);
         return repository.save(product);
     }
 
@@ -88,41 +75,49 @@ public class ProductService {
         Product existingProduct = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(PRODUCT, id));
 
-        // 3. Unique Constraint Check (The Fix)
+        // 3. Unique Constraint Check
         // We only check for collision if relevant fields changed
         boolean codeChanged = !product.getCodigo().equals(existingProduct.getCodigo());
         boolean costChanged = !compareDouble(product.getPrecioCosto(), existingProduct.getPrecioCosto());
         boolean priceChanged = !compareDouble(product.getPrecioMinorista(), existingProduct.getPrecioMinorista());
 
-        if ((codeChanged || costChanged || priceChanged) && !"1".equals(product.getCodigo())) {
-
-            // Get all OTHER products with this code
-            List<Product> variants = repository.findAllByCodigo(product.getCodigo());
-
-            boolean collision = variants.stream()
-                    .filter(p -> !p.getId().equals(id)) // Exclude self
-                    .anyMatch(p ->
-                            compareDouble(p.getPrecioCosto(), product.getPrecioCosto()) &&
-                                    compareDouble(p.getPrecioMinorista(), product.getPrecioMinorista())
-                    );
-
-            if (collision) {
-                throw new BusinessRuleException("Ya existe otra variante exacta con Código: " + product.getCodigo()
-                        + ", Costo: " + product.getPrecioCosto()
-                        + ", Precio: " + product.getPrecioMinorista());
-            }
+        if (codeChanged || costChanged || priceChanged) {
+            checkVariantCollision(product, id);
         }
 
         // 4. Attach ID and Persist
-        // CRITICAL: The 'product' object coming from the Controller has ID = null.
-        // We must set it here so the Repository knows to perform an UPDATE (WHERE id = X), not an INSERT.
         product.setId(id);
         repository.save(product);
     }
 
-    // Helper to avoid floating point comparison issues for double comparison (precision safety)
-    private boolean compareDouble(Double a, Double b) {
-        if (a == null || b == null) return false;
+    // Extracted logic to avoid duplication
+    // excludeId should be null for create, and the current ID for update
+    private void checkVariantCollision(Product product, Long excludeId) {
+        // Generic code "1" bypasses all uniqueness checks
+        if ("1".equals(product.getCodigo())) {
+            return;
+        }
+
+        List<Product> variants = repository.findAllByCodigo(product.getCodigo());
+
+        boolean collision = variants.stream()
+                .filter(p -> !p.getId().equals(excludeId)) // Exclude self if updating (safe if excludeId is null)
+                .anyMatch(p -> compareDouble(p.getPrecioCosto(), product.getPrecioCosto()) &&
+                        compareDouble(p.getPrecioMinorista(), product.getPrecioMinorista()));
+
+        if (collision) {
+            throw new BusinessRuleException("Ya existe otra variante exacta con Código: " + product.getCodigo()
+                    + ", Costo: " + product.getPrecioCosto()
+                    + ", Precio: " + product.getPrecioMinorista());
+        }
+    }
+
+    // Helper to avoid floating point comparison issues for double comparison
+    // (precision safety)
+    // Package-private for testing
+    boolean compareDouble(Double a, Double b) {
+        if (a == null || b == null)
+            return false;
         return Math.abs(a - b) < 0.001;
     }
 

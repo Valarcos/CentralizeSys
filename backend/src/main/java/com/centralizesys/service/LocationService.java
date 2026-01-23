@@ -3,7 +3,7 @@ package com.centralizesys.service;
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.model.product.Location;
 import com.centralizesys.repository.StockRepository;
-import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -34,8 +34,14 @@ public class LocationService {
         try {
             Long id = repository.createLocation(name);
             return new Location(id, name);
-        } catch (DuplicateKeyException e) {
-            throw new BusinessRuleException("La estantería número '" + name + "' ya existe.");
+        } catch (DataIntegrityViolationException e) {
+            // We catch the generic parent (in case Spring misses the mapping),
+            // but INSPECT it to ensure we only report "Duplicate" if it's actually a Unique constraint.
+            if (e.getMessage() != null && e.getMessage().toUpperCase().contains("UNIQUE")) {
+                throw new BusinessRuleException("La estantería número '" + name + "' ya existe.");
+            }
+            // If it was another constraint (e.g. NOT NULL), rethrow it so we see the real 500 error.
+            throw e;
         }
     }
 }

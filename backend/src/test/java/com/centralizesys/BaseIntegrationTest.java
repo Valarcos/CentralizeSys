@@ -111,7 +111,7 @@ public abstract class BaseIntegrationTest {
         return prodId;
     }
 
-    // [MODIFIED] Use a cleaner check for data to ensure isolation
+    // Use a cleaner check for data to ensure isolation
     @BeforeEach
     protected void cleanTransactionalData() {
         // 1. Delete dependent tables first (Foreign Key Order)
@@ -136,7 +136,16 @@ public abstract class BaseIntegrationTest {
 
         // 3. DO NOT DELETE 'usuarios' or 'ubicaciones'
         // schema.sql inserts 'Administrador'. If we delete it, we might break
-        // assumptions or future tests. Since we deleted 'auditoria' and 'ventas',
-        // keeping the User records is harmless and prevents FK violations.
+        // assumptions or future tests. Since we deleted 'auditoria' and 'ventas'.
+
+        // 3. Delete UBICACIONES
+        // We must delete this because LocationServiceIntegrationTest relies on the
+        // table being empty to assert that it can create location "1".
+        // Other tests (like createTestProduct) might silently create "1".
+        jdbcTemplate.execute("DELETE FROM ubicaciones");
+
+        // 4. DO NOT DELETE 'usuarios'
+        // schema.sql inserts 'Administrador'. If we delete it, we'll break tests that need a user.
+        // But since we deleted 'auditoria' (the FK holder), we are safe to keep 'usuarios'.
     }
 }

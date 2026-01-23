@@ -44,6 +44,7 @@
     *   `ResourceNotFoundException` (404 Not Found) - Missing IDs.
     *   `InfrastructureException` (500) - DB failures.
     *   **Constraint Violations:** Must explicitly catch `DataIntegrityViolationException` (Unique/FK violations).
+    *   **Fail Fast:** Avoid silent failures. Never swallow exceptions. Do not use `Optional.get()` without `orElseThrow()`. Fail loudly with descriptive errors.
 
 ---
 
@@ -170,6 +171,14 @@
 ---
 
 ## 5. Testing Strategy (Mandatory)
+*   **Coverage Assessment Criteria:**
+    *   **DB Interaction Rule:** If a module interacts with the Database (even indirectly), you MUST implement **BOTH** Unit Tests (for logic/flow) AND Integration Tests (for SQL/Constraints/Mapping).
+    *   **Scenario Completeness:** Tests MUST cover **ALL** possible business scenarios. This includes:
+        *   Happy Paths (Success).
+        *   Edge Cases (Boundaries, Nulls, Empty Lists).
+        *   Negative Paths (Exceptions, Business Rules Violations).
+        *   "Happy path" only is UNACCEPTABLE.
+
 ### A. Unit Tests (JUnit 5 + Mockito)
 *   **Strategy:** "Gray Box".
 *   **Technique:** Refactor complex logic (Math/Loops) to **Package-Private** helpers. Test helpers directly.
@@ -210,3 +219,9 @@
 
 ## 8. General Guidelines
 *   **Consistency:** When creating new Unit or Integration Tests, **ALWAYS** use the existing test classes as a base/template to ensure consistency in setup, teardown, and naming conventions.
+*   **Mandatory Cleanup & Integrity Check:**
+    *   Before finalizing any file, you MUST scan for "unused" elements (imports, fields, variables, commented blocks).
+    *   **Critical Verification:** For each unused item, determine its cause:
+        *   **Scaffolding/Abandoned Idea:** If it remains from a previous approach (e.g., an unused Repository after switching to `JdbcTemplate`), **DELETE** it immediately.
+        *   **Forgotten Logic:** If it implies a missing feature or unfulfilled requirement, **IMPLEMENT** the missing logic.
+        *   **Result:** The final delivery must be free of "dead code", but fully functional. Never simply delete code to silence a linter if it hints at a gap in logic.

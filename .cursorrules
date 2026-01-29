@@ -37,7 +37,7 @@
 *   **Clean Code:**
     *   **Constants:** `Constants.java` for error messages/SQL keys (e.g., `PARAM_ID`).
     *   **CORS:** `@CrossOrigin(origins = "*")` with `@SuppressWarnings("java:S5122")`.
-    *   **Comments:** **Always add short, descriptive comments to complex code blocks.**
+    *   **Comments:** **Always add short, descriptive comments to complex code blocks.** You must not automatically change the format or sentence length of pre-existing comments unless you are modifying what the comment says.
     *   **Logging:** SLF4J (`Logger`, `LoggerFactory`). Strictly avoid `System.err/out`.
 *   **Exception Handling:** `GlobalExceptionHandler` must manage:
     *   `BusinessRuleException` (400 Bad Request) - Logic violations.
@@ -178,6 +178,9 @@
         *   Edge Cases (Boundaries, Nulls, Empty Lists).
         *   Negative Paths (Exceptions, Business Rules Violations).
         *   "Happy path" only is UNACCEPTABLE.
+    *   **Workflow Constraints:**
+        *   **Always Run Tests:** You MUST always run relevant, existing testing suites when you make code changes or additions.
+        *   **Post-Approval Test Creation:** You must modify existing tests or create new tests to cover modified or new logic. This action MUST happen **AFTER** the created / modified code has been reviewed and approved by the user.
 
 ### A. Unit Tests (JUnit 5 + Mockito)
 *   **Strategy:** "Gray Box".
@@ -211,8 +214,9 @@
 ---
 
 ## 7. Development Roadmap (Current State)
-*   **Phase 1 (75%):** Core Logic (Done). Pending: ProductService specific tests.
-*   **Phase 2:** Data Safety (Backup Service, Excel Import).
+*   **Phase 1 (100%):** Core Logic (Done).
+*   **Phase 2 (100%):** Data Safety(Backup Service, Excel Import).(Done - Polishing).
+*   **Phase 2.5:** Security Infrastructure (Spring Security, JWT/Auth, User Isolation).
 *   **Phase 3:** External (TiendaNube).
 *   **Phase 4:** Frontend (React) / Flutter.
 ---
@@ -225,3 +229,18 @@
         *   **Scaffolding/Abandoned Idea:** If it remains from a previous approach (e.g., an unused Repository after switching to `JdbcTemplate`), **DELETE** it immediately.
         *   **Forgotten Logic:** If it implies a missing feature or unfulfilled requirement, **IMPLEMENT** the missing logic.
         *   **Result:** The final delivery must be free of "dead code", but fully functional. Never simply delete code to silence a linter if it hints at a gap in logic.
+
+---
+
+## 9. Agent Authority & Quality of Life
+*   **Auto-Run Authority:** The Agent is AUTHORIZED to set `SafeToAutoRun=true` for:
+    *   Test execution (`./gradlew test`, `mvn test`).
+    *   Build commands (`./gradlew build`).
+    *   Read-only commands (`ls`, `cat`, `grep`, `find`).
+    *   Project analysis/dependency checks.
+*   **Approval Policy:** Only require explicit approval for:
+    *   Destructive file operations (outside of requested changes).
+    *   Deployment / External API calls (other than safe lookups).
+    *   System-level configuration changes.
+    *   File deletion (outside of requested changes).
+    *   File relocation (outside of requested changes).

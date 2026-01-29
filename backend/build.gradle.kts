@@ -43,10 +43,19 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    // Updated to 5.4.0 to resolve CVE-2025-31672, CVE-2024-25710, CVE-2024-26308
+    // Excel (Apache POI)
+    implementation("org.apache.poi:poi-ooxml:5.4.0")
 }
 
 tasks.test {
     useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+        events("passed", "skipped", "failed")
+    }
+    maxHeapSize = "2048m"
 }
 
 // CRITICAL FIX: Handle Spanish accents in source code

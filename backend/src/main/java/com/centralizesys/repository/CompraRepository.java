@@ -56,4 +56,18 @@ public class CompraRepository {
         SqlParameterSource[] batch = SqlParameterSourceUtils.createBatch(detalles);
         namedJdbcTemplate.batchUpdate(sql, batch);
     }
+
+    public List<Compra> findAll() {
+        String sql = "SELECT * FROM compras";
+        return namedJdbcTemplate.query(sql, (rs, rowNum) -> {
+            Compra c = new Compra();
+            c.setId(rs.getLong("id"));
+            c.setFecha(rs.getString("fecha"));
+            c.setProveedor(rs.getString("proveedor"));
+            c.setNroComprobante(rs.getString("nro_comprobante"));
+            c.setTotalCompra(rs.getDouble("total_compra"));
+            c.setUsuarioId(rs.getObject("usuario_id") != null ? rs.getLong("usuario_id") : null);
+            return c;
+        });
+    }
 }

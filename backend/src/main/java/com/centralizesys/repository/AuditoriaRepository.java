@@ -24,8 +24,7 @@ public class AuditoriaRepository {
             rs.getString("fecha_hora"),
             rs.getObject("usuario_id", Long.class), // Handle nullable
             rs.getString("accion"),
-            rs.getString("detalles")
-    );
+            rs.getString("detalles"));
 
     public void save(Long usuarioId, String accion, String detalles) {
         String sql = """
@@ -55,5 +54,10 @@ public class AuditoriaRepository {
                 .addValue("end", endDateTime);
 
         return namedJdbcTemplate.query(sql, params, rowMapper);
+    }
+
+    public List<Auditoria> findAll() {
+        String sql = "SELECT * FROM auditoria ORDER BY fecha_hora DESC";
+        return namedJdbcTemplate.query(sql, rowMapper);
     }
 }

@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS detalles_venta (
     -- Snapshots
     descripcion_snapshot TEXT NOT NULL,
     codigo_snapshot TEXT NOT NULL,
+    costo_snapshot REAL,              -- NEW: Required for legacy profit calc (since Product ID is null)
 
     -- Values
     cantidad INTEGER NOT NULL,

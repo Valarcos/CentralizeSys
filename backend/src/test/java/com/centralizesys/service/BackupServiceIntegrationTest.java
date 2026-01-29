@@ -1,12 +1,16 @@
 package com.centralizesys.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
+import javax.sql.DataSource;
 import java.io.File;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,6 +25,20 @@ class BackupServiceIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private DataSource dataSource;
+
+    @Autowired
+    private ResourceLoader resourceLoader;
+
+    @BeforeEach
+    void setupDatabase() {
+        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+        populator.addScript(resourceLoader.getResource("classpath:schema.sql"));
+        populator.setSeparator(";;");
+        populator.execute(dataSource);
+    }
 
     @Test
     void testManualBackup() throws Exception {

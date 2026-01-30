@@ -34,6 +34,11 @@ dependencies {
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
 
+    // JWT
+    implementation("io.jsonwebtoken:jjwt-api:0.11.5")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5")
+
     // CRITICAL FIX: Force Lombok 1.18.36 to prevent "ExceptionInInitializerError" on Java 21+
     compileOnly("org.projectlombok:lombok:1.18.36")
     annotationProcessor("org.projectlombok:lombok:1.18.36")
@@ -43,10 +48,14 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.springframework.security:spring-security-test")
 
     // Updated to 5.4.0 to resolve CVE-2025-31672, CVE-2024-25710, CVE-2024-26308
     // Excel (Apache POI)
     implementation("org.apache.poi:poi-ooxml:5.4.0")
+
+    // CRITICAL FIX: Force commons-lang3 3.18.0 to resolve CVE-2025-48924
+    implementation("org.apache.commons:commons-lang3:3.18.0")
 }
 
 tasks.test {

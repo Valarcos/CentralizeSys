@@ -3,6 +3,7 @@ package com.centralizesys.service;
 import com.centralizesys.BaseIntegrationTest;
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.model.auth.Usuario;
+import com.centralizesys.model.auth.UsuarioRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,7 @@ class UsuarioServiceIntegrationTest extends BaseIntegrationTest {
         assertTrue(passwordEncoder.matches("pass123", saved.getPasswordHash()));
     }
 
+
     @Test
     @DisplayName("IT-02: Registrar Usuario enforces DB duplicate check (Safety Net)")
     void testRegistrarUsuario_Duplicate_Logic() {
@@ -37,6 +39,7 @@ class UsuarioServiceIntegrationTest extends BaseIntegrationTest {
         u.setEmail("dup@test.com");
         u.setNombre("Existing");
         u.setPasswordHash("hash");
+        u.setRol(UsuarioRole.EMPLEADO);
         usuarioRepository.save(u);
 
         // Act & Assert

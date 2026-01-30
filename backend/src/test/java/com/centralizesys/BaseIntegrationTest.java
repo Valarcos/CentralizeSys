@@ -2,6 +2,7 @@ package com.centralizesys;
 
 import com.centralizesys.config.TestDatabaseConfig;
 import com.centralizesys.model.auth.Usuario;
+import com.centralizesys.model.auth.UsuarioRole;
 import com.centralizesys.model.product.Location;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.repository.ProductRepository;
@@ -49,6 +50,7 @@ public abstract class BaseIntegrationTest {
     /**
      * Helper to create a default Admin user.
      * Most flows (Venta, Compra) require a valid user ID.
+     *
      * @return The ID of the created user.
      */
     protected Long createTestUser() {
@@ -60,6 +62,7 @@ public abstract class BaseIntegrationTest {
                     u.setNombre("Test Admin");
                     u.setEmail("test@admin.com");
                     u.setPasswordHash(passwordEncoder.encode("123456"));
+                    u.setRol(UsuarioRole.ADMIN);
                     usuarioRepository.save(u);
 
                     // Retrieve ID
@@ -71,7 +74,8 @@ public abstract class BaseIntegrationTest {
 
     /**
      * Helper to create a generic product with stock.
-     * @param code The ART code (e.g. "A-100")
+     *
+     * @param code  The ART code (e.g. "A-100")
      * @param price Retail price
      * @param stock Qty to add
      * @return The ID of the created product.
@@ -145,7 +149,9 @@ public abstract class BaseIntegrationTest {
         jdbcTemplate.execute("DELETE FROM ubicaciones");
 
         // 4. DO NOT DELETE 'usuarios'
-        // schema.sql inserts 'Administrador'. If we delete it, we'll break tests that need a user.
-        // But since we deleted 'auditoria' (the FK holder), we are safe to keep 'usuarios'.
+        // schema.sql inserts 'Administrador'. If we delete it, we'll break tests that
+        // need a user.
+        // But since we deleted 'auditoria' (the FK holder), we are safe to keep
+        // 'usuarios'.
     }
 }

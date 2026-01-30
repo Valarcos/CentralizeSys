@@ -144,12 +144,13 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nombre TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
+    rol TEXT NOT NULL DEFAULT 'EMPLEADO' CHECK(rol IN ('ADMIN', 'EMPLEADO')),
     fecha_creacion TEXT DEFAULT (datetime('now', 'localtime'))
 );;
 
 -- Usuario Admin por defecto
 INSERT OR IGNORE INTO usuarios (nombre, email, password_hash)
-VALUES ('Administrador', 'admin@centralizesys.com', '$2a$10$placeholderHash');;
+VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$placeholderHash');;
 
 
 -- 12. Auditoria

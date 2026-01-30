@@ -1,6 +1,7 @@
 package com.centralizesys.repository;
 
 import com.centralizesys.model.auth.Usuario;
+import com.centralizesys.model.auth.UsuarioRole;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -26,8 +27,8 @@ public class UsuarioRepository {
             rs.getString("nombre"),
             rs.getString(EMAIL),
             rs.getString("password_hash"),
-            rs.getString("fecha_creacion")
-    );
+            UsuarioRole.valueOf(rs.getString("rol")),
+            rs.getString("fecha_creacion"));
 
     public Optional<Usuario> findByEmail(String email) {
         String sql = "SELECT * FROM usuarios WHERE email = :email";
@@ -51,14 +52,15 @@ public class UsuarioRepository {
 
     public void save(Usuario usuario) {
         String sql = """
-            INSERT INTO usuarios (nombre, email, password_hash)
-            VALUES (:nombre, :email, :passwordHash)
+            INSERT INTO usuarios (nombre, email, password_hash, rol)
+            VALUES (:nombre, :email, :passwordHash, :rol)
         """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("nombre", usuario.getNombre())
                 .addValue(EMAIL, usuario.getEmail())
-                .addValue("passwordHash", usuario.getPasswordHash());
+                .addValue("passwordHash", usuario.getPasswordHash())
+                .addValue("rol", usuario.getRol().name());
 
         namedJdbcTemplate.update(sql, params);
     }

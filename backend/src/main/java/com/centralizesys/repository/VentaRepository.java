@@ -33,13 +33,16 @@ public class VentaRepository {
     }
 
     // --- MAPPERS ---
-    private final RowMapper<Venta> ventaMapper = (rs, rowNum) -> new Venta(
+    private final RowMapper<Venta> ventaMapper = (rs, rowNum) -> {
+        Long usuarioIdVal = rs.getLong("usuario_id");
+        Long usuarioId = rs.wasNull() ? null : usuarioIdVal;
+        return new Venta(
             rs.getLong("id"),
             rs.getString("fecha"),
             rs.getString("cliente_nombre"),
             rs.getDouble("total_venta"),
-            rs.getObject("usuario_id", Long.class)
-    );
+            usuarioId);
+    };
 
     // We now map directly to the simplified numeric-only constructor.
     private final RowMapper<DetalleVenta> detalleMapper = (rs, rowNum) ->

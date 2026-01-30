@@ -2,6 +2,7 @@ package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.model.auth.Usuario;
+import com.centralizesys.model.auth.UsuarioRole;
 import com.centralizesys.repository.UsuarioRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ class UsuarioServiceTest {
     @DisplayName("Login Success: Returns user and audits action")
     void login_Success() {
         // Arrange
-        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", "date");
+        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, "date");
         when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("raw123", "hashed123")).thenReturn(true);
 
@@ -65,7 +66,7 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Login Failure: Wrong Password throws Friendly Exception")
     void login_WrongPassword() {
-        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", "date");
+        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, "date");
         when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "hashed123")).thenReturn(false);
 

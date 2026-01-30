@@ -2,6 +2,7 @@ package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.model.auth.Usuario;
+import com.centralizesys.model.auth.UsuarioRole;
 import com.centralizesys.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -57,6 +58,7 @@ public class UsuarioService {
         newUser.setNombre(nombre);
         newUser.setEmail(email);
         newUser.setPasswordHash(passwordEncoder.encode(rawPassword));
+        newUser.setRol(UsuarioRole.EMPLEADO);
 
         // 3. Persist
         usuarioRepository.save(newUser);

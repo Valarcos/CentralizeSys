@@ -152,6 +152,7 @@
 **Rules:**
 *   **Scope:** Login, Delete Product, Debt Pay, Sales, Purchases.
 *   **Privacy:** No sensitive data (passwords).
+*   **System Actions:** Automated processes (Backups, Cleanup, Imports) **MUST** use `User ID 0`. Real user actions **MUST** use the authenticated User ID.
 *   **Logic:**
     *   **Controller:** Expose `GET /api/auditoria`.
     *   **Default Range:** (Current Time - 30 days) to Current Time if params missing.

@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.server.ResponseStatusException;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -20,8 +21,7 @@ public class GlobalExceptionHandler {
     }
 
     // TODO: the IDE AI suggested a Hybryd approach with exception categories that
-    // can
-    // handle different kinds of errors. This avoids too many exception classes.
+    //  can handle different kinds of errors. This avoids too many exception classes.
 
     // Handles DB constraints (Unique keys, Foreign keys)
     // Maps "SQL Error 19/2067" -> 400 Bad Request
@@ -45,6 +45,16 @@ public class GlobalExceptionHandler {
                 ex.getMessage(),
                 System.currentTimeMillis());
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatusException(
+            ResponseStatusException ex) {
+        ErrorResponse error = new ErrorResponse(
+                ex.getStatusCode().value(),
+                ex.getReason(),
+                System.currentTimeMillis());
+        return new ResponseEntity<>(error, ex.getStatusCode());
     }
 
     // Handles all other generic exceptions (catch-all)

@@ -12,5 +12,6 @@ public class Usuario {
     private String nombre;
     private String email;
     private String passwordHash; // Stores BCrypt hash, NOT plain text
+    private UsuarioRole rol;
     private String fechaCreacion;
 }

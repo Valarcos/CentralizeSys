@@ -104,4 +104,35 @@ class BackupServiceTest {
                 () -> service.performBackup(BackupService.BackupType.MANUAL, 1L));
         verify(auditoriaService).registrarAccion(eq(1L), eq("BACKUP_FALLIDO"), contains("Disk Full"));
     }
+
+    @Test
+    @DisplayName("performBackup (no-arg) gets User ID from SecurityContext")
+    void performBackup_UsesSecurityContext() {
+        BackupService service = new BackupService(jdbcTemplate, auditoriaService, productRepository, ventaRepository,
+                compraRepository, deudoresRepository, auditoriaRepository);
+
+        // Mock Security Context
+        com.centralizesys.security.CustomUserDetails mockUser = mock(
+                com.centralizesys.security.CustomUserDetails.class);
+        when(mockUser.getId()).thenReturn(100L);
+
+        org.springframework.security.core.Authentication auth = mock(
+                org.springframework.security.core.Authentication.class);
+        when(auth.getPrincipal()).thenReturn(mockUser);
+
+        org.springframework.security.core.context.SecurityContext securityContext = mock(
+                org.springframework.security.core.context.SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(auth);
+
+        org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+
+        try {
+            service.performBackup(BackupService.BackupType.MANUAL);
+
+            // Verify Audit called with ID 100
+            verify(auditoriaService).registrarAccion(eq(100L), eq("BACKUP_EXITOSO"), anyString());
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
 }

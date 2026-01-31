@@ -55,7 +55,8 @@ public class CompraService {
         Map<Long, Product> productMap = fetchProducts(request.getItems());
 
         // 3. Process Items (Logic + Calculations)
-        // [EXTRACTED] Loops through items, validates costs, and prepares entities/response
+        // [EXTRACTED] Loops through items, validates costs, and prepares
+        // entities/response
         ProcessedPurchaseResult result = processItems(request.getItems(), productMap);
 
         // 4. Persist (DB Inserts)
@@ -69,8 +70,8 @@ public class CompraService {
         auditoriaService.registrarAccion(
                 request.getUsuarioId(),
                 "COMPRA",
-                "Registrada Compra ID " + compraId + " (Prov: " + request.getProveedor() + ") - Total: $" + result.getTotalCompra()
-        );
+                "Registrada Compra ID " + compraId + " (Prov: " + request.getProveedor() + ") - Total: $"
+                        + result.getTotalCompra());
 
         // 7. Return Response
         return new CompraResponse(
@@ -79,8 +80,7 @@ public class CompraService {
                 request.getProveedor(),
                 request.getNroComprobante(),
                 result.getTotalCompra(),
-                result.getItemsResponse()
-        );
+                result.getItemsResponse());
     }
 
     // --- HELPER CLASSES (Internal DTO) ---
@@ -153,8 +153,7 @@ public class CompraService {
                     product.getDescripcion(),
                     itemReq.getCantidad(),
                     itemReq.getCostoUnitario(),
-                    subtotal
-            ));
+                    subtotal));
         }
 
         result.setTotalCompra(totalAcumulado);
@@ -168,13 +167,11 @@ public class CompraService {
     void validateItemInput(CompraItemRequest item) {
         if (item.getCantidad() == null || item.getCantidad() <= 0) {
             throw new BusinessRuleException(
-                    "La cantidad debe ser mayor a cero. Producto ID: " + item.getProductoId()
-            );
+                    "La cantidad debe ser mayor a cero. Producto ID: " + item.getProductoId());
         }
         if (item.getCostoUnitario() == null || item.getCostoUnitario() <= 0) {
             throw new BusinessRuleException(
-                    "El costo unitario debe ser mayor a cero. Producto ID: " + item.getProductoId()
-            );
+                    "El costo unitario debe ser mayor a cero. Producto ID: " + item.getProductoId());
         }
     }
 
@@ -184,12 +181,12 @@ public class CompraService {
      */
     void validateCostConsistency(Product product, Double incomingCost) {
         // Uses the helper to check equality.
-        // Since compareDouble returns TRUE if they match, we negate it (!) to find the mismatch.
+        // Since compareDouble returns TRUE if they match, we negate it (!) to find the
+        // mismatch.
         if (!compareDouble(incomingCost, product.getPrecioCosto())) {
             throw new BusinessRuleException(String.format(
                     "Inconsistencia de Costos: El producto '%s' (ID: %d) tiene un costo registrado de $%.2f, pero se intentó comprar a $%.2f. Seleccione la variante correcta.",
-                    product.getDescripcion(), product.getId(), product.getPrecioCosto(), incomingCost
-            ));
+                    product.getDescripcion(), product.getId(), product.getPrecioCosto(), incomingCost));
         }
     }
 
@@ -198,7 +195,8 @@ public class CompraService {
      * Returns true if difference is less than 0.001.
      */
     private boolean compareDouble(Double a, Double b) {
-        if (a == null || b == null) return false;
+        if (a == null || b == null)
+            return false;
         return Math.abs(a - b) < 0.001;
     }
 
@@ -230,7 +228,8 @@ public class CompraService {
                 stockRepository.addStock(item.getProductoId(), item.getUbicacionId(), item.getCantidad());
             } catch (DataAccessException e) {
                 // [KEPT] This is a critical check for Location Existence
-                throw new BusinessRuleException("Error al agregar stock: Verifique que la Ubicación ID " + item.getUbicacionId() + " exista.");
+                throw new BusinessRuleException(
+                        "Error al agregar stock: Verifique que la Ubicación ID " + item.getUbicacionId() + " exista.");
             }
         }
     }

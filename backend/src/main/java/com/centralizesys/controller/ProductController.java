@@ -60,8 +60,7 @@ public class ProductController {
                 request.getDescripcion(),
                 request.getPrecioCosto(),
                 request.getPrecioMayorista(),
-                request.getPrecioMinorista()
-        );
+                request.getPrecioMinorista());
 
         Product saved = service.create(newProduct);
         return new ResponseEntity<>(new ProductResponse(saved), HttpStatus.CREATED);
@@ -77,16 +76,16 @@ public class ProductController {
                 request.getDescripcion(),
                 request.getPrecioCosto(),
                 request.getPrecioMayorista(),
-                request.getPrecioMinorista()
-        );
+                request.getPrecioMinorista());
 
         service.update(id, updatedProduct);
         return ResponseEntity.noContent().build();
     }
 
-    // DELETE /api/productos/{id}?usuarioId=1
+    // DELETE /api/productos/{id}
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id, @RequestParam Long usuarioId) {
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        Long usuarioId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
         service.deleteById(id, usuarioId); // Pass it down
         return ResponseEntity.noContent().build();
     }

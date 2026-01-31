@@ -45,6 +45,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 // Disable CSRF: Not required for stateless REST APIs using JWT
+                 // Disable CSRF: Safe because we are stateless and use 'Authorization' headers (not cookies)
                 .csrf(AbstractHttpConfigurer::disable)
 
                 // Enable CORS with defaults (looks for a CorsConfigurationSource bean)

@@ -29,10 +29,8 @@ public class BackupController {
     }
 
     @PostMapping("/now")
-    // TODO: the moment we implement Spring Security, this must be rewritten to utilize Spring and capture the authenticated UserID
-    public ResponseEntity<String> triggerManualBackup(
-            @RequestHeader(value = "X-User-Id", defaultValue = "1") Long userId) {
-        backupService.performBackup(BackupService.BackupType.MANUAL, userId);
+    public ResponseEntity<String> triggerManualBackup() {
+        backupService.performBackup(BackupService.BackupType.MANUAL);
         return ResponseEntity.ok("Backup manual iniciado. Verifique el registro de auditoría.");
     }
 
@@ -65,17 +63,16 @@ public class BackupController {
         }
     }
 
-    // TODO: SPRING_SECURITY_MIGRATION - [Context: Restore operation]
     @PostMapping("/restore/{filename}")
     public ResponseEntity<String> restoreDatabase(@PathVariable String filename,
-                                                  @RequestParam(defaultValue = "false") boolean confirm,
-                                                  @RequestHeader(value = "X-User-Id", defaultValue = "1") Long userId) {
+                                                  @RequestParam(defaultValue = "false") boolean confirm) {
         if (!confirm) {
             return ResponseEntity.badRequest()
                     .body("DANGER: This will overwrite the entire database. Send '?confirm=true' to proceed.");
         }
 
         try {
+            Long userId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
             backupService.scheduleRestore(filename, userId);
             return ResponseEntity.ok("System Restore Scheduled. Please RESTART the server to apply changes.");
         } catch (Exception e) {

@@ -87,7 +87,15 @@ public class BackupService {
         }
     }
 
+    public void performBackup(BackupType type) {
+        performBackup(type, com.centralizesys.security.SecurityUtils.getAuthenticatedUserId());
+    }
+
     public void performBackup(BackupType type, Long userId) {
+        // Fallback or System User if null passed (though unlikely if called correctly)
+        if (userId == null)
+            userId = 0L;
+
         LocalDateTime now = LocalDateTime.now();
         String timestamp = now.format(FMT_FILE);
         String prefix = type == BackupType.DAILY ? "daily_" : "manual_";
@@ -138,7 +146,6 @@ public class BackupService {
             throw new IllegalArgumentException("Invalid path for backup: Single quotes not allowed");
         }
 
-        // TODO: mark this hotspot as resolved because it has proper character filtering
         String sql = "VACUUM INTO '" + pathStr + "'";
         jdbcTemplate.execute(sql);
     }

@@ -26,6 +26,7 @@ public class CompraController {
      */
     @PostMapping
     public ResponseEntity<CompraResponse> registrarCompra(@RequestBody CompraRequest request) {
+        request.setUsuarioId(com.centralizesys.security.SecurityUtils.getAuthenticatedUserId());
         CompraResponse response = compraService.registrarCompra(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }

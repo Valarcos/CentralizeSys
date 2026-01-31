@@ -3,7 +3,6 @@ package com.centralizesys.security;
 import com.centralizesys.model.auth.Usuario;
 import com.centralizesys.repository.UsuarioRepository;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -27,9 +26,11 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         String roleName = "ROLE_" + usuario.getRol().name();
 
-        return new User(
+        return new CustomUserDetails(
+                usuario.getId(),
                 usuario.getEmail(),
                 usuario.getPasswordHash(),
+                usuario.getNombre(),
                 Collections.singletonList(new SimpleGrantedAuthority(roleName)));
     }
 }

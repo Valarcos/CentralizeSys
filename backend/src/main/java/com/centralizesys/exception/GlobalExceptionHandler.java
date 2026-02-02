@@ -19,9 +19,8 @@ public class GlobalExceptionHandler {
                 System.currentTimeMillis());
         return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
-
-    // TODO: the IDE AI suggested a Hybryd approach with exception categories that
-    //  can handle different kinds of errors. This avoids too many exception classes.
+    // The IDE AI suggested a Hybryd approach with exception categories that
+    // can handle different kinds of errors. This avoids too many exception classes.
 
     // Handles DB constraints (Unique keys, Foreign keys)
     // Maps "SQL Error 19/2067" -> 400 Bad Request

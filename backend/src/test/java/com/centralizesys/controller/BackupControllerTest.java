@@ -65,4 +65,33 @@ class BackupControllerTest {
             SecurityContextHolder.clearContext();
         }
     }
+
+    @Test
+    @DisplayName("triggerManualBackup uses SecurityContext ID")
+    void triggerManualBackup_UsesSecurityContext() throws Exception {
+        Long userId = 42L;
+
+        // Mock Security Context
+        CustomUserDetails mockUser = mock(CustomUserDetails.class);
+        when(mockUser.getId()).thenReturn(userId);
+
+        Authentication auth = mock(Authentication.class);
+        when(auth.getPrincipal()).thenReturn(mockUser);
+
+        SecurityContext securityContext = mock(SecurityContext.class);
+        when(securityContext.getAuthentication()).thenReturn(auth);
+        SecurityContextHolder.setContext(securityContext);
+
+        try {
+            // Act
+            mockMvc.perform(post("/api/backup/now"))
+                    .andExpect(status().isOk());
+
+            // Assert
+            verify(backupService).performBackup(BackupService.BackupType.MANUAL, userId);
+
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
 }

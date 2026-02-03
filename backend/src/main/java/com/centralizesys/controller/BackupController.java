@@ -2,6 +2,8 @@ package com.centralizesys.controller;
 
 import com.centralizesys.service.BackupService;
 import com.centralizesys.model.dto.BackupFileDTO;
+import com.centralizesys.security.SecurityUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.FileSystemResource;
@@ -30,7 +32,8 @@ public class BackupController {
 
     @PostMapping("/now")
     public ResponseEntity<String> triggerManualBackup() {
-        backupService.performBackup(BackupService.BackupType.MANUAL);
+        Long userId = SecurityUtils.getAuthenticatedUserId();
+        backupService.performBackup(BackupService.BackupType.MANUAL, userId);
         return ResponseEntity.ok("Backup manual iniciado. Verifique el registro de auditoría.");
     }
 
@@ -72,7 +75,7 @@ public class BackupController {
         }
 
         try {
-            Long userId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
+            Long userId = SecurityUtils.getAuthenticatedUserId();
             backupService.scheduleRestore(filename, userId);
             return ResponseEntity.ok("System Restore Scheduled. Please RESTART the server to apply changes.");
         } catch (Exception e) {

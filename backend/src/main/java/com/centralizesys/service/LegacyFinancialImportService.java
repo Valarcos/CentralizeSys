@@ -55,7 +55,7 @@ public class LegacyFinancialImportService {
     @Transactional
     public String importLegacyFile(String filePath) {
         // 0. Resilience Checkpoint
-        // TODO: SPRING_SECURITY_MIGRATION - [Context: One-time system import, so UserID 0 is acceptable]
+        // Context: One-time system import, so UserID 0 is acceptable
         String checkpointFile = backupService.createCheckpoint("legacy_import", 0L);
         log.info("Created resilience checkpoint: {}", checkpointFile);
 
@@ -168,9 +168,12 @@ public class LegacyFinancialImportService {
 
         // New Sale Start
         if (!client.isEmpty()) {
-            if (isInvalidClient(client)) {
-                errorLog.add(String.format("Row %d Sheet '%s': INVALID CLIENT NAME '%s'. Skipped Sale Group.",
-                        row.getRowNum() + 1, sheetCtx.sheetName, client));
+            // Reject purely numeric client names (e.g. "5321", "123") per user request.
+            // "TO" or "Client 1" are valid.
+            if (isNumericOnly(client)) {
+                errorLog.add(
+                        String.format("Row %d Sheet '%s': INVALID CLIENT NAME '%s' (Numeric Only). Skipped Sale Group.",
+                                row.getRowNum() + 1, sheetCtx.sheetName, client));
                 return null; // Reset current sale
             }
 
@@ -213,9 +216,8 @@ public class LegacyFinancialImportService {
         return currentVenta;
     }
 
-    // TODO: Check with client if these kinds of client names are valid for legacy import or not
-    private boolean isInvalidClient(String client) {
-        return client.length() < 3 || client.contains("XXX");
+    private boolean isNumericOnly(String str) {
+        return str != null && str.matches("^[0-9\\s]+$");
     }
 
     private String parsePaymentMethod(String raw, List<String> errs, int r, String sheet) {
@@ -318,8 +320,8 @@ public class LegacyFinancialImportService {
         return (item.price == null) ? null : item;
     }
 
-    private Double validateDouble(Row row, Integer colIdx, FormulaEvaluator e, int rNum, String sheet, String fieldName,
-                                  List<String> errs) {
+    private Double validateDouble(Row row, Integer colIdx, FormulaEvaluator e, int rNum,
+                                  String sheet, String fieldName, List<String> errs) {
         Double val = getNum(row, colIdx, e);
         if (val == null || val <= 0) {
             errs.add(String.format("Row %d %s: Invalid %s (Empty, Text, or <= 0). Failed.", rNum, sheet, fieldName));
@@ -328,9 +330,8 @@ public class LegacyFinancialImportService {
         return val;
     }
 
-    private Integer validateInteger(Row row, Integer colIdx, FormulaEvaluator e, int rNum, String sheet,
-                                    String fieldName,
-                                    List<String> errs) {
+    private Integer validateInteger(Row row, Integer colIdx, FormulaEvaluator e, int rNum,
+                                    String sheet, String fieldName, List<String> errs) {
         Double val = getNum(row, colIdx, e);
         if (val == null || val <= 0) {
             errs.add(String.format("Row %d %s: Invalid %s (Empty, Text, or <= 0). Failed.", rNum, sheet, fieldName));
@@ -370,8 +371,6 @@ public class LegacyFinancialImportService {
         Double finalTotal = v.items.stream().mapToDouble(i -> i.lineTotal).sum();
 
         // 1. Insert Venta
-        // TODO: when refactoring project to include Spring Security, for this particular case, no userID is needed. 0 is fine
-        //  because this is a one time import to start up the store's history in the new DB
         String sqlVenta = "INSERT INTO ventas (fecha, cliente_nombre, total_venta, usuario_id) VALUES (:fecha, :cliente, :total, 0)";
         MapSqlParameterSource pV = new MapSqlParameterSource()
                 .addValue("fecha", v.date.toString())

@@ -109,8 +109,9 @@ public class ProductRepository {
         // NOTA: NO actualizamos cantidad_stock aquí.
         // El stock se modifica SOLO moviendo items en stock_por_ubicacion (Triggers).
 
-        // TODO: this update should be monitored. The article code shouldn't be updated, but
-        //  based on the possible case of low quality products with NO inherent art code, it may be required.
+        // TODO: update should be monitored. The article code shouldn't be updated, but
+        // based on the possible case of low quality products with NO inherent art code,
+        // it may be required.
         String sql = """
                     UPDATE productos
                     SET codigo = :codigo,
@@ -129,5 +130,14 @@ public class ProductRepository {
         // El DELETE CASCADE en la DB se encargará de borrar el stock asociado
         String sql = "DELETE FROM productos WHERE id = :id";
         namedJdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
+    }
+
+    /**
+     * Find products with negative stock (stock < 0).
+     * Used by Dashboard "Morning Warning" modal.
+     */
+    public List<Product> findLowStock() {
+        String sql = "SELECT * FROM productos WHERE cantidad_stock < 0";
+        return jdbcTemplate.query(sql, rowMapper);
     }
 }

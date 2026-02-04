@@ -88,4 +88,12 @@ public class DeudoresService {
             return DebtStatus.PARCIAL;
         }
     }
+
+    /**
+     * Check if there are any active (non-PAGADO) debts.
+     * Used by frontend for 15-day reminder badge.
+     */
+    public boolean hasActiveDebts() {
+        return repository.hasActiveDebts();
+    }
 }

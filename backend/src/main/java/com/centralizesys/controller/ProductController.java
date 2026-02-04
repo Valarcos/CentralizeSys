@@ -89,4 +89,14 @@ public class ProductController {
         service.deleteById(id, usuarioId); // Pass it down
         return ResponseEntity.noContent().build();
     }
+
+    // GET /api/productos/alerts
+    // Returns products with negative stock for Dashboard warning
+    @GetMapping("/alerts")
+    public ResponseEntity<List<ProductResponse>> getLowStockAlerts() {
+        List<Product> alerts = service.getLowStockAlerts();
+        return ResponseEntity.ok(alerts.stream()
+                .map(ProductResponse::new)
+                .toList());
+    }
 }

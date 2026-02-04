@@ -19,18 +19,22 @@ public class AuditoriaRepository {
         this.namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
     }
 
-    private final RowMapper<Auditoria> rowMapper = (rs, rowNum) -> new Auditoria(
-            rs.getLong("id"),
-            rs.getString("fecha_hora"),
-            rs.getObject("usuario_id", Long.class), // Handle nullable
-            rs.getString("accion"),
-            rs.getString("detalles"));
+    private final RowMapper<Auditoria> rowMapper = (rs, rowNum) -> {
+        Long usuarioIdVal = rs.getLong("usuario_id");
+        Long usuarioId = rs.wasNull() ? null : usuarioIdVal;
+        return new Auditoria(
+                rs.getLong("id"),
+                rs.getString("fecha_hora"),
+                usuarioId, // Handle nullable via wasNull() check
+                rs.getString("accion"),
+                rs.getString("detalles"));
+    };
 
     public void save(Long usuarioId, String accion, String detalles) {
         String sql = """
-            INSERT INTO auditoria (usuario_id, accion, detalles, fecha_hora)
-            VALUES (:usuarioId, :accion, :detalles, :fechaHora)
-        """;
+                    INSERT INTO auditoria (usuario_id, accion, detalles, fecha_hora)
+                    VALUES (:usuarioId, :accion, :detalles, :fechaHora)
+                """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("usuarioId", usuarioId)
@@ -44,10 +48,10 @@ public class AuditoriaRepository {
     // Find logs within a range
     public List<Auditoria> findByDateRange(String startDateTime, String endDateTime) {
         String sql = """
-            SELECT * FROM auditoria
-            WHERE fecha_hora BETWEEN :start AND :end
-            ORDER BY fecha_hora DESC
-        """;
+                    SELECT * FROM auditoria
+                    WHERE fecha_hora BETWEEN :start AND :end
+                    ORDER BY fecha_hora DESC
+                """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("start", startDateTime)

@@ -94,4 +94,38 @@ class ProductRepositoryTest extends BaseIntegrationTest {
         assertThat(results).hasSize(1);
         assertThat(results.getFirst().getCodigo()).isEqualTo("SEARCH-1");
     }
+
+    @Test
+    @DisplayName("findLowStock - returns products with negative stock")
+    void findLowStock_returnsNegativeStockProducts() {
+        // Arrange - Create a product with negative stock
+        // First create product with 0 stock
+        Long productId = createTestProduct("LOW-001", 100.0, 0L);
+
+        // Manually set negative stock by subtracting more than available
+        jdbcTemplate.update(
+                "UPDATE productos SET cantidad_stock = -5 WHERE id = ?",
+                productId);
+
+        // Act
+        List<Product> lowStock = productRepository.findLowStock();
+
+        // Assert
+        assertThat(lowStock).hasSize(1);
+        assertThat(lowStock.getFirst().getCantidadStock()).isNegative();
+    }
+
+    @Test
+    @DisplayName("findLowStock - returns empty when no negative stock")
+    void findLowStock_returnsEmptyWhenNoNegativeStock() {
+        // Arrange - Create products with positive stock only
+        createTestProduct("POS-001", 100.0, 10L);
+        createTestProduct("POS-002", 200.0, 5L);
+
+        // Act
+        List<Product> lowStock = productRepository.findLowStock();
+
+        // Assert
+        assertThat(lowStock).isEmpty();
+    }
 }

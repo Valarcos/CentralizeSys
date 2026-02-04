@@ -1,0 +1,233 @@
+package com.centralizesys.repository;
+
+import com.centralizesys.BaseIntegrationTest;
+import com.centralizesys.model.sales.DetalleVenta;
+import com.centralizesys.model.sales.PagoVenta;
+import com.centralizesys.model.sales.Venta;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class VentaRepositoryTest extends BaseIntegrationTest {
+
+    @Autowired
+    private VentaRepository ventaRepository;
+
+    @Test
+    @DisplayName("saveVenta - inserts header and returns generated ID")
+    void saveVenta_insertsAndReturnsId() {
+        // Arrange
+        Long userId = createTestUser();
+        Venta venta = new Venta();
+        venta.setFecha(LocalDate.now().toString());
+        venta.setClienteNombre("Test Client");
+        venta.setTotalVenta(500.00);
+        venta.setUsuarioId(userId);
+
+        // Act
+        Long id = ventaRepository.saveVenta(venta);
+
+        // Assert
+        assertThat(id).isNotNull().isPositive();
+    }
+
+    @Test
+    @DisplayName("saveVenta - handles null clienteNombre for anonymous sales")
+    void saveVenta_handlesNullClient() {
+        // Arrange
+        Long userId = createTestUser();
+        Venta venta = new Venta();
+        venta.setFecha(LocalDate.now().toString());
+        venta.setClienteNombre(null);
+        venta.setTotalVenta(100.00);
+        venta.setUsuarioId(userId);
+
+        // Act
+        Long id = ventaRepository.saveVenta(venta);
+
+        // Assert
+        assertThat(id).isNotNull().isPositive();
+    }
+
+    @Test
+    @DisplayName("saveDetalles - batch inserts with snapshot data")
+    void saveDetalles_batchInsertsWithSnapshots() {
+        // Arrange
+        Long userId = createTestUser();
+        Long productId = createTestProduct("VENTA-001", 150.0, 10L);
+
+        Venta venta = new Venta();
+        venta.setFecha(LocalDate.now().toString());
+        venta.setClienteNombre("Snapshot Test");
+        venta.setTotalVenta(300.00);
+        venta.setUsuarioId(userId);
+        Long ventaId = ventaRepository.saveVenta(venta);
+
+        DetalleVenta det = new DetalleVenta();
+        det.setVentaId(ventaId);
+        det.setProductoId(productId);
+        det.setCodigoSnapshot("VENTA-001");
+        det.setDescripcionSnapshot("Test Product Description");
+        det.setCantidad(2L);
+        det.setPrecioLista(150.0);
+        det.setDescuentoValor(0.0);
+        det.setPrecioUnitario(150.0);
+        det.setSubtotal(300.0);
+
+        // Act
+        ventaRepository.saveDetalles(List.of(det));
+
+        // Assert
+        List<DetalleVenta> detalles = ventaRepository.findDetallesByVentaId(ventaId);
+        assertThat(detalles).hasSize(1);
+        assertThat(detalles.getFirst().getCodigoSnapshot()).isEqualTo("VENTA-001");
+        assertThat(detalles.getFirst().getDescripcionSnapshot()).isEqualTo("Test Product Description");
+    }
+
+    @Test
+    @DisplayName("savePagos - batch inserts payment records")
+    void savePagos_batchInsertsPayments() {
+        // Arrange
+        Long userId = createTestUser();
+        Venta venta = new Venta();
+        venta.setFecha(LocalDate.now().toString());
+        venta.setClienteNombre("Payment Test");
+        venta.setTotalVenta(1000.00);
+        venta.setUsuarioId(userId);
+        Long ventaId = ventaRepository.saveVenta(venta);
+
+        // Assuming methodId 1 = Efectivo (from schema.sql seeding)
+        PagoVenta pago1 = new PagoVenta();
+        pago1.setVentaId(ventaId);
+        pago1.setMetodoPagoId(1L);
+        pago1.setMonto(600.00);
+
+        PagoVenta pago2 = new PagoVenta();
+        pago2.setVentaId(ventaId);
+        pago2.setMetodoPagoId(1L);
+        pago2.setMonto(400.00);
+
+        // Act
+        ventaRepository.savePagos(List.of(pago1, pago2));
+
+        // Assert
+        List<PagoVenta> pagos = ventaRepository.findPagosByVentaId(ventaId);
+        assertThat(pagos).hasSize(2);
+        double totalPaid = pagos.stream().mapToDouble(PagoVenta::getMonto).sum();
+        assertThat(totalPaid).isEqualTo(1000.00);
+    }
+
+    @Test
+    @DisplayName("savePagos - handles empty list gracefully")
+    void savePagos_handlesEmptyList() {
+        // Assert - should not throw for empty list
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(
+                () -> ventaRepository.savePagos(List.of()));
+    }
+
+    @Test
+    @DisplayName("findById - returns Optional with venta")
+    void findById_returnsVenta() {
+        // Arrange
+        Long userId = createTestUser();
+        Venta venta = new Venta();
+        venta.setFecha(LocalDate.now().toString());
+        venta.setClienteNombre("Find Test");
+        venta.setTotalVenta(250.00);
+        venta.setUsuarioId(userId);
+        Long id = ventaRepository.saveVenta(venta);
+
+        // Act
+        Optional<Venta> found = ventaRepository.findById(id);
+
+        // Assert
+        assertThat(found).isPresent();
+        assertThat(found.get().getClienteNombre()).isEqualTo("Find Test");
+        assertThat(found.get().getTotalVenta()).isEqualTo(250.00);
+    }
+
+    @Test
+    @DisplayName("findById - returns empty Optional for non-existent ID")
+    void findById_returnsEmptyForMissing() {
+        // Act
+        Optional<Venta> found = ventaRepository.findById(99999L);
+
+        // Assert
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findAll - returns ventas ordered by fecha DESC, id DESC")
+    void findAll_returnsOrderedDescending() {
+        // Arrange
+        Long userId = createTestUser();
+
+        Venta v1 = new Venta();
+        v1.setFecha(LocalDate.now().toString());
+        v1.setClienteNombre("First");
+        v1.setTotalVenta(100.00);
+        v1.setUsuarioId(userId);
+        ventaRepository.saveVenta(v1);
+
+        Venta v2 = new Venta();
+        v2.setFecha(LocalDate.now().toString());
+        v2.setClienteNombre("Second");
+        v2.setTotalVenta(200.00);
+        v2.setUsuarioId(userId);
+        ventaRepository.saveVenta(v2);
+
+        // Act
+        List<Venta> all = ventaRepository.findAll();
+
+        // Assert - Second inserted should come first (higher ID, same date)
+        assertThat(all).hasSize(2);
+        assertThat(all.getFirst().getClienteNombre()).isEqualTo("Second");
+    }
+
+    @Test
+    @DisplayName("findDetallesByVentaId - maps all fields correctly")
+    void findDetallesByVentaId_mapsAllFields() {
+        // Arrange
+        Long userId = createTestUser();
+        Long productId = createTestProduct("MAP-001", 50.0, 5L);
+
+        Venta venta = new Venta();
+        venta.setFecha(LocalDate.now().toString());
+        venta.setClienteNombre("Map Test");
+        venta.setTotalVenta(45.00);
+        venta.setUsuarioId(userId);
+        Long ventaId = ventaRepository.saveVenta(venta);
+
+        DetalleVenta det = new DetalleVenta();
+        det.setVentaId(ventaId);
+        det.setProductoId(productId);
+        det.setCodigoSnapshot("MAP-001");
+        det.setDescripcionSnapshot("Mapping Test");
+        det.setCantidad(1L);
+        det.setPrecioLista(50.0);
+        det.setDescuentoValor(5.0);
+        det.setPrecioUnitario(45.0);
+        det.setSubtotal(45.0);
+        ventaRepository.saveDetalles(List.of(det));
+
+        // Act
+        List<DetalleVenta> detalles = ventaRepository.findDetallesByVentaId(ventaId);
+
+        // Assert - All fields mapped
+        assertThat(detalles).hasSize(1);
+        DetalleVenta found = detalles.getFirst();
+        assertThat(found.getVentaId()).isEqualTo(ventaId);
+        assertThat(found.getProductoId()).isEqualTo(productId);
+        assertThat(found.getCantidad()).isEqualTo(1L);
+        assertThat(found.getPrecioLista()).isEqualTo(50.0);
+        assertThat(found.getDescuentoValor()).isEqualTo(5.0);
+        assertThat(found.getPrecioUnitario()).isEqualTo(45.0);
+        assertThat(found.getSubtotal()).isEqualTo(45.0);
+    }
+}

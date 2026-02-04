@@ -39,4 +39,11 @@ public class DeudoresController {
 
         return ResponseEntity.ok(updated);
     }
+
+    // GET /api/deudores/reminder
+    // Returns true if active debts exist (for 15-day reminder badge)
+    @GetMapping("/reminder")
+    public ResponseEntity<Boolean> hasActiveDebtsReminder() {
+        return ResponseEntity.ok(service.hasActiveDebts());
+    }
 }

@@ -29,16 +29,15 @@ public class DeudoresRepository {
             rs.getString("cliente_nombre"),
             rs.getDouble("monto_deuda"),
             rs.getString("fecha_deuda"), // SQLite stores YYYY-MM-DD
-            rs.getString("estado")
-    );
+            rs.getString("estado"));
 
     public void save(Long ventaId, String clienteNombre, Double montoDeuda) {
         // Use native ISO format for SQLite compatibility
 
         String sql = """
-            INSERT INTO deudores (venta_id, cliente_nombre, monto_deuda, fecha_deuda, estado)
-            VALUES (:ventaId, :clienteNombre, :montoDeuda, :fechaDeuda, :estado)
-        """;
+                    INSERT INTO deudores (venta_id, cliente_nombre, monto_deuda, fecha_deuda, estado)
+                    VALUES (:ventaId, :clienteNombre, :montoDeuda, :fechaDeuda, :estado)
+                """;
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("ventaId", ventaId)
                 .addValue("clienteNombre", clienteNombre)
@@ -69,5 +68,15 @@ public class DeudoresRepository {
                 .addValue("nuevoEstado", nuevoEstado)
                 .addValue("id", id);
         namedJdbcTemplate.update(sql, params);
+    }
+
+    /**
+     * Check if there are any active (non-PAGADO) debts.
+     * Used by frontend for 15-day reminder badge.
+     */
+    public boolean hasActiveDebts() {
+        String sql = "SELECT COUNT(*) FROM deudores WHERE estado != 'PAGADO'";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
+        return count != null && count > 0;
     }
 }

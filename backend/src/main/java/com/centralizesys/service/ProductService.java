@@ -134,4 +134,11 @@ public class ProductService {
         auditoriaService.registrarAccion(usuarioId, "DELETE_PRODUCT",
                 "Eliminado producto ID " + id + ": " + p.getDescripcion());
     }
+
+    /**
+     * Get products with negative stock for Dashboard "Morning Warning".
+     */
+    public List<Product> getLowStockAlerts() {
+        return repository.findLowStock();
+    }
 }

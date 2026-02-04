@@ -12,11 +12,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// TODO: make sure to fix the CORS sonar warning eventually
 @RestController
 @RequestMapping("/api/ventas")
-@CrossOrigin(origins = "*") // Allow frontend access
-@SuppressWarnings("java:S5122")
 public class VentaController {
 
     private final VentaService ventaService;

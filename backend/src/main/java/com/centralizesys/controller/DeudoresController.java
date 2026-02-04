@@ -8,11 +8,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// TODO: replace the CORS codesmell with the proper URLs
 @RestController
 @RequestMapping("/api/deudores")
-@CrossOrigin(origins = "*")
-@SuppressWarnings("java:S5122")
 public class DeudoresController {
 
     private final DeudoresService service;

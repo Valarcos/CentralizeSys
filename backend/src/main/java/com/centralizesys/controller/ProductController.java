@@ -3,18 +3,18 @@ package com.centralizesys.controller;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.model.product.ProductRequest;
 import com.centralizesys.model.product.ProductResponse;
+import com.centralizesys.security.SecurityUtils;
 import com.centralizesys.service.ProductService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// TODO: replace the CORS codesmell with the proper URLs
 @RestController
 @RequestMapping("/api/productos")
-@CrossOrigin(origins = "*") // Allow React Frontend to access
-@SuppressWarnings("java:S5122") // TELLS SONAR: "I know this is insecure, ignore it for now."
+@PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
 public class ProductController {
 
     private final ProductService service;
@@ -85,7 +85,7 @@ public class ProductController {
     // DELETE /api/productos/{id}
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        Long usuarioId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
+        Long usuarioId = SecurityUtils.getAuthenticatedUserId();
         service.deleteById(id, usuarioId); // Pass it down
         return ResponseEntity.noContent().build();
     }

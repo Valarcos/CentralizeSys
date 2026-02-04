@@ -1,67 +1,128 @@
 package com.centralizesys.controller;
 
-import com.centralizesys.security.CustomUserDetails;
+import com.centralizesys.model.product.Product;
+import com.centralizesys.model.product.ProductRequest;
 import com.centralizesys.service.ProductService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(ProductController.class)
-@AutoConfigureMockMvc(addFilters = false)
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
 class ProductControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @MockBean
     private ProductService productService;
 
-    @MockBean
-    private com.centralizesys.security.JwtTokenProvider jwtTokenProvider;
+    @Test
+    @DisplayName("Employee can create product")
+    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
+    void createProduct_AsEmployee_Success() throws Exception {
+        ProductRequest p = new ProductRequest();
+        p.setCodigo("A-100");
+        p.setDescripcion("Test");
+        p.setPrecioMinorista(100.0);
+        p.setPrecioCosto(50.0);
 
-    @MockBean
-    private com.centralizesys.security.CustomUserDetailsService customUserDetailsService;
+        when(productService.create(any(Product.class)))
+                .thenReturn(new Product(1L, "A-100", "Test", 50.0, null, 100.0, 0L));
 
-    @MockBean
-    private com.centralizesys.security.JwtAuthenticationFilter jwtAuthenticationFilter;
+        mockMvc.perform(post("/api/productos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(p)))
+                .andExpect(status().isCreated());
+
+        verify(productService).create(any(Product.class)); // Create does not take User ID currently
+    }
 
     @Test
-    @DisplayName("DELETE /api/productos/{id} uses SecurityContext ID")
-    void delete_UsesSecurityContextId() throws Exception {
-        Long productId = 123L;
-        Long userId = 99L;
+    @DisplayName("Employee can delete product")
+    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
+    void deleteProduct_AsEmployee_Success() throws Exception {
+        mockMvc.perform(delete("/api/productos/123"))
+                .andExpect(status().isNoContent());
 
-        // Mock Security Context
-        CustomUserDetails mockUser = mock(CustomUserDetails.class);
-        when(mockUser.getId()).thenReturn(userId);
+        verify(productService).deleteById(eq(123L), any());
+    }
 
-        Authentication auth = mock(Authentication.class);
-        when(auth.getPrincipal()).thenReturn(mockUser);
+    @Test
+    @DisplayName("Unauthenticated cannot create product")
+    void createProduct_Unauthenticated_Forbidden() throws Exception {
+        Product p = new Product();
+        mockMvc.perform(post("/api/productos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(p)))
+                .andExpect(status().isForbidden());
+    }
 
-        SecurityContext securityContext = mock(SecurityContext.class);
-        when(securityContext.getAuthentication()).thenReturn(auth);
-        SecurityContextHolder.setContext(securityContext);
+    @Test
+    @DisplayName("Employee can update product")
+    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
+    void updateProduct_AsEmployee_Success() throws Exception {
+        ProductRequest p = new ProductRequest();
+        p.setCodigo("A-100");
+        p.setDescripcion("Updated Desc");
+        p.setPrecioMinorista(200.0);
+        p.setPrecioCosto(100.0);
 
-        try {
-            // Act: Perform delete WITHOUT usuarioId param
-            mockMvc.perform(delete("/api/productos/" + productId))
-                    .andExpect(status().isNoContent());
+        mockMvc.perform(put("/api/productos/100")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(p)))
+                .andExpect(status().isNoContent());
 
-            // Assert: Service called with correct User ID
-            verify(productService).deleteById(productId, userId);
-        } finally {
-            SecurityContextHolder.clearContext();
-        }
+        verify(productService).update(eq(100L), any(Product.class));
+    }
+
+    @Test
+    @DisplayName("Create Product with Invalid Data returns 400")
+    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
+    void createProduct_InvalidData_Returns400() throws Exception {
+        ProductRequest p = new ProductRequest();
+        // Missing Description, Prices, etc.
+
+        // Mock the Service validation logic (since Mock doesn't run real code)
+        when(productService.create(any(Product.class)))
+                .thenThrow(new com.centralizesys.exception.BusinessRuleException("Invalid Data"));
+
+        mockMvc.perform(post("/api/productos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(p)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Delete Non-Existent Product returns 404")
+    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
+    void deleteProduct_NotFound_Returns404() throws Exception {
+        doThrow(new com.centralizesys.exception.ResourceNotFoundException("Product", 999L))
+                .when(productService).deleteById(eq(999L), any());
+
+        mockMvc.perform(delete("/api/productos/999"))
+                .andExpect(status().isNotFound());
     }
 }

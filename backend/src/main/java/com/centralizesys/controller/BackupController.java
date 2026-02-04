@@ -19,8 +19,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/backup")
-@CrossOrigin(origins = "*")
-@SuppressWarnings("java:S5122") // Ignored: CORS accepted for local desktop usage
 public class BackupController {
 
     private static final Logger log = LoggerFactory.getLogger(BackupController.class);

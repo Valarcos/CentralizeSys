@@ -7,11 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-// TODO: Configure specific origins for production security
 @RestController
 @RequestMapping("/api/compras")
-@CrossOrigin(origins = "*")
-@SuppressWarnings("java:S5122")
 public class CompraController {
 
     private final CompraService compraService;

@@ -4,15 +4,13 @@ import com.centralizesys.model.audit.Auditoria;
 import com.centralizesys.service.AuditoriaService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
-// TODO: Configure specific origins for production security
 @RestController
 @RequestMapping("/api/auditoria")
-@CrossOrigin(origins = "*")
-@SuppressWarnings("java:S5122") // Ignored: CORS accepted for local desktop usage
 public class AuditoriaController {
 
     private final AuditoriaService auditoriaService;
@@ -26,6 +24,7 @@ public class AuditoriaController {
      * Defaults to the last 30 days if no dates are provided.
      * Format: YYYY-MM-DDTHH:mm:ss (ISO 8601)
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<List<Auditoria>> getLogs(
             @RequestParam(required = false) String from,

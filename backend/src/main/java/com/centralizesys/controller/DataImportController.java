@@ -13,8 +13,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/import")
-@CrossOrigin(origins = "*")
-@SuppressWarnings("java:S5122") // Ignored: CORS accepted for local desktop usage
 public class DataImportController {
 
     private static final Logger log = LoggerFactory.getLogger(DataImportController.class);

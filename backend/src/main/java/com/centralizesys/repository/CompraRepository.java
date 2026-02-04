@@ -38,6 +38,7 @@ public class CompraRepository {
         return Objects.requireNonNull(keyHolder.getKey()).longValue();
     }
 
+    // TODO: This method has no usage in the whole project based on INTELLIJ analysis. Verify and remove if its deemed unnecessary
     public void saveDetalle(DetalleCompra detalle) {
         String sql = """
             INSERT INTO detalles_compra (compra_id, producto_id, cantidad, costo_unitario, subtotal)

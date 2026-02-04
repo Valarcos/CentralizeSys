@@ -11,8 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/locations")
-@CrossOrigin(origins = "*")
-@SuppressWarnings("java:S5122")
 public class LocationController {
 
     private final LocationService service;

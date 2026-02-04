@@ -4,9 +4,12 @@ import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.model.auth.Usuario;
 import com.centralizesys.model.auth.UsuarioRole;
 import com.centralizesys.repository.UsuarioRepository;
+import com.centralizesys.security.SecurityUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class UsuarioService {
@@ -62,5 +65,31 @@ public class UsuarioService {
 
         // 3. Persist
         usuarioRepository.save(newUser);
+
+    }
+
+    public List<Usuario> getAll() {
+        return usuarioRepository.findAll();
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        if (id == 0L) {
+            throw new BusinessRuleException("No se puede eliminar al Usuario del Sistema.");
+        }
+
+        Long currentUserId = SecurityUtils.getAuthenticatedUserId();
+        if (id.equals(currentUserId)) {
+            throw new BusinessRuleException("No puedes eliminar tu propia cuenta.");
+        }
+
+        // Check if exists
+        Usuario toDelete = usuarioRepository.findById(id)
+                .orElseThrow(() -> new com.centralizesys.exception.ResourceNotFoundException(
+                        "Usuario", id));
+
+        usuarioRepository.deleteById(id);
+
+        auditoriaService.registrarAccion(currentUserId, "DELETE_USER", "Usuario eliminado: " + toDelete.getEmail());
     }
 }

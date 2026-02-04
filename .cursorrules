@@ -218,8 +218,8 @@
 *   **Phase 1 (100%):** Core Logic (Done).
 *   **Phase 2 (100%):** Data Safety(Backup Service, Excel Import).(Done - Polishing).
 *   **Phase 2.5:** Security Infrastructure (Spring Security, JWT/Auth, User Isolation).
-*   **Phase 3:** External (TiendaNube).
-*   **Phase 4:** Frontend (React) / Flutter.
+*   **Phase 3:** Frontend (React / Flutter).
+*   **Phase 4:** External Integration (TiendaNube).
 ---
 
 ## 8. General Guidelines
@@ -245,3 +245,17 @@
     *   System-level configuration changes.
     *   File deletion (outside of requested changes).
     *   File relocation (outside of requested changes).
+
+---
+
+## 10. Future Roadmap & Handover
+*   **Audit Access:** Once the system is stable and users are proficient, grant Owners (`EMPLEADO`) access to `GET /api/auditoria` (Read-only).
+*   **User Management:** eventually allow Owners to create/manage their own cashier accounts (Self-Service).
+*   **Hosting:** Transition from Local/Tunnel to Cloud VPS (Oracle Always Free) for "One-and-Done" reliability.
+
+## 11. Technical Debt & Known Issues
+*   **Repository Testing:**
+    *   **Status:** Critical Gap.
+    *   **Issue:** Only `UsuarioRepository` and `ProductRepository` have integration tests.
+    *   **Requirement:** Due to Raw JDBC usage, ALL repositories (`auditoria`, `compras`, `deudores`, `MetodoPagoRepository`, `ventas`, `stock`) require integration tests to verify SQL syntax and RowMapper logic.
+    *   **Plan:** Must be addressed in Phase 3 or earlier.

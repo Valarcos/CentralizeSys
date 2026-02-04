@@ -35,8 +35,7 @@ public class UsuarioRepository {
         List<Usuario> users = namedJdbcTemplate.query(
                 sql,
                 new MapSqlParameterSource(EMAIL, email),
-                rowMapper
-        );
+                rowMapper);
         return users.stream().findFirst();
     }
 
@@ -45,16 +44,15 @@ public class UsuarioRepository {
         List<Usuario> users = namedJdbcTemplate.query(
                 sql,
                 new MapSqlParameterSource("id", id),
-                rowMapper
-        );
+                rowMapper);
         return users.stream().findFirst();
     }
 
     public void save(Usuario usuario) {
         String sql = """
-            INSERT INTO usuarios (nombre, email, password_hash, rol)
-            VALUES (:nombre, :email, :passwordHash, :rol)
-        """;
+                    INSERT INTO usuarios (nombre, email, password_hash, rol)
+                    VALUES (:nombre, :email, :passwordHash, :rol)
+                """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("nombre", usuario.getNombre())
@@ -63,5 +61,15 @@ public class UsuarioRepository {
                 .addValue("rol", usuario.getRol().name());
 
         namedJdbcTemplate.update(sql, params);
+    }
+
+    public List<Usuario> findAll() {
+        String sql = "SELECT * FROM usuarios";
+        return namedJdbcTemplate.query(sql, rowMapper);
+    }
+
+    public void deleteById(Long id) {
+        String sql = "DELETE FROM usuarios WHERE id = :id";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
     }
 }

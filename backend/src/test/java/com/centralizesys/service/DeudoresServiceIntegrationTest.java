@@ -78,7 +78,7 @@ class DeudoresServiceIntegrationTest extends BaseIntegrationTest {
         Long ventaId = ventaRepository.saveVenta(venta);
 
         deudoresRepository.save(ventaId, "Math User", 10.00);
-        Long deudaId = deudoresRepository.findAll().get(0).getId();
+        Long deudaId = deudoresRepository.findAll().getFirst().getId();
 
         // Pay 1: 3.33
         DeudaResponse r1 = deudoresService.registrarPago(deudaId, 3.33, userId);

@@ -109,9 +109,8 @@ public class ProductRepository {
         // NOTA: NO actualizamos cantidad_stock aquí.
         // El stock se modifica SOLO moviendo items en stock_por_ubicacion (Triggers).
 
-        // TODO: this update should be monitored. The code shouldn't be updated, but
-        // based on the case of low quality
-        // products with NO inherent code, it may be required.
+        // TODO: this update should be monitored. The article code shouldn't be updated, but
+        //  based on the possible case of low quality products with NO inherent art code, it may be required.
         String sql = """
                     UPDATE productos
                     SET codigo = :codigo,

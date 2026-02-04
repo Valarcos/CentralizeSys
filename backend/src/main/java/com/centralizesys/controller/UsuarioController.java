@@ -7,12 +7,13 @@ import com.centralizesys.model.auth.UsuarioResponse;
 import com.centralizesys.service.UsuarioService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/usuarios")
-@CrossOrigin(origins = "*")
-@SuppressWarnings("java:S5122") // Sonar: Explicitly ignoring CORS rule for local usage
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
@@ -34,8 +35,7 @@ public class UsuarioController {
         UsuarioResponse response = new UsuarioResponse(
                 user.getId(),
                 user.getNombre(),
-                user.getEmail()
-        );
+                user.getEmail());
 
         return ResponseEntity.ok(response);
     }
@@ -43,13 +43,40 @@ public class UsuarioController {
     /**
      * Endpoint to register new admin users.
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/register")
     public ResponseEntity<Void> register(@RequestBody RegisterRequest request) {
         usuarioService.registrarUsuario(
                 request.getNombre(),
                 request.getEmail(),
-                request.getPassword()
-        );
+                request.getPassword());
         return new ResponseEntity<>(HttpStatus.CREATED);
+    }
+
+    /**
+     * Endpoint to list all users.
+     * Admin Only.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping
+    public ResponseEntity<List<UsuarioResponse>> getAll() {
+        List<Usuario> users = usuarioService.getAll();
+
+        List<UsuarioResponse> response = users.stream()
+                .map(u -> new UsuarioResponse(u.getId(), u.getNombre(), u.getEmail()))
+                .toList();
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Endpoint to delete a user.
+     * Admin Only.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        usuarioService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -1,6 +1,7 @@
 package com.centralizesys.config;
 
 import com.centralizesys.security.JwtAuthenticationFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -16,9 +17,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true) // Allows using @PreAuthorize in our Controllers/Services
+@EnableMethodSecurity // Allows using @PreAuthorize in our Controllers/Services
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -45,7 +52,8 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 // Disable CSRF: Not required for stateless REST APIs using JWT
-                 // Disable CSRF: Safe because we are stateless and use 'Authorization' headers (not cookies)
+                // Disable CSRF: Safe because we are stateless and use 'Authorization' headers
+                // (not cookies)
                 .csrf(AbstractHttpConfigurer::disable)
 
                 // Enable CORS with defaults (looks for a CorsConfigurationSource bean)
@@ -94,5 +102,36 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(10);
+    }
+
+    @Value("${app.cors.allowed-origins:http://localhost:3000}")
+    private String allowedOrigins;
+
+    /**
+     * Global CORS Configuration.
+     * Prepares backend for Frontend Integration (Phase 3).
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // Allowed Origins: Injected from application.properties
+        // Supports comma-separated values (e.g.
+        // "http://localhost:3000,http://192.168.1.5:3000")
+        configuration.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
+
+        // Allowed Methods
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        // Allowed Headers
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control"));
+
+        // Allow Credentials (if needed for future cookie usage, safe with
+        // OriginPatterns)
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }

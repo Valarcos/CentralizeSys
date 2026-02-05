@@ -81,6 +81,10 @@ desktop.ini
 ######## CREDENTIALS & ENV FILES #######
 .env
 .env.*
+!frontend/.env
+# Exception: frontend/.env only has VITE_API_URL (non-secret)
+# If you add secrets, use frontend/.env.local instead
+
 *.key
 *.pem
 *.crt
@@ -101,6 +105,26 @@ google-service-account.json
 ~$*.xlsx
 *.tmp
 *.bak
+
+############# NODE.JS / NPM ##############
+# Dependencies folder (regenerated from package-lock.json)
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Vite cache
+.vite/
+
+# ESLint cache
+.eslintcache
+
+# Local env files with secrets (but NOT package.json/lock!)
+# NOTE: frontend/.env with VITE_API_URL is safe to commit
+# If you have secrets, use .env.local instead
+.env.local
+.env.*.local
 
 ########################################
 #      END OF GITIGNORE                #

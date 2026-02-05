@@ -149,8 +149,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
 );;
 
 -- Usuario Admin por defecto
+-- TODO: Delete this insertion before production deployment (Sprint 8)
 INSERT OR IGNORE INTO usuarios (nombre, email, password_hash)
-VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$placeholderHash');;
+VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu');;
 
 
 -- 12. Auditoria

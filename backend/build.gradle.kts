@@ -67,6 +67,13 @@ tasks.test {
     maxHeapSize = "2048m"
 }
 
+// CRITICAL FIX: Ensure bootRun uses project root as working directory
+// This ensures the database is created in the same location (data/) whether
+// running from IntelliJ or via ./gradlew bootRun
+tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+    workingDir = rootProject.projectDir.parentFile
+}
+
 // CRITICAL FIX: Handle Spanish accents in source code
 tasks.withType<JavaCompile> {
     options.encoding = "UTF-8"

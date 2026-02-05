@@ -255,7 +255,55 @@
 
 ## 11. Technical Debt & Known Issues
 *   **Repository Testing:**
-    *   **Status:** Critical Gap.
-    *   **Issue:** Only `UsuarioRepository` and `ProductRepository` have integration tests.
-    *   **Requirement:** Due to Raw JDBC usage, ALL repositories (`auditoria`, `compras`, `deudores`, `MetodoPagoRepository`, `ventas`, `stock`) require integration tests to verify SQL syntax and RowMapper logic.
-    *   **Plan:** Must be addressed in Phase 3 or earlier.
+    *   **Status:** RESOLVED (Sprint 1).
+    *   **Issue:** Only `UsuarioRepository` and `ProductRepository` had integration tests.
+    *   **Resolution:** ALL repositories (`auditoria`, `compras`, `deudores`, `MetodoPagoRepository`, `ventas`, `stock`, `productos`) now have comprehensive integration tests.
+
+*   **Authentication Security (Phase 4+):**
+    *   **Status:** Critical Security Gap.
+    *   **Issue 1: Failed Login Auditing**
+        *   **Requirement:** Multiple failed login attempts within a short period MUST be logged to the `auditoria` table.
+        *   **Data to Capture:** Timestamp, attempted email, IP address (if available), number of attempts.
+        *   **Trigger:** Consecutive failures within 15-minute window.
+        *   **Plan:** Implement after backend Phase 3 is complete.
+
+    *   **Issue 2: Brute-Force Protection**
+        *   **Requirement:** Limit failed login attempts to prevent brute-force attacks.
+        *   **Mechanism:**
+            *   **Threshold:** 5 failed attempts per email within 15 minutes.
+            *   **Action:** Temporarily block login attempts for that email (e.g., 30-minute cooldown).
+            *   **User Notification:** Display message: "Demasiados intentos fallidos. Intente nuevamente en 30 minutos."
+            *   **Admin Notification:** Send email to system administrator with:
+                *   Date and time of block
+                *   Number of failed attempts that triggered the block
+                *   Email(s) used in login attempts
+                *   IP address (if available)
+            *   **User Notification (Optional):** Send email to the legitimate user (if email exists in system) alerting them of suspicious activity.
+        *   **Full Traceability:** All failed attempts, blocks, and cooldown releases MUST be audited in the `auditoria` table.
+        *   **Plan:** Implement after frontend Phase 2 is complete.
+
+    *   **Issue 3: Single Session Per User**
+        *   **Requirement:** Enforce a limit of 1 active session per user.
+        *   **Behavior:** When a user logs in from a new device, any existing session for that user is automatically invalidated.
+        *   **Implementation Approach:**
+            *   Create `active_tokens` table to track one active token per user.
+            *   On login: Delete old tokens for that user, insert new token.
+            *   On request: Validate JWT signature AND check if token exists in `active_tokens`.
+            *   On logout: Delete token from `active_tokens`.
+        *   **User Experience:** If user logs in on mobile while logged in on desktop, desktop session receives 401 on next request and auto-redirects to login.
+        *   **Audit Trail:** Log device info (user agent) on each login for security tracking.
+        *   **Plan:** Implement in Phase 4 or later (after frontend MVP).
+        *   **Client Consultation Required:** Evaluate trade-offs between true stateless JWT vs active token table approach. Stateless = no DB lookup per request but cannot revoke tokens. Active token table = 1 DB query per request but allows instant revocation and single-session enforcement.
+
+    *   **Issue 4: Token Blacklist/Revocation**
+        *   **Requirement:** Ability to manually invalidate JWT tokens before expiration (e.g., for security incidents, compromised accounts, or admin tools).
+        *   **Current Limitation:** JWT tokens remain valid until expiration (7 days) even after logout (client-side only).
+        *   **Enhanced Security Option:** Implement token blacklist table to allow server-side revocation.
+        *   **Trade-off:** Adds backend state (DB lookup per request) vs pure stateless architecture.
+        *   **Plan:** Implement after frontend phase is complete.
+        *   **Note:** This overlaps with Issue 3 (Single Session). If implementing active token table for single-session enforcement, blacklist capability comes for free.
+
+    *   **Issue 5: Edit User Details**
+        *   **Requirement:** Ability to edit existing user details (e.g., password, email, role).
+        *   **Current Limitation:** No endpoint exists to update user information; only Create and Delete are supported.
+        *   **Plan:** Implement `PUT /api/usuarios/{id}` endpoint and corresponding service logic in Phase 2.5/3.

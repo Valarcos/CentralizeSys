@@ -1,5 +1,6 @@
 package com.centralizesys.service;
 
+import com.centralizesys.config.DataPathConfig;
 import com.centralizesys.exception.InfrastructureException;
 import com.centralizesys.model.dto.BackupFileDTO;
 import com.centralizesys.model.product.Product;
@@ -40,14 +41,14 @@ public class BackupService {
     private static final Logger log = LoggerFactory.getLogger(BackupService.class);
     private static final DateTimeFormatter FMT_FILE = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
 
-    // Constants
-    private static final String DIR_DAILY = "backups/daily";
-    private static final String DIR_MANUAL = "backups/manual";
-    private static final String DIR_CHECKPOINTS = "backups/checkpoints";
+    // Constants - using DataPathConfig for consistent absolute paths
+    private static final String DIR_DAILY = DataPathConfig.resolveString("backups/daily");
+    private static final String DIR_MANUAL = DataPathConfig.resolveString("backups/manual");
+    private static final String DIR_CHECKPOINTS = DataPathConfig.resolveString("backups/checkpoints");
     private static final String EXT_DB = ".db";
     private static final String EXT_XLSX = ".xlsx";
     private static final String PREFIX_DB = "centralizesys_";
-    private static final String RESTORE_TRIGGER_PATH = "data/centralizesys.restore";
+    private static final String RESTORE_TRIGGER_PATH = DataPathConfig.resolveString("data/centralizesys.restore");
     private static final Long RETENTION_DAYS_DAILY = 60L;
     private static final Long CHECKPOINT_TTL_MS = 12 * 60 * 60 * 1000L;
     private static final String FECHA = "Fecha";
@@ -133,8 +134,10 @@ public class BackupService {
     private void executeVacuumInto(Path fullDbPath) {
         String pathStr = fullDbPath.toAbsolutePath().toString();
 
-        // STRICT SECURITY: Whitelist allowed characters to prevent SQL Injection via filename
-        // Allow: Alphanumeric, underscore, hyphen, dot, forward/back slash, colon, space, brackets, parens, tilde, plus
+        // STRICT SECURITY: Whitelist allowed characters to prevent SQL Injection via
+        // filename
+        // Allow: Alphanumeric, underscore, hyphen, dot, forward/back slash, colon,
+        // space, brackets, parens, tilde, plus
         if (!pathStr.matches("^[a-zA-Z0-9_\\-./\\\\: ()+\\[\\]~]+$")) {
             throw new IllegalArgumentException(
                     "Invalid path for backup: Path contains prohibited characters. Path: " + pathStr);
@@ -372,7 +375,7 @@ public class BackupService {
                     date,
                     Files.size(path),
                     type.name() + (name.endsWith(EXT_DB) ? "_DB" : "_EXCEL"));
-                    // the operation after + is an if else that checks the file extension
+            // the operation after + is an if else that checks the file extension
         } catch (IOException e) {
             return null;
         }

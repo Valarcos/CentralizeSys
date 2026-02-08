@@ -2,7 +2,6 @@ package com.centralizesys.config;
 
 import org.springframework.context.annotation.Profile;
 import org.sqlite.SQLiteConfig;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -17,16 +16,17 @@ import javax.sql.DataSource;
 @Profile("!test")
 public class DatabaseConfig {
 
-    // Read the URL from application.properties
-    @Value("${spring.datasource.url}")
-    private String dbUrl;
-
     /**
      * Configura el DataSource apuntando al archivo local.
      * Importante: Habilita explícitamente las Foreign Keys.
+     * Uses DataPathConfig to resolve absolute path for consistent DB location.
      */
     @Bean
     public DataSource dataSource() {
+        // Use DataPathConfig for consistent absolute path regardless of working
+        // directory
+        String absoluteDbUrl = DataPathConfig.getDatabaseUrl();
+
         // Configuraciones específicas de SQLite para integridad de datos
         SQLiteConfig config = new SQLiteConfig();
         config.enforceForeignKeys(true); // CRUCIAL: Habilita FKs para triggers y restricciones
@@ -35,9 +35,7 @@ public class DatabaseConfig {
 
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
         dataSource.setDriverClassName("org.sqlite.JDBC");
-
-        // Use the injected variable instead of hardcoded string
-        dataSource.setUrl(dbUrl);
+        dataSource.setUrl(absoluteDbUrl);
         dataSource.setConnectionProperties(config.toProperties());
         return dataSource;
     }

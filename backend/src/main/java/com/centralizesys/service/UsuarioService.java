@@ -92,4 +92,62 @@ public class UsuarioService {
 
         auditoriaService.registrarAccion(currentUserId, "DELETE_USER", "Usuario eliminado: " + toDelete.getEmail());
     }
+
+    /**
+     * Updates a user's details.
+     * Only non-null fields in the request will be updated.
+     */
+    @Transactional
+    public void update(Long id, com.centralizesys.model.auth.UpdateUserRequest request) {
+        if (id == 0L) {
+            throw new BusinessRuleException("No se puede modificar al Usuario del Sistema.");
+        }
+
+        Usuario existing = usuarioRepository.findById(id)
+                .orElseThrow(() -> new com.centralizesys.exception.ResourceNotFoundException("Usuario", id));
+
+        updateNombre(existing, request.nombre());
+        updateEmail(existing, request.email());
+        updatePassword(existing, request.password());
+        updateRol(existing, request.rol());
+
+        usuarioRepository.update(existing);
+
+        Long currentUserId = SecurityUtils.getAuthenticatedUserId();
+        auditoriaService.registrarAccion(currentUserId, "UPDATE_USER",
+                "Usuario actualizado: " + existing.getEmail());
+    }
+
+    private void updateNombre(Usuario user, String nombre) {
+        if (nombre != null && !nombre.isBlank()) {
+            user.setNombre(nombre);
+        }
+    }
+
+    private void updateEmail(Usuario user, String email) {
+        if (email == null || email.isBlank()) {
+            return;
+        }
+        // Check email uniqueness if changing (merged if statements)
+        if (!email.equals(user.getEmail()) && usuarioRepository.findByEmail(email).isPresent()) {
+            throw new BusinessRuleException("El correo '" + email + "' ya está registrado.");
+        }
+        user.setEmail(email);
+    }
+
+    private void updatePassword(Usuario user, String password) {
+        if (password != null && !password.isBlank()) {
+            user.setPasswordHash(passwordEncoder.encode(password));
+        }
+    }
+
+    private void updateRol(Usuario user, String rol) {
+        if (rol == null || rol.isBlank()) {
+            return;
+        }
+        if (!rol.equals("ADMIN") && !rol.equals("EMPLEADO")) {
+            throw new BusinessRuleException("Rol debe ser ADMIN o EMPLEADO.");
+        }
+        user.setRol(UsuarioRole.valueOf(rol));
+    }
 }

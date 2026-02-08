@@ -46,3 +46,81 @@
     color: var(--color-secondary);
     font-size: 1.1rem;
 }
+
+/* Clickable Cards */
+.dashboard-card.clickable {
+    cursor: pointer;
+}
+
+.dashboard-card.clickable:focus {
+    outline: 3px solid var(--color-warning);
+    outline-offset: 2px;
+}
+
+.dashboard-card.admin-card {
+    border-color: var(--color-primary);
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+/* Debtor Reminder Badge */
+.debtor-reminder {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+    border: 2px solid #ffc107;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.debtor-reminder:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+.debtor-reminder:focus {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.reminder-icon {
+    font-size: 2rem;
+}
+
+.reminder-text {
+    flex: 1;
+    font-size: 1.1rem;
+    color: #664d03;
+}
+
+.reminder-amount {
+    font-size: 1.1rem;
+    color: #664d03;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+}
+
+.reminder-arrow {
+    font-size: 1.5rem;
+    color: #664d03;
+}
+
+@media (max-width: 600px) {
+    .debtor-reminder {
+        flex-wrap: wrap;
+    }
+
+    .reminder-amount {
+        width: 100%;
+        margin-top: var(--spacing-sm);
+        text-align: center;
+    }
+
+    .reminder-arrow {
+        display: none;
+    }
+}

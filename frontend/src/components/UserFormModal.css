@@ -1,0 +1,108 @@
+/* User Form Modal Styles */
+.user-form-modal {
+    background-color: white;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.user-form-modal h2 {
+    color: var(--color-primary);
+    margin: 0 0 var(--spacing-lg) 0;
+    padding-bottom: var(--spacing-md);
+    border-bottom: 2px solid var(--color-border);
+}
+
+.user-form-modal .form-group {
+    margin-bottom: var(--spacing-lg);
+}
+
+.user-form-modal label {
+    display: block;
+    margin-bottom: var(--spacing-xs);
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--color-text);
+}
+
+.user-form-modal .required {
+    color: var(--color-error);
+}
+
+.user-form-modal input,
+.user-form-modal select {
+    width: 100%;
+    padding: var(--spacing-md);
+    font-size: 1.1rem;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    transition: border-color 0.2s ease;
+}
+
+.user-form-modal input:focus,
+.user-form-modal select:focus {
+    border-color: var(--color-primary);
+    outline: 3px solid var(--color-warning);
+    outline-offset: 2px;
+}
+
+.user-form-modal input[aria-invalid="true"],
+.user-form-modal select[aria-invalid="true"] {
+    border-color: var(--color-error);
+}
+
+.user-form-modal .error-message {
+    display: block;
+    color: var(--color-error);
+    font-size: 0.95rem;
+    margin-top: var(--spacing-xs);
+    font-weight: 500;
+}
+
+.user-form-modal .help-text {
+    display: block;
+    color: var(--color-secondary);
+    font-size: 0.9rem;
+    margin-top: var(--spacing-xs);
+    font-style: italic;
+}
+
+.user-form-modal .modal-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+}
+
+.user-form-modal .modal-actions button {
+    min-width: 140px;
+}
+
+.user-form-modal select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23001f3f' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
+}
+
+@media (max-width: 480px) {
+    .user-form-modal {
+        width: 95%;
+        padding: var(--spacing-lg);
+    }
+
+    .user-form-modal .modal-actions {
+        flex-direction: column-reverse;
+    }
+
+    .user-form-modal .modal-actions button {
+        width: 100%;
+    }
+}

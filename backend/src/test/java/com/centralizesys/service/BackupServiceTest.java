@@ -1,5 +1,6 @@
 package com.centralizesys.service;
 
+import com.centralizesys.config.DataPathConfig;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.repository.VentaRepository;
 import com.centralizesys.repository.CompraRepository;
@@ -71,11 +72,8 @@ class BackupServiceTest {
         // 2. Verify Audit Success
         verify(auditoriaService).registrarAccion(eq(1L), eq("BACKUP_EXITOSO"), contains("MANUAL"));
 
-        // 3. Verify Excel File Creation
-        // (Optional: Verify file exists in backups/manual, but integration test does
-        // this better.
-        // Here we mainly test the flow logic).
-        File dir = new File("backups/manual");
+        // 3. Verify Excel File Creation (using DataPathConfig for consistent path)
+        File dir = DataPathConfig.resolve("backups/manual").toFile();
         if (dir.exists()) {
             File[] excelFiles = dir
                     .listFiles((d, name) -> name.startsWith("centralizesys_manual_") && name.endsWith(".xlsx"));

@@ -1,7 +1,13 @@
 package com.centralizesys.exception;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.PermissionDeniedDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
@@ -13,45 +19,111 @@ import org.springframework.web.server.ResponseStatusException;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Handles ResourceNotFoundException explicitly
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // DOMAIN EXCEPTIONS (Business Logic)
+    // ══════════════════════════════════════════════════════════════════════════════
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
+        log.warn("Resource not found: {}", ex.getMessage());
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.NOT_FOUND.value(),
-                ex.getMessage(),
+                ex.getMessage(), // Already user-friendly (e.g., "Producto no encontrado")
                 System.currentTimeMillis());
         return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
-    }
-    // The IDE AI suggested a Hybryd approach with exception categories that
-    // can handle different kinds of errors. This avoids too many exception classes.
-
-    // Handles DB constraints (Unique keys, Foreign keys)
-    // Maps "SQL Error 19/2067" -> 400 Bad Request
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        // We extract the root cause message. getMostSpecificCause() returns 'this' if
-        // no root cause found, never null.
-        String detail = ex.getMostSpecificCause().getMessage();
-
-        ErrorResponse error = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                "Data Integrity Violation: " + detail,
-                System.currentTimeMillis());
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(BusinessRuleException.class)
     public ResponseEntity<ErrorResponse> handleBusinessRule(BusinessRuleException ex) {
+        log.warn("Business rule violation: {}", ex.getMessage());
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
-                ex.getMessage(),
+                ex.getMessage(), // Already user-friendly
                 System.currentTimeMillis());
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
+    // ══════════════════════════════════════════════════════════════════════════════
+    // DATABASE EXCEPTIONS (Translated via sql-error-codes.xml)
+    // ══════════════════════════════════════════════════════════════════════════════
+
+    // Handles DB constraints: UNIQUE, FK, CHECK, NOT NULL (codes: 19, 275, 531,
+    // 787, etc.)
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String detail = ex.getMostSpecificCause().getMessage();
+        log.error("DATA INTEGRITY VIOLATION: {}", detail, ex);
+
+        // User-friendly message - technical detail goes to console
+        String userMessage = "Error de datos: Los datos ingresados no son válidos o ya existen.";
+        if (detail != null && detail.contains("UNIQUE")) {
+            userMessage = "Error: Ya existe un registro con los mismos datos únicos.";
+        } else if (detail != null && detail.contains("FOREIGN KEY")) {
+            userMessage = "Error: No se puede realizar la operación porque hay registros relacionados.";
+        } else if (detail != null && detail.contains("NOT NULL")) {
+            userMessage = "Error: Faltan datos obligatorios.";
+        }
+
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                userMessage,
+                System.currentTimeMillis());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
+
+    // Handles SQL syntax errors (code: 1) - This is a developer bug, not user error
+    @ExceptionHandler(BadSqlGrammarException.class)
+    public ResponseEntity<ErrorResponse> handleBadSqlGrammar(BadSqlGrammarException ex) {
+        log.error("SQL SYNTAX ERROR - SQL: {}, Message: {}", ex.getSql(), ex.getMessage(), ex);
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Error interno del servidor. Contacte al administrador.",
+                System.currentTimeMillis());
+        return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // Handles database locking (codes: 5, 6) - Retry or wait
+    @ExceptionHandler(CannotAcquireLockException.class)
+    public ResponseEntity<ErrorResponse> handleDatabaseLock(CannotAcquireLockException ex) {
+        log.warn("DATABASE LOCK: {}", ex.getMessage(), ex);
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                "La base de datos está ocupada. Intente nuevamente en unos segundos.",
+                System.currentTimeMillis());
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
+
+    // Handles I/O errors, disk full, corrupt database (codes: 10, 11, 13, 14, 26)
+    @ExceptionHandler(DataAccessResourceFailureException.class)
+    public ResponseEntity<ErrorResponse> handleResourceFailure(DataAccessResourceFailureException ex) {
+        log.error("DATABASE RESOURCE FAILURE: {}", ex.getMessage(), ex);
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "Error de acceso a la base de datos. Verifique el estado del servidor.",
+                System.currentTimeMillis());
+        return new ResponseEntity<>(error, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    // Handles permission denied (codes: 3, 23)
+    @ExceptionHandler(PermissionDeniedDataAccessException.class)
+    public ResponseEntity<ErrorResponse> handleDbPermissionDenied(PermissionDeniedDataAccessException ex) {
+        log.error("DATABASE PERMISSION DENIED: {}", ex.getMessage(), ex);
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                "Error de permisos en la base de datos. Contacte al administrador.",
+                System.currentTimeMillis());
+        return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // SECURITY / HTTP EXCEPTIONS
+    // ══════════════════════════════════════════════════════════════════════════════
+
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ErrorResponse> handleResponseStatusException(
-            ResponseStatusException ex) {
+    public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
+        log.warn("Response status exception: {} - {}", ex.getStatusCode(), ex.getReason());
         ErrorResponse error = new ErrorResponse(
                 ex.getStatusCode().value(),
                 ex.getReason(),
@@ -61,24 +133,32 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex) {
+        log.warn("Access denied: {}", ex.getMessage());
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
-                "Acceso Denegado: " + ex.getMessage(),
+                "Acceso denegado: No tiene permiso para realizar esta acción.",
                 System.currentTimeMillis());
         return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
 
-    // Handles all other generic exceptions (catch-all)
+    // ══════════════════════════════════════════════════════════════════════════════
+    // CATCH-ALL (Unexpected errors)
+    // ══════════════════════════════════════════════════════════════════════════════
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        log.error("UNEXPECTED ERROR: {}", ex.getMessage(), ex);
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "An unexpected error occurred: " + ex.getMessage(),
+                "Ocurrió un error inesperado. Contacte al administrador.",
                 System.currentTimeMillis());
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // Simple record to structure the JSON response nicely
+    // ══════════════════════════════════════════════════════════════════════════════
+    // RESPONSE RECORD
+    // ══════════════════════════════════════════════════════════════════════════════
+
     public record ErrorResponse(int status, String message, long timestamp) {
     }
 }

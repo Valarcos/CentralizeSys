@@ -31,21 +31,16 @@ INSERT OR IGNORE INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad) 
                                                                                     ((SELECT id FROM productos WHERE codigo='ART-SWEATER'), (SELECT id FROM ubicaciones WHERE nombre='Salón Principal'), 3),
                                                                                     ((SELECT id FROM productos WHERE codigo='ACC-CINT'), (SELECT id FROM ubicaciones WHERE nombre='Vidriera'), 2);;
 
--- 5. HISTORIAL DE VENTA
-INSERT OR IGNORE INTO ventas (fecha, cliente_nombre, total_venta, usuario_id) VALUES
-                                                                                  ('2023-10-01', 'Ingrid Peña', 56800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com')),
-                                                                                  ('2023-10-02', 'Maria Gonzalez', 69800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com'));
-
--- 6. SYSTEM USER & ROLES
+-- 5. SYSTEM USER & ROLES (Must exist BEFORE ventas - FK dependency)
 -- REMOVE BEFORE PRODUCTION
 -- Password: YakuNeveVala97
-INSERT OR IGNORE INTO usuarios (id, nombre, email, password_hash, rol) VALUES (0, 'SYSTEM', 'system@localhost', 'DISABLED', 'ADMIN');
+INSERT OR IGNORE INTO usuarios (id, nombre, email, password_hash, rol) VALUES (0, 'SYSTEM', 'system@localhost', 'DISABLED', 'ADMIN');;
 -- TODO: Remove test password before production deployment (Sprint 8)
 -- pragma: allowlist secret
 -- sonar.issue.ignore.multicriteria squid:S8215
 UPDATE usuarios SET rol = 'ADMIN', password_hash = '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu' WHERE email = 'marcosachavalmbaj@gmail.com';;
 
--- 7. TEST USER (EMPLEADO role for Sprint 3 testing)
+-- 6. TEST USER (Must exist BEFORE ventas - FK dependency)
 -- REMOVE BEFORE PRODUCTION
 -- Email: empleado@test.com
 -- Password: password1234
@@ -54,3 +49,8 @@ UPDATE usuarios SET rol = 'ADMIN', password_hash = '$2a$10$lXbQfCXd4RpUG9GoHWuGi
 -- sonar.issue.ignore.multicriteria squid:S8215
 INSERT OR IGNORE INTO usuarios (nombre, email, password_hash, rol) VALUES
     ('Empleado Prueba', 'empleado@test.com', '$2a$10$1Hbj4W.yzq4r5JjdmAfviO3lPFP8L.P86zoWvMM5bZpCBtMrt7ECy', 'EMPLEADO');;
+
+-- 7. HISTORIAL DE VENTA (Now safe: usuarios exist)
+INSERT OR IGNORE INTO ventas (fecha, cliente_nombre, total_venta, usuario_id) VALUES
+                                                                                  ('2023-10-01', 'Ingrid Peña', 56800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com')),
+                                                                                  ('2023-10-02', 'Maria Gonzalez', 69800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com'));;

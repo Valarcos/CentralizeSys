@@ -1,6 +1,7 @@
 package com.centralizesys.service;
 
 import org.apache.poi.ss.usermodel.*;
+import com.centralizesys.config.DataPathConfig;
 import com.centralizesys.exception.LegacyImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +24,7 @@ public class LegacyFinancialImportService {
 
     private static final Logger log = LoggerFactory.getLogger(LegacyFinancialImportService.class);
     private static final double TOLERANCE = 0.05;
-    private static final String LOG_FILE_PATH = "data/import_errors.log";
+    private static final String LOG_FILE_PATH = DataPathConfig.resolveString("data/import_errors.log");
 
     // Headers
     private static final String HDR_DIA = "DÍA";

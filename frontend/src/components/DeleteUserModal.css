@@ -1,0 +1,75 @@
+/* Delete User Modal Styles */
+.delete-user-modal {
+    background-color: white;
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xl);
+    width: 90%;
+    max-width: 450px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    text-align: center;
+}
+
+.delete-user-modal h2 {
+    color: var(--color-error);
+    margin: 0 0 var(--spacing-lg) 0;
+}
+
+.delete-user-modal p {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.1rem;
+}
+
+.delete-user-modal .user-detail {
+    font-size: 1.3rem;
+    color: var(--color-primary);
+    margin: var(--spacing-md) 0;
+}
+
+.delete-user-modal .user-email {
+    color: var(--color-secondary);
+    font-size: 1rem;
+}
+
+.delete-user-modal .warning {
+    background-color: #fff3cd;
+    color: #856404;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-sm);
+    margin: var(--spacing-lg) 0;
+    font-weight: 600;
+}
+
+.delete-user-modal .modal-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: center;
+    margin-top: var(--spacing-xl);
+}
+
+.delete-user-modal .modal-actions button {
+    min-width: 120px;
+}
+
+.delete-user-modal button.danger {
+    background-color: var(--color-error);
+    color: white;
+}
+
+.delete-user-modal button.danger:hover {
+    background-color: var(--color-danger);
+}
+
+@media (max-width: 480px) {
+    .delete-user-modal {
+        width: 95%;
+        padding: var(--spacing-lg);
+    }
+
+    .delete-user-modal .modal-actions {
+        flex-direction: column-reverse;
+    }
+
+    .delete-user-modal .modal-actions button {
+        width: 100%;
+    }
+}

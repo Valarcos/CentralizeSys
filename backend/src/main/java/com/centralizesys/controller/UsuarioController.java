@@ -28,7 +28,8 @@ public class UsuarioController {
      */
     @PostMapping("/login")
     public ResponseEntity<UsuarioResponse> login(@RequestBody LoginRequest request) {
-        // Service throws BusinessRuleException if invalid, handled by GlobalExceptionHandler
+        // Service throws BusinessRuleException if invalid, handled by
+        // GlobalExceptionHandler
         Usuario user = usuarioService.login(request.getEmail(), request.getPassword());
 
         // Map Entity -> Response DTO
@@ -77,6 +78,18 @@ public class UsuarioController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         usuarioService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Endpoint to update a user's details.
+     * Admin Only.
+     */
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{id}")
+    public ResponseEntity<Void> update(@PathVariable Long id,
+                                       @RequestBody com.centralizesys.model.auth.UpdateUserRequest request) {
+        usuarioService.update(id, request);
         return ResponseEntity.noContent().build();
     }
 }

@@ -11,4 +11,8 @@ public class ProductRequest {
     private Double precioCosto;
     private Double precioMayorista;
     private Double precioMinorista;
+
+    // For initial stock placement when creating a new product
+    private Long ubicacionId;
+    private Integer cantidad;
 }

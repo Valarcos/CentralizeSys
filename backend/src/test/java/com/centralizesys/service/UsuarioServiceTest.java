@@ -103,4 +103,136 @@ class UsuarioServiceTest {
         assertTrue(ex.getMessage().contains("ya está registrado"));
         verify(usuarioRepository, never()).save(any());
     }
+
+    // --- UPDATE TESTS ---
+
+    @Test
+    @DisplayName("Update Success: Updates all provided fields")
+    void update_Success_AllFields() {
+        // Arrange
+        Usuario existing = new Usuario(1L, "Old Name", "old@test.com", "oldHash", UsuarioRole.EMPLEADO, "date");
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(usuarioRepository.findByEmail("new@test.com")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("newPassword")).thenReturn("newHash");
+
+        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
+                "New Name", "new@test.com", "newPassword", "ADMIN");
+
+        try (var mockedSecurityUtils = mockStatic(com.centralizesys.security.SecurityUtils.class)) {
+            mockedSecurityUtils.when(com.centralizesys.security.SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
+
+            // Act
+            usuarioService.update(1L, request);
+
+            // Assert
+            verify(usuarioRepository).update(argThat(u -> u.getNombre().equals("New Name") &&
+                    u.getEmail().equals("new@test.com") &&
+                    u.getPasswordHash().equals("newHash") &&
+                    u.getRol() == UsuarioRole.ADMIN));
+            verify(auditoriaService).registrarAccion(99L, "UPDATE_USER", "Usuario actualizado: new@test.com");
+        }
+    }
+
+    @Test
+    @DisplayName("Update Failure: Cannot modify system user (id=0)")
+    void update_CannotModifySystemUser() {
+        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
+                "Name", null, null, null);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> usuarioService.update(0L, request));
+
+        assertEquals("No se puede modificar al Usuario del Sistema.", ex.getMessage());
+        verify(usuarioRepository, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("Update Failure: User not found throws ResourceNotFoundException")
+    void update_UserNotFound() {
+        when(usuarioRepository.findById(999L)).thenReturn(Optional.empty());
+
+        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
+                "Name", null, null, null);
+
+        assertThrows(com.centralizesys.exception.ResourceNotFoundException.class,
+                () -> usuarioService.update(999L, request));
+        verify(usuarioRepository, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("Update Failure: Duplicate email throws Exception")
+    void update_DuplicateEmail() {
+        Usuario existing = new Usuario(1L, "Name", "old@test.com", "hash", UsuarioRole.EMPLEADO, "date");
+        Usuario other = new Usuario(2L, "Other", "taken@test.com", "hash", UsuarioRole.EMPLEADO, "date");
+
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(usuarioRepository.findByEmail("taken@test.com")).thenReturn(Optional.of(other));
+
+        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
+                null, "taken@test.com", null, null);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> usuarioService.update(1L, request));
+
+        assertTrue(ex.getMessage().contains("ya está registrado"));
+        verify(usuarioRepository, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("Update Failure: Invalid role throws Exception")
+    void update_InvalidRole() {
+        Usuario existing = new Usuario(1L, "Name", "test@test.com", "hash", UsuarioRole.EMPLEADO, "date");
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
+                null, null, null, "INVALID_ROLE");
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> usuarioService.update(1L, request));
+
+        assertEquals("Rol debe ser ADMIN o EMPLEADO.", ex.getMessage());
+        verify(usuarioRepository, never()).update(any());
+    }
+
+    @Test
+    @DisplayName("Update Success: Same email does not trigger duplicate check")
+    void update_SameEmail_NoConflict() {
+        Usuario existing = new Usuario(1L, "Name", "same@test.com", "hash", UsuarioRole.EMPLEADO, "date");
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
+                null, "same@test.com", null, null);
+
+        try (var mockedSecurityUtils = mockStatic(com.centralizesys.security.SecurityUtils.class)) {
+            mockedSecurityUtils.when(com.centralizesys.security.SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
+
+            usuarioService.update(1L, request);
+
+            // findByEmail should NOT be called when email is unchanged
+            verify(usuarioRepository, never()).findByEmail(anyString());
+            verify(usuarioRepository).update(existing);
+        }
+    }
+
+    @Test
+    @DisplayName("Update Success: Null/blank fields are ignored")
+    void update_NullFields_Ignored() {
+        Usuario existing = new Usuario(1L, "Original", "orig@test.com", "origHash", UsuarioRole.EMPLEADO, "date");
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
+                null, "", "   ", null);
+
+        try (var mockedSecurityUtils = mockStatic(com.centralizesys.security.SecurityUtils.class)) {
+            mockedSecurityUtils.when(com.centralizesys.security.SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
+
+            usuarioService.update(1L, request);
+
+            // Verify original values unchanged
+            verify(usuarioRepository).update(argThat(u -> u.getNombre().equals("Original") &&
+                    u.getEmail().equals("orig@test.com") &&
+                    u.getPasswordHash().equals("origHash") &&
+                    u.getRol() == UsuarioRole.EMPLEADO));
+        }
+    }
 }

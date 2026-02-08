@@ -47,14 +47,11 @@ class AuthControllerTest {
         @MockBean
         private UsuarioRepository usuarioRepository;
 
-        @MockBean
-        private CustomUserDetailsService customUserDetailsService;
-
         @Autowired
         private ObjectMapper objectMapper;
 
         @Test
-        @DisplayName("Login Success: Returns 200 + Token")
+        @DisplayName("Login Success: Returns 200 + Token with Role")
         void testLogin_Success() throws Exception {
                 AuthRequest request = new AuthRequest("test@test.com", "password");
 
@@ -70,6 +67,7 @@ class AuthControllerTest {
                 user.setId(1L);
                 user.setEmail("test@test.com");
                 user.setNombre("Test User");
+                user.setRol(com.centralizesys.model.auth.UsuarioRole.ADMIN);
                 when(usuarioRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
 
                 mockMvc.perform(post("/api/auth/login")
@@ -77,7 +75,8 @@ class AuthControllerTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.token").value("mock.jwt.token"))
-                        .andExpect(jsonPath("$.email").value("test@test.com"));
+                        .andExpect(jsonPath("$.email").value("test@test.com"))
+                        .andExpect(jsonPath("$.rol").value("ADMIN"));
 
                 verify(auditoriaService).registrarAccion(eq(1L), eq("LOGIN"), anyString());
         }

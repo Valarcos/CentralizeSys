@@ -17,6 +17,7 @@ public class UsuarioRepository {
     private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
     public static final String EMAIL = "email";
+    public static final String NOMBRE = "nombre";
 
     public UsuarioRepository(JdbcTemplate jdbcTemplate) {
         this.namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
@@ -24,7 +25,7 @@ public class UsuarioRepository {
 
     private final RowMapper<Usuario> rowMapper = (rs, rowNum) -> new Usuario(
             rs.getLong("id"),
-            rs.getString("nombre"),
+            rs.getString(NOMBRE),
             rs.getString(EMAIL),
             rs.getString("password_hash"),
             UsuarioRole.valueOf(rs.getString("rol")),
@@ -55,7 +56,7 @@ public class UsuarioRepository {
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("nombre", usuario.getNombre())
+                .addValue(NOMBRE, usuario.getNombre())
                 .addValue(EMAIL, usuario.getEmail())
                 .addValue("passwordHash", usuario.getPasswordHash())
                 .addValue("rol", usuario.getRol().name());
@@ -71,5 +72,22 @@ public class UsuarioRepository {
     public void deleteById(Long id) {
         String sql = "DELETE FROM usuarios WHERE id = :id";
         namedJdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
+    }
+
+    public void update(Usuario usuario) {
+        String sql = """
+                    UPDATE usuarios
+                    SET nombre = :nombre, email = :email, password_hash = :passwordHash, rol = :rol
+                    WHERE id = :id
+                """;
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("id", usuario.getId())
+                .addValue(NOMBRE, usuario.getNombre())
+                .addValue(EMAIL, usuario.getEmail())
+                .addValue("passwordHash", usuario.getPasswordHash())
+                .addValue("rol", usuario.getRol().name());
+
+        namedJdbcTemplate.update(sql, params);
     }
 }

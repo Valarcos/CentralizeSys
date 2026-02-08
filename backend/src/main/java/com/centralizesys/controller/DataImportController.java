@@ -1,5 +1,6 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.config.DataPathConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -8,7 +9,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 
 @RestController
@@ -30,8 +30,9 @@ public class DataImportController {
 
         Path tempPath = null;
         try {
-            // Use a dedicated, controlled directory instead of the system default to avoid "Shared Directory" security risks.
-            Path appTempDir = Paths.get("data/temp_imports");
+            // Use DataPathConfig for consistent absolute path regardless of working
+            // directory
+            Path appTempDir = DataPathConfig.resolve("data/temp_imports");
             if (!Files.exists(appTempDir)) {
                 Files.createDirectories(appTempDir);
             }

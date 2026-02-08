@@ -27,11 +27,12 @@ export default function LoginPage() {
 
         try {
             const response = await api.post('/api/auth/login', { email, password });
-            const { token, email: userEmail, nombre } = response.data;
+            const { token, email: userEmail, nombre, rol } = response.data;
 
             localStorage.setItem('jwt', token);
             localStorage.setItem('userEmail', userEmail);
             localStorage.setItem('userName', nombre);
+            localStorage.setItem('userRole', rol);
 
             toast.success(`¡Bienvenido, ${nombre}!`);
             navigate('/dashboard');

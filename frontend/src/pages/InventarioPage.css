@@ -1,0 +1,313 @@
+/* Inventario Page Styles */
+.inventario-page {
+    padding: var(--spacing-lg);
+}
+
+.inventario-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+.inventario-header h1 {
+    margin: 0;
+    color: var(--color-primary);
+}
+
+/* Search Container */
+.search-container {
+    position: relative;
+    margin-bottom: var(--spacing-md);
+}
+
+.search-input {
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-lg);
+    padding-right: 3rem;
+    font-size: 1.1rem;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-md);
+    transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+    border-color: var(--color-primary);
+    outline: 3px solid var(--color-warning);
+    outline-offset: 2px;
+}
+
+.clear-search {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: var(--color-secondary);
+    cursor: pointer;
+    padding: 0.5rem;
+    min-height: auto;
+}
+
+.clear-search:hover {
+    color: var(--color-primary);
+}
+
+.results-info {
+    color: var(--color-secondary);
+    margin-bottom: var(--spacing-md);
+    font-size: 0.95rem;
+}
+
+/* Loading and Empty States */
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--color-secondary);
+    font-size: 1.2rem;
+}
+
+/* Products Table */
+.products-table-container {
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.products-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    font-size: 1rem;
+}
+
+.products-table th,
+.products-table td {
+    padding: var(--spacing-md);
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.products-table th {
+    background-color: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.products-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.products-table tbody tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
+.products-table tbody tr:nth-child(even):hover {
+    background-color: #f0f0f0;
+}
+
+.product-name-cell {
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+/* Stock Badges */
+.stock-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.stock-badge.in-stock {
+    background-color: var(--color-success);
+    color: white;
+}
+
+.stock-badge.low-stock {
+    background-color: var(--color-warning);
+    color: #000;
+}
+
+.stock-badge.out-of-stock {
+    background-color: var(--color-secondary);
+    color: white;
+}
+
+.stock-badge.negative-stock {
+    background-color: var(--color-danger);
+    color: white;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.price-retail {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+/* Action Buttons */
+.actions-cell {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    min-height: 40px;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.action-btn.edit {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.action-btn.edit:hover {
+    background-color: #003366;
+}
+
+.action-btn.delete {
+    background-color: var(--color-error);
+    color: white;
+}
+
+.action-btn.delete:hover {
+    background-color: var(--color-danger);
+}
+
+.action-btn:focus {
+    outline: 3px solid var(--color-warning);
+    outline-offset: 2px;
+}
+
+.action-btn.stock {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.action-btn.stock:hover {
+    background-color: #138496;
+}
+
+/* Visually Hidden */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Responsive Table */
+@media (max-width: 768px) {
+
+    /* Container Breakout Strategy:
+       The parent .main-content has 2rem (spacing-lg) padding.
+       We remove local padding and pull the table out by negative 2rem to touch edges.
+    */
+    .inventario-page {
+        padding: 0;
+        width: 100%;
+    }
+
+    .inventario-header {
+        margin-bottom: var(--spacing-sm);
+        padding: 0 0.5rem;
+    }
+
+    .inventario-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .search-container {
+        margin-bottom: var(--spacing-sm);
+        padding: 0 0.5rem;
+    }
+
+    .results-info {
+        padding: 0 0.5rem;
+    }
+
+    .products-table-container {
+        /* Negative Margin Breakout with Breathing Room */
+        /* Parent padding is 2rem (spacing-lg). We want 0.5rem gap.
+           So we pull back by 1.5rem (-24px). */
+        margin-left: calc(-1.5rem);
+        margin-right: calc(-1.5rem);
+        width: calc(100% + 3rem);
+
+        border-radius: 0;
+        box-shadow: none;
+        border-left: none;
+        border-right: none;
+    }
+
+    .products-table th,
+    .products-table td {
+        padding: 0.5rem 0.4rem;
+        font-size: 0.85rem;
+    }
+
+    /* Hide Code column on mobile */
+    .products-table th:first-child,
+    .products-table td:first-child {
+        display: none;
+    }
+
+    /* Narrow description - allows taller rows but saves horizontal space */
+    .product-name-cell {
+        max-width: 100px;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
+
+    .actions-cell {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .action-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 0.4rem 0.5rem;
+        font-size: 0.8rem;
+        min-height: 36px;
+    }
+
+    .stock-badge {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+    }
+}

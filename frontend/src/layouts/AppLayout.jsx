@@ -1,23 +1,26 @@
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import LogoutModal from '../components/LogoutModal';
 import './AppLayout.css';
 
 export default function AppLayout() {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [userName, setUserName] = useState('');
+    const [userRole, setUserRole] = useState('');
     const navigate = useNavigate();
     const location = useLocation();
 
     useEffect(() => {
-        const name = localStorage.getItem('userName') || 'Usuario';
-        setUserName(name);
+        setUserName(localStorage.getItem('userName') || 'Usuario');
+        setUserRole(localStorage.getItem('userRole') || 'EMPLEADO');
     }, []);
 
     const handleLogout = () => {
         localStorage.removeItem('jwt');
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userName');
+        localStorage.removeItem('userRole');
         navigate('/login');
     };
 
@@ -29,6 +32,30 @@ export default function AppLayout() {
             <nav className="top-nav desktop-only" aria-label="Navegación principal">
                 <div className="container nav-content">
                     <h1 className="brand">CentralizeSys</h1>
+
+                    <div className="nav-links">
+                        <NavLink to="/dashboard" className={isActive('/dashboard') ? 'active' : ''}>
+                            🏠 Inicio
+                        </NavLink>
+                        <NavLink to="/ventas" className={isActive('/ventas') ? 'active' : ''}>
+                            💰 Ventas
+                        </NavLink>
+                        <NavLink to="/inventario" className={isActive('/inventario') ? 'active' : ''}>
+                            📦 Inventario
+                        </NavLink>
+                        <NavLink to="/deudores" className={isActive('/deudores') ? 'active' : ''}>
+                            👥 Deudores
+                        </NavLink>
+                        <NavLink to="/reportes" className={isActive('/reportes') ? 'active' : ''}>
+                            📊 Reportes
+                        </NavLink>
+                        {userRole === 'ADMIN' && (
+                            <NavLink to="/admin" className={isActive('/admin') ? 'active' : ''}>
+                                🔐 Administración
+                            </NavLink>
+                        )}
+                    </div>
+
                     <div className="nav-user-section">
                         <span className="user-greeting">Hola, {userName}</span>
                         <button
@@ -74,35 +101,83 @@ export default function AppLayout() {
                 </button>
 
                 <button
-                    onClick={() => navigate('/pos')}
-                    className={isActive('/pos') ? 'active' : ''}
-                    aria-label="Ir a punto de venta"
-                    aria-current={isActive('/pos') ? 'page' : undefined}
+                    onClick={() => navigate('/ventas')}
+                    className={isActive('/ventas') ? 'active' : ''}
+                    aria-label="Ir a ventas"
+                    aria-current={isActive('/ventas') ? 'page' : undefined}
                 >
                     <span className="icon" aria-hidden="true">💰</span>
-                    <span>POS</span>
+                    <span>Ventas</span>
                 </button>
 
                 <button
-                    onClick={() => navigate('/stock')}
-                    className={isActive('/stock') ? 'active' : ''}
+                    onClick={() => navigate('/inventario')}
+                    className={isActive('/inventario') ? 'active' : ''}
                     aria-label="Ir a inventario"
-                    aria-current={isActive('/stock') ? 'page' : undefined}
+                    aria-current={isActive('/inventario') ? 'page' : undefined}
                 >
                     <span className="icon" aria-hidden="true">📦</span>
-                    <span>Stock</span>
+                    <span>Inventario</span>
                 </button>
 
                 <button
-                    onClick={() => navigate('/account')}
-                    className={isActive('/account') ? 'active' : ''}
-                    aria-label="Ir a cuenta"
-                    aria-current={isActive('/account') ? 'page' : undefined}
+                    onClick={() => setShowMobileMenu(true)}
+                    className={showMobileMenu ? 'active' : ''}
+                    aria-label="Abrir menú"
+                    aria-expanded={showMobileMenu}
                 >
-                    <span className="icon" aria-hidden="true">👤</span>
-                    <span>Cuenta</span>
+                    <span className="icon" aria-hidden="true">⋮</span>
+                    <span>Más</span>
                 </button>
             </nav>
+
+            {/* Mobile "Más" Menu (Overlay) */}
+            {showMobileMenu && (
+                <div
+                    className="mobile-menu-overlay"
+                    onClick={() => setShowMobileMenu(false)}
+                    aria-label="Cerrar menú"
+                >
+                    <div
+                        className="mobile-menu"
+                        onClick={(e) => e.stopPropagation()}
+                        role="menu"
+                        aria-label="Menú adicional"
+                    >
+                        <h2>Menú</h2>
+                        <NavLink
+                            to="/deudores"
+                            onClick={() => setShowMobileMenu(false)}
+                            className={isActive('/deudores') ? 'active' : ''}
+                        >
+                            👥 Deudores
+                        </NavLink>
+                        <NavLink
+                            to="/reportes"
+                            onClick={() => setShowMobileMenu(false)}
+                            className={isActive('/reportes') ? 'active' : ''}
+                        >
+                            📊 Reportes
+                        </NavLink>
+                        {userRole === 'ADMIN' && (
+                            <NavLink
+                                to="/admin"
+                                onClick={() => setShowMobileMenu(false)}
+                                className={isActive('/admin') ? 'active' : ''}
+                            >
+                                🔐 Administración
+                            </NavLink>
+                        )}
+                        <button
+                            onClick={() => setShowMobileMenu(false)}
+                            className="secondary"
+                            aria-label="Cerrar menú"
+                        >
+                            Cerrar
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <LogoutModal
                 isOpen={showLogoutModal}

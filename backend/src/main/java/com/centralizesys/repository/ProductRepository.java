@@ -26,14 +26,37 @@ public class ProductRepository {
     }
 
     // Mapeo exacto de Columnas DB (Español) -> Objeto Java
-    private final RowMapper<Product> rowMapper = (rs, rowNum) -> new Product(
-            rs.getLong("id"),
-            rs.getString("codigo"),
-            rs.getString("descripcion"),
-            rs.getDouble("precio_costo"),
-            rs.getObject("precio_mayorista", Double.class), // Handle Nullable
-            rs.getDouble("precio_minorista"),
-            rs.getLong("cantidad_stock"));
+    // SQLite returns empty strings for NULL REAL columns, which break
+    // getObject(Double.class)
+    private final RowMapper<Product> rowMapper = (rs, rowNum) -> {
+        // Safe nullable Double extraction - handles empty strings from SQLite
+        Double precioMayorista = parseNullableDouble(rs.getString("precio_mayorista"));
+
+        return new Product(
+                rs.getLong("id"),
+                rs.getString("codigo"),
+                rs.getString("descripcion"),
+                rs.getDouble("precio_costo"),
+                precioMayorista,
+                rs.getDouble("precio_minorista"),
+                rs.getLong("cantidad_stock"));
+    };
+
+    /**
+     * Safely parses a nullable Double from a String.
+     * SQLite returns empty strings for NULL REAL columns which break
+     * getObject(Double.class).
+     */
+    private Double parseNullableDouble(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 
     public List<Product> findAll() {
         String sql = "SELECT * FROM productos";

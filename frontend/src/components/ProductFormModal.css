@@ -1,0 +1,183 @@
+/* ProductFormModal Styles */
+
+/* Modal Overlay - dark backdrop */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+/* Modal Container - solid white background */
+.product-form-modal {
+    background-color: #FFFFFF;
+    border-radius: var(--border-radius);
+    width: 95%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border: 2px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Body - direct form content without header */
+/* Ensure body takes available space and scrolls internally */
+.product-form-modal .form-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Form Groups */
+.product-form-modal .form-group {
+    margin-bottom: 1rem;
+}
+
+.product-form-modal .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--color-text);
+}
+
+.product-form-modal .required {
+    color: var(--color-error);
+}
+
+.product-form-modal .form-group input,
+.product-form-modal .form-group select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border: 2px solid var(--color-border);
+    border-radius: var(--border-radius);
+    background-color: #FFFFFF;
+    color: var(--color-text);
+    transition: border-color 0.2s;
+    margin-bottom: 0;
+}
+
+.product-form-modal .form-group input:focus,
+.product-form-modal .form-group select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.product-form-modal .form-group input[aria-invalid="true"],
+.product-form-modal .form-group select[aria-invalid="true"] {
+    border-color: var(--color-error);
+}
+
+.product-form-modal .error-message {
+    display: block;
+    color: var(--color-error);
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+}
+
+/* Form Row (side by side) */
+.product-form-modal .form-row {
+    display: grid;
+    gap: 1rem;
+}
+
+.product-form-modal .prices-row {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.product-form-modal .stock-row {
+    grid-template-columns: 1fr 1fr;
+}
+
+/* Stock Section */
+.product-form-modal .stock-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid var(--color-border);
+}
+
+.product-form-modal .stock-section h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: var(--color-primary);
+}
+
+/* Form Actions */
+.product-form-modal .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    background-color: #f8f9fa;
+    border-top: 1px solid var(--color-border);
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+}
+
+.product-form-modal .form-actions button {
+    min-width: 120px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+    .modal-overlay {
+        padding: 0;
+        align-items: flex-end;
+        /* Or flex-start, but allow full height */
+    }
+
+    .product-form-modal {
+        width: 100%;
+        height: 100%;
+        /* Full screen height to fix keyboard issues */
+        max-height: 100%;
+        max-width: 100%;
+        border-radius: 0;
+        border: none;
+    }
+
+    .product-form-modal .prices-row,
+    .product-form-modal .stock-row {
+        grid-template-columns: 1fr;
+        /* Stack inputs on mobile */
+    }
+
+    /* Compact spacing for mobile */
+    .product-form-modal .form-body {
+        padding: 1rem;
+    }
+
+    .product-form-modal .form-group {
+        margin-bottom: 0.5rem;
+        /* Reduced from 1rem */
+    }
+
+    .product-form-modal .form-group label {
+        margin-bottom: 0.2rem;
+        /* Reduced from 0.5rem */
+    }
+
+    .product-form-modal .form-group input,
+    .product-form-modal .form-group select {
+        padding: 0.5rem 0.75rem;
+        /* Reduced padding */
+    }
+
+    .product-form-modal .form-actions {
+        padding: 0.75rem 1rem;
+    }
+
+    .product-form-modal .form-row {
+        gap: 0.5rem;
+        /* Reduced gap between stacked rows */
+    }
+}

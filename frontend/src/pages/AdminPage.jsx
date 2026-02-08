@@ -1,0 +1,168 @@
+import { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
+import api from '../services/api';
+import UserFormModal from '../components/UserFormModal';
+import DeleteUserModal from '../components/DeleteUserModal';
+import './AdminPage.css';
+
+export default function AdminPage() {
+    const [users, setUsers] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [showUserForm, setShowUserForm] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [editingUser, setEditingUser] = useState(null);
+    const [deletingUser, setDeletingUser] = useState(null);
+
+    const fetchUsers = useCallback(async () => {
+        try {
+            setLoading(true);
+            const response = await api.get('/api/usuarios');
+            setUsers(response.data);
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            toast.error('Error al cargar usuarios');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchUsers();
+    }, [fetchUsers]);
+
+    const handleCreateUser = () => {
+        setEditingUser(null);
+        setShowUserForm(true);
+    };
+
+    const handleEditUser = (user) => {
+        setEditingUser(user);
+        setShowUserForm(true);
+    };
+
+    const handleDeleteClick = (user) => {
+        setDeletingUser(user);
+        setShowDeleteModal(true);
+    };
+
+    const handleUserFormSuccess = () => {
+        setShowUserForm(false);
+        setEditingUser(null);
+        fetchUsers();
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!deletingUser) return;
+
+        try {
+            await api.delete(`/api/usuarios/${deletingUser.id}`);
+            toast.success('Usuario eliminado correctamente');
+            setShowDeleteModal(false);
+            setDeletingUser(null);
+            fetchUsers();
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            toast.error('Error al eliminar usuario');
+        }
+    };
+
+    const getRoleBadgeClass = (rol) => {
+        return rol === 'ADMIN' ? 'role-badge admin' : 'role-badge empleado';
+    };
+
+    const currentUserEmail = localStorage.getItem('userEmail');
+
+    return (
+        <div className="admin-page container">
+            <header className="admin-header">
+                <h1>🔐 Administración de Usuarios</h1>
+                <button
+                    onClick={handleCreateUser}
+                    className="primary"
+                    aria-label="Crear nuevo usuario"
+                >
+                    + Crear Usuario
+                </button>
+            </header>
+
+            {loading ? (
+                <div className="loading-state">
+                    <p>Cargando usuarios...</p>
+                </div>
+            ) : users.length === 0 ? (
+                <div className="empty-state">
+                    <p>No hay usuarios registrados.</p>
+                </div>
+            ) : (
+                <div className="users-table-container">
+                    <table className="users-table" aria-label="Lista de usuarios">
+                        <thead>
+                        <tr>
+                            <th scope="col">ID</th>
+                            <th scope="col">Nombre</th>
+                            <th scope="col">Email</th>
+                            <th scope="col">Rol</th>
+                            <th scope="col">Acciones</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {users.map((user) => (
+                            <tr key={user.id}>
+                                <td>{user.id}</td>
+                                <td>{user.nombre}</td>
+                                <td>{user.email}</td>
+                                <td>
+                                        <span className={getRoleBadgeClass(user.rol || 'EMPLEADO')}>
+                                            {user.rol || 'EMPLEADO'}
+                                        </span>
+                                </td>
+                                <td className="actions-cell">
+                                    <button
+                                        onClick={() => handleEditUser(user)}
+                                        className="action-btn edit"
+                                        aria-label={`Editar usuario ${user.nombre}`}
+                                    >
+                                        ✏️ Editar
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteClick(user)}
+                                        className="action-btn delete"
+                                        disabled={user.id === 0 || user.email === currentUserEmail}
+                                        aria-label={`Eliminar usuario ${user.nombre}`}
+                                        title={user.id === 0 ? 'No se puede eliminar al usuario del sistema' :
+                                            user.email === currentUserEmail ? 'No puedes eliminar tu propia cuenta' : ''}
+                                    >
+                                        🗑️ Eliminar
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {showUserForm && (
+                <UserFormModal
+                    user={editingUser}
+                    onSuccess={handleUserFormSuccess}
+                    onCancel={() => {
+                        setShowUserForm(false);
+                        setEditingUser(null);
+                    }}
+                />
+            )}
+
+            {showDeleteModal && deletingUser && (
+                <DeleteUserModal
+                    user={deletingUser}
+                    onConfirm={handleDeleteConfirm}
+                    onCancel={() => {
+                        setShowDeleteModal(false);
+                        setDeletingUser(null);
+                    }}
+                />
+            )}
+        </div>
+    );
+}

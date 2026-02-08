@@ -5,7 +5,6 @@ import com.centralizesys.security.JwtTokenProvider;
 import com.centralizesys.service.AuditoriaService;
 import com.centralizesys.repository.UsuarioRepository;
 import com.centralizesys.model.auth.Usuario;
-import com.centralizesys.security.CustomUserDetailsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,7 +27,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(AuthController.class)
+import com.centralizesys.security.JwtAuthenticationFilter;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+
+@WebMvcTest(controllers = AuthController.class, excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class))
 @AutoConfigureMockMvc(addFilters = false) // Disable Security Filters for Unit Test
 class AuthControllerTest {
 
@@ -47,14 +50,11 @@ class AuthControllerTest {
         @MockBean
         private UsuarioRepository usuarioRepository;
 
-        @MockBean
-        private CustomUserDetailsService customUserDetailsService;
-
         @Autowired
         private ObjectMapper objectMapper;
 
         @Test
-        @DisplayName("Login Success: Returns 200 + Token")
+        @DisplayName("Login Success: Returns 200 + Token with Role")
         void testLogin_Success() throws Exception {
                 AuthRequest request = new AuthRequest("test@test.com", "password");
 
@@ -70,6 +70,7 @@ class AuthControllerTest {
                 user.setId(1L);
                 user.setEmail("test@test.com");
                 user.setNombre("Test User");
+                user.setRol(com.centralizesys.model.auth.UsuarioRole.ADMIN);
                 when(usuarioRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
 
                 mockMvc.perform(post("/api/auth/login")
@@ -77,7 +78,8 @@ class AuthControllerTest {
                                 .content(objectMapper.writeValueAsString(request)))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.token").value("mock.jwt.token"))
-                        .andExpect(jsonPath("$.email").value("test@test.com"));
+                        .andExpect(jsonPath("$.email").value("test@test.com"))
+                        .andExpect(jsonPath("$.rol").value("ADMIN"));
 
                 verify(auditoriaService).registrarAccion(eq(1L), eq("LOGIN"), anyString());
         }

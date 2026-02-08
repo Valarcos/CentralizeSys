@@ -50,7 +50,7 @@ public class AuthController {
                         "Usuario no encontrado post-auth"));
         auditoriaService.registrarAccion(user.getId(), "LOGIN", "Inicio de sesión exitoso.");
 
-        return ResponseEntity.ok(new AuthResponse(jwt, user.getEmail(), user.getNombre()));
+        return ResponseEntity.ok(new AuthResponse(jwt, user.getEmail(), user.getNombre(), user.getRol().name()));
     }
 
     @ExceptionHandler(BadCredentialsException.class)

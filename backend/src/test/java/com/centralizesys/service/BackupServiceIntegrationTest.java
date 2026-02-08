@@ -1,5 +1,6 @@
 package com.centralizesys.service;
 
+import com.centralizesys.config.DataPathConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,7 +9,8 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import javax.sql.DataSource;
 import java.io.File;
@@ -17,8 +19,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@TestPropertySource(properties = "spring.datasource.url=jdbc:sqlite:../data/centralizesys.db")
 class BackupServiceIntegrationTest {
+
+    // Use DynamicPropertySource to set the database URL using DataPathConfig
+    @DynamicPropertySource
+    static void setDatabaseProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", DataPathConfig::getDatabaseUrl);
+    }
 
     @Autowired
     private BackupService backupService;
@@ -68,7 +75,7 @@ class BackupServiceIntegrationTest {
         jdbcTemplate.execute(
                 "INSERT INTO productos (codigo, descripcion, precio_costo, precio_mayorista, precio_minorista, cantidad_stock) VALUES ('P1', 'Test backup', 10.0, 15.0, 20.0, 100)");
 
-        File manualDir = new File("backups/manual");
+        File manualDir = DataPathConfig.resolve("backups/manual").toFile();
         if (manualDir.exists()) {
             for (File f : java.util.Objects.requireNonNull(manualDir.listFiles())) {
                 boolean deleted = f.delete();
@@ -119,7 +126,7 @@ class BackupServiceIntegrationTest {
     @Test
     void testCleanupLogic() throws Exception {
         // 1. Setup Daily Dir
-        File dailyDir = new File("backups/daily");
+        File dailyDir = DataPathConfig.resolve("backups/daily").toFile();
         if (!dailyDir.exists())
             assertTrue(dailyDir.mkdirs(), "Failed to create daily backup dir");
 
@@ -156,7 +163,7 @@ class BackupServiceIntegrationTest {
     @Test
     void testRestoreScheduling() throws Exception {
         // 1. Create a dummy backup db
-        File dailyDir = new File("backups/daily");
+        File dailyDir = DataPathConfig.resolve("backups/daily").toFile();
         if (!dailyDir.exists())
             assertTrue(dailyDir.mkdirs(), "Failed to create daily dir");
         // Clean possible leftovers
@@ -170,7 +177,7 @@ class BackupServiceIntegrationTest {
         backupService.scheduleRestore("test_restore.db", 1L);
 
         // 3. Verify .restore file exists
-        File restoreFile = new File("data/centralizesys.restore");
+        File restoreFile = DataPathConfig.resolve("data/centralizesys.restore").toFile();
         assertTrue(restoreFile.exists(), "Restore trigger file should be created");
 
         // Cleanup

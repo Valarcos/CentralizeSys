@@ -107,7 +107,40 @@ Si ve este mensaje JSON, el servidor está corriendo correctamente:
 # Ver resultados en: backend/build/reports/tests/test/index.html
 ```
 
+#### F. Logs y Depuración de Errores
+
+El backend utiliza SLF4J para logging. **Todos los errores técnicos se registran en la consola**, mientras que los usuarios ven mensajes amigables en español.
+
+##### ¿Dónde ver los logs?
+
+1. **Consola de ejecución**: Al ejecutar `./gradlew bootRun` o desde IntelliJ, los logs aparecen en la terminal
+2. **IntelliJ IDEA**: Ventana "Run" → pestaña "Console"
+3. **Nivel de log**: Por defecto es `INFO`. Para más detalle, agregue a `application.properties`:
+   ```properties
+   logging.level.com.centralizesys=DEBUG
+   ```
+
+##### Formato de logs de error
+
+```
+2026-02-06 17:00:15 ERROR c.c.exception.GlobalExceptionHandler - DATA INTEGRITY VIOLATION: UNIQUE constraint failed: productos.codigo, precio_costo, precio_minorista
+2026-02-06 17:00:16 ERROR c.c.exception.GlobalExceptionHandler - SQL SYNTAX ERROR - SQL: SELECT * FORM productos, Message: ...
+2026-02-06 17:00:17 WARN  c.c.exception.GlobalExceptionHandler - DATABASE LOCK: Database is locked
+```
+
+##### Mapeo de errores SQLite → Excepciones Spring
+
+El archivo `sql-error-codes.xml` traduce errores SQLite a excepciones Spring:
+
+| Código SQLite | Significado | Excepción Spring |
+|--------------|-------------|------------------|
+| 19, 2067, 787, 1555 | Violación de constraints | `DataIntegrityViolationException` |
+| 1 | Error de sintaxis SQL | `BadSqlGrammarException` |
+| 5, 6 | Base de datos bloqueada | `CannotAcquireLockException` |
+| 10, 11, 13, 14 | Error de disco/I/O | `DataAccessResourceFailureException` |
+
 ---
+
 
 ### 3. Configurar Frontend (React + Vite)
 

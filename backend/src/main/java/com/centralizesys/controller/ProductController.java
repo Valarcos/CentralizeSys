@@ -3,6 +3,7 @@ package com.centralizesys.controller;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.model.product.ProductRequest;
 import com.centralizesys.model.product.ProductResponse;
+import com.centralizesys.repository.StockRepository;
 import com.centralizesys.security.SecurityUtils;
 import com.centralizesys.service.ProductService;
 import org.springframework.http.HttpStatus;
@@ -18,9 +19,11 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService service;
+    private final StockRepository stockRepository;
 
-    public ProductController(ProductService service) {
+    public ProductController(ProductService service, StockRepository stockRepository) {
         this.service = service;
+        this.stockRepository = stockRepository;
     }
 
     // GET /api/productos?search=...
@@ -63,6 +66,14 @@ public class ProductController {
                 request.getPrecioMinorista());
 
         Product saved = service.create(newProduct);
+
+        // If initial stock and location are provided, add stock to that location
+        if (request.getUbicacionId() != null && request.getCantidad() != null && request.getCantidad() > 0) {
+            stockRepository.addStock(saved.getId(), request.getUbicacionId(), request.getCantidad().longValue());
+            // Refresh the product to get updated cantidadStock from trigger
+            saved = service.getById(saved.getId());
+        }
+
         return new ResponseEntity<>(new ProductResponse(saved), HttpStatus.CREATED);
     }
 

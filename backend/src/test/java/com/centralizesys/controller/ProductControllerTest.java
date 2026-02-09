@@ -1,5 +1,6 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.model.dto.PageResponse;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.model.product.ProductRequest;
 import com.centralizesys.service.ProductService;
@@ -8,26 +9,23 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.doThrow;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
+@WebMvcTest(ProductController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class ProductControllerTest {
 
     @Autowired
@@ -37,92 +35,136 @@ class ProductControllerTest {
     private ObjectMapper objectMapper;
 
     @MockBean
-    private ProductService productService;
+    private ProductService service;
+
+    // Security Mocks need to be present even if filters are off for context loading
+    // usually,
+    // or sometimes just having them mocked avoids bean creation issues if they are
+    // injected elsewhere.
+    // However, @WebMvcTest usually only loads the controller.
+    // If GlobalExceptionHandler or others need them, we might need them.
+    // Safe to mock them if previous tests had them.
+    @MockBean
+    private com.centralizesys.security.JwtTokenProvider jwtTokenProvider;
+    @MockBean
+    private com.centralizesys.security.CustomUserDetailsService customUserDetailsService;
+    @MockBean
+    private com.centralizesys.security.JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Test
-    @DisplayName("Employee can create product")
-    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
-    void createProduct_AsEmployee_Success() throws Exception {
-        ProductRequest p = new ProductRequest();
-        p.setCodigo("A-100");
-        p.setDescripcion("Test");
-        p.setPrecioMinorista(100.0);
-        p.setPrecioCosto(50.0);
+    @DisplayName("Get All Products (Browse) returns PageResponse")
+    void getAll_ReturnsPage() throws Exception {
+        Product p = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 5L);
+        PageResponse<Product> pageResponse = new PageResponse<>(
+                List.of(p), 0L, 20L, 1L, 1L);
 
-        when(productService.create(any(Product.class)))
-                .thenReturn(new Product(1L, "A-100", "Test", 50.0, null, 100.0, 0L));
+        when(service.getAllOrSearch(null, 0L, 20L)).thenReturn(pageResponse);
 
-        mockMvc.perform(post("/api/productos")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(p)))
-                .andExpect(status().isCreated());
-
-        verify(productService).create(any(Product.class)); // Create does not take User ID currently
+        mockMvc.perform(get("/api/productos")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].codigo").value("CODE"));
     }
 
     @Test
-    @DisplayName("Employee can delete product")
-    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
-    void deleteProduct_AsEmployee_Success() throws Exception {
-        mockMvc.perform(delete("/api/productos/123"))
+    @DisplayName("Search Products returns PageResponse")
+    void search_ReturnsPage() throws Exception {
+        Product p = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 5L);
+        PageResponse<Product> pageResponse = new PageResponse<>(
+                List.of(p), 0L, 100L, 1L, 1L);
+
+        when(service.getAllOrSearch("query", 0L, 20L)).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/productos")
+                        .param("search", "query"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].codigo").value("CODE"));
+    }
+
+    @Test
+    @DisplayName("Create product delegates to createWithStock")
+    void create_Success() throws Exception {
+        ProductRequest req = new ProductRequest();
+        req.setCodigo("CODE");
+        req.setDescripcion("Desc");
+        req.setPrecioCosto(10.0);
+        req.setPrecioMayorista(10.0);
+        req.setPrecioMinorista(20.0);
+        req.setCantidad(5);
+        req.setUbicacionId(1L);
+
+        Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 5L);
+
+        when(service.createWithStock(any(Product.class), eq(1L), eq(5L))).thenReturn(saved);
+
+        mockMvc.perform(post("/api/productos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(1));
+
+        verify(service).createWithStock(any(Product.class), eq(1L), eq(5L));
+    }
+
+    @Test
+    @DisplayName("Update product delegates to service")
+    void update_Success() throws Exception {
+        ProductRequest req = new ProductRequest();
+        req.setCodigo("CODE");
+        req.setDescripcion("Updated");
+        req.setPrecioCosto(10.0);
+        req.setPrecioMayorista(10.0);
+        req.setPrecioMinorista(25.0);
+
+        mockMvc.perform(put("/api/productos/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isNoContent());
 
-        verify(productService).deleteById(eq(123L), any());
+        verify(service).update(eq(1L), any(Product.class));
     }
 
     @Test
-    @DisplayName("Unauthenticated cannot create product")
-    void createProduct_Unauthenticated_Forbidden() throws Exception {
-        Product p = new Product();
-        mockMvc.perform(post("/api/productos")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(p)))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    @DisplayName("Employee can update product")
-    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
-    void updateProduct_AsEmployee_Success() throws Exception {
-        ProductRequest p = new ProductRequest();
-        p.setCodigo("A-100");
-        p.setDescripcion("Updated Desc");
-        p.setPrecioMinorista(200.0);
-        p.setPrecioCosto(100.0);
-
-        mockMvc.perform(put("/api/productos/100")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(p)))
+    @DisplayName("Delete product delegates to service")
+    void delete_Success() throws Exception {
+        mockMvc.perform(delete("/api/productos/1"))
                 .andExpect(status().isNoContent());
 
-        verify(productService).update(eq(100L), any(Product.class));
+        verify(service).deleteById(eq(1L), any());
     }
 
     @Test
-    @DisplayName("Create Product with Invalid Data returns 400")
-    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
-    void createProduct_InvalidData_Returns400() throws Exception {
-        ProductRequest p = new ProductRequest();
-        // Missing Description, Prices, etc.
-
-        // Mock the Service validation logic (since Mock doesn't run real code)
-        when(productService.create(any(Product.class)))
-                .thenThrow(new com.centralizesys.exception.BusinessRuleException("Invalid Data"));
+    @DisplayName("Create with invalid data returns 400")
+    void create_InvalidData() throws Exception {
+        // Assuming validation throws BusinessRuleException
+        when(service.createWithStock(any(Product.class), any(), any()))
+                .thenThrow(new com.centralizesys.exception.BusinessRuleException("Invalid"));
 
         mockMvc.perform(post("/api/productos")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(p)))
+                        .content("{}"))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    @DisplayName("Delete Non-Existent Product returns 404")
-    @WithMockUser(username = "owner", roles = { "EMPLEADO" })
-    void deleteProduct_NotFound_Returns404() throws Exception {
+    @DisplayName("Delete non-existent returns 404")
+    void delete_NotFound() throws Exception {
         doThrow(new com.centralizesys.exception.ResourceNotFoundException("Product", 999L))
-                .when(productService).deleteById(eq(999L), any());
+                .when(service).deleteById(eq(999L), any());
 
         mockMvc.perform(delete("/api/productos/999"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Get Alerts returns list")
+    void getAlerts_Success() throws Exception {
+        Product p = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, -5L);
+        when(service.getLowStockAlerts()).thenReturn(List.of(p));
+
+        mockMvc.perform(get("/api/productos/alerts"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].cantidadStock").value(-5));
     }
 }

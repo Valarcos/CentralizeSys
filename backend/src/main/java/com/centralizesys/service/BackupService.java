@@ -552,6 +552,30 @@ public class BackupService {
         }
     }
 
+    public void restoreFromUpload(org.springframework.web.multipart.MultipartFile file, Long userId)
+            throws IOException {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("Uploaded file is empty");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || !originalFilename.toLowerCase().endsWith(EXT_DB)) {
+            throw new IllegalArgumentException("Only .db files can be restored.");
+        }
+
+        Path restoreTrigger = Paths.get(RESTORE_TRIGGER_PATH);
+        Path parent = restoreTrigger.getParent();
+        if (parent != null && !Files.exists(parent)) {
+            Files.createDirectories(parent);
+        }
+
+        // Save uploaded file directly to restore trigger path
+        Files.copy(file.getInputStream(), restoreTrigger, StandardCopyOption.REPLACE_EXISTING);
+
+        auditoriaService.registrarAccion(userId, "RESTORE_UPLOAD_SCHEDULED",
+                "Restore pending from upload: " + originalFilename);
+    }
+
     public void removeMidDayBackup() {
         LocalDateTime now = LocalDateTime.now();
         String datePart = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));

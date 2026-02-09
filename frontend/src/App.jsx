@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import BackupPage from './pages/BackupPage';
 import AdminPage from './pages/AdminPage';
 import InventarioPage from './pages/InventarioPage';
 import AppLayout from './layouts/AppLayout';
@@ -82,6 +83,7 @@ function App() {
                 >
                     <Route index element={<Navigate to="/dashboard" replace />} />
                     <Route path="dashboard" element={<DashboardPage />} />
+                    <Route path="backups" element={<BackupPage />} />
                     <Route path="ventas" element={<PlaceholderPage title="Ventas" sprint={4} />} />
                     <Route path="inventario" element={<InventarioPage />} />
                     <Route path="deudores" element={<PlaceholderPage title="Deudores" sprint={4} />} />

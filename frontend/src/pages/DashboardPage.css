@@ -124,3 +124,39 @@
         display: none;
     }
 }
+
+/* Very small screens (fixing centering issues) */
+@media (max-width: 400px) {
+    .dashboard {
+        padding: 0 var(--spacing-sm);
+        /* Reduce side padding */
+        margin: 0;
+    }
+
+    .dashboard h1 {
+        font-size: 1.5rem;
+        text-align: center;
+    }
+
+    .dashboard-subtitle {
+        font-size: 1rem;
+        text-align: center;
+        margin-bottom: var(--spacing-md);
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        /* Force single column */
+        gap: var(--spacing-md);
+        margin-top: var(--spacing-md);
+        padding: 0 0.5rem;
+        /* Add small internal padding to prevent touching edges */
+    }
+
+    .dashboard-card {
+        padding: var(--spacing-md);
+        /* Ensure card doesn't overflow */
+        width: 100%;
+        box-sizing: border-box;
+    }
+}

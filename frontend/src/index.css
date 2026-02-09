@@ -1,21 +1,32 @@
 :root {
     /* WCAG AAA Color Palette - All contrasts >= 7:1 */
-    --color-primary: #001f3f;      /* Navy - 16.7:1 on white */
-    --color-background: #FFFFFF;   /* White */
-    --color-text: #000000;         /* Black - 21:1 on white */
-    --color-warning: #FFDC00;      /* Yellow - High visibility */
-    --color-secondary: #6c757d;    /* Gray */
-    --color-success: #00703c;      /* Dark Green - 7.6:1 */
-    --color-error: #d32f2f;        /* Dark Red - 9.5:1 */
-    --color-border: #dee2e6;       /* Light Gray for borders */
+    --color-primary: #001f3f;
+    /* Navy - 16.7:1 on white */
+    --color-background: #FFFFFF;
+    /* White */
+    --color-text: #000000;
+    /* Black - 21:1 on white */
+    --color-warning: #FFDC00;
+    /* Yellow - High visibility */
+    --color-secondary: #6c757d;
+    /* Gray */
+    --color-success: #00703c;
+    /* Dark Green - 7.6:1 */
+    --color-error: #d32f2f;
+    /* Dark Red - 9.5:1 */
+    --color-border: #dee2e6;
+    /* Light Gray for borders */
 
     /* Typography - Elderly-Friendly Sizing */
-    --font-size-base-mobile: 18px;   /* Minimum for elderly users */
-    --font-size-base-desktop: 20px;  /* Comfortable reading size */
+    --font-size-base-mobile: 19.5px;
+    /* Increased for visibility */
+    --font-size-base-desktop: 20px;
+    /* Comfortable reading size */
     --font-size-h1: 2.5rem;
     --font-size-h2: 2rem;
     --font-size-h3: 1.5rem;
-    --font-size-button: 1.25rem;     /* Large, tappable targets */
+    --font-size-button: 1.25rem;
+    /* Large, tappable targets */
 
     /* Spacing */
     --spacing-xs: 0.5rem;
@@ -41,7 +52,8 @@
     box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
     height: 100%;
     overflow-x: hidden;
 }
@@ -135,7 +147,9 @@ a:focus-visible {
 }
 
 /* Form Inputs */
-input, select, textarea {
+input,
+select,
+textarea {
     font-size: var(--font-size-base-mobile);
     padding: var(--spacing-sm);
     border: 2px solid var(--color-border);
@@ -146,7 +160,9 @@ input, select, textarea {
     transition: border-color 0.2s ease;
 }
 
-input:hover, select:hover, textarea:hover {
+input:hover,
+select:hover,
+textarea:hover {
     border-color: var(--color-secondary);
 }
 

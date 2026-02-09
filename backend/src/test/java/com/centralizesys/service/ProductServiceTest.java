@@ -2,6 +2,7 @@ package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
+import com.centralizesys.model.dto.PageResponse;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.repository.ProductRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +28,9 @@ class ProductServiceTest {
     @Mock
     private AuditoriaService auditoriaService;
 
+    @Mock
+    private StockService stockService; // [NEW MOCK]
+
     @org.mockito.InjectMocks
     private ProductService service;
 
@@ -39,6 +43,32 @@ class ProductServiceTest {
         when(repository.findAll()).thenReturn(List.of(p));
         List<Product> result = service.getAll();
         assertEquals(1, result.size());
+    }
+
+    @Test
+    @DisplayName("getAllOrSearch (Browse) returns PageResponse")
+    void getAllOrSearch_Browse() {
+        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L);
+        when(repository.findAll(20L, 0L)).thenReturn(List.of(p));
+        when(repository.countAll()).thenReturn(1L);
+
+        PageResponse<Product> result = service.getAllOrSearch(null, 0L, 20L);
+
+        assertEquals(1, result.content().size());
+        assertEquals(1L, result.totalElements());
+    }
+
+    @Test
+    @DisplayName("getAllOrSearch (Search) returns PageResponse")
+    void getAllOrSearch_Search() {
+        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L);
+        when(repository.search("query")).thenReturn(List.of(p));
+
+        PageResponse<Product> result = service.getAllOrSearch("query", 0L, 20L);
+
+        assertEquals(1, result.content().size());
+        assertEquals(100L, result.size()); // Search creates fixed size 100 PageResponse
+        assertEquals(0L, result.page());
     }
 
     @Test
@@ -138,6 +168,38 @@ class ProductServiceTest {
         Product created = service.create(p);
         assertNotNull(created);
         verify(repository).save(p);
+    }
+
+    @Test
+    @DisplayName("createWithStock saves product and calls stock service")
+    void createWithStock_Success() {
+        Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
+        Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
+
+        when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
+        when(repository.save(p)).thenReturn(saved);
+        when(repository.findById(1L)).thenReturn(Optional.of(saved)); // For refresh call
+
+        Product created = service.createWithStock(p, 5L, 10L);
+
+        assertNotNull(created);
+        verify(repository).save(p);
+        verify(stockService).addStock(1L, 5L, 10L);
+    }
+
+    @Test
+    @DisplayName("createWithStock does NOT call stock service if quantity is null/zero")
+    void createWithStock_NoStock() {
+        Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
+        Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
+
+        when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
+        when(repository.save(p)).thenReturn(saved);
+
+        service.createWithStock(p, 5L, null);
+
+        verify(repository).save(p);
+        verifyNoInteractions(stockService);
     }
 
     @Test

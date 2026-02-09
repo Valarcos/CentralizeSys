@@ -18,7 +18,7 @@ import java.io.FileNotFoundException;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/backup")
+@RequestMapping("/api/backups")
 public class BackupController {
 
     private static final Logger log = LoggerFactory.getLogger(BackupController.class);
@@ -28,16 +28,26 @@ public class BackupController {
         this.backupService = backupService;
     }
 
-    @PostMapping("/now")
+    @PostMapping("/create")
     public ResponseEntity<String> triggerManualBackup() {
         Long userId = SecurityUtils.getAuthenticatedUserId();
         backupService.performBackup(BackupService.BackupType.MANUAL, userId);
         return ResponseEntity.ok("Backup manual iniciado. Verifique el registro de auditoría.");
     }
 
-    @GetMapping("/list")
+    @GetMapping
     public ResponseEntity<List<BackupFileDTO>> listBackups() {
         return ResponseEntity.ok(backupService.listBackups());
+    }
+
+    @GetMapping("/last")
+    public ResponseEntity<BackupFileDTO> getLastBackup() {
+        List<BackupFileDTO> backups = backupService.listBackups();
+        if (backups.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        // List is already sorted DESC by date in service
+        return ResponseEntity.ok(backups.get(0));
     }
 
     @GetMapping("/download/{filename}")
@@ -65,20 +75,33 @@ public class BackupController {
     }
 
     @PostMapping("/restore/{filename}")
-    public ResponseEntity<String> restoreDatabase(@PathVariable String filename,
-                                                  @RequestParam(defaultValue = "false") boolean confirm) {
-        if (!confirm) {
-            return ResponseEntity.badRequest()
-                    .body("DANGER: This will overwrite the entire database. Send '?confirm=true' to proceed.");
-        }
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> restoreDatabase(@PathVariable String filename) {
+        // Confirmation is handled by frontend UI ensuring intent before calling this.
+        // We rely on ADMIN role for security here combined with UI confirmation.
 
         try {
             Long userId = SecurityUtils.getAuthenticatedUserId();
             backupService.scheduleRestore(filename, userId);
-            return ResponseEntity.ok("System Restore Scheduled. Please RESTART the server to apply changes.");
+            return ResponseEntity.ok("Restauración programada. El sistema se reiniciará en breve.");
         } catch (Exception e) {
             log.error("Restore scheduling failed", e);
-            return ResponseEntity.internalServerError().body("Restore Failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body("Fallo al restaurar: " + e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/upload-restore", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> restoreFromUpload(
+            @RequestPart("file") org.springframework.web.multipart.MultipartFile file) {
+        try {
+            Long userId = SecurityUtils.getAuthenticatedUserId();
+            backupService.restoreFromUpload(file, userId);
+            return ResponseEntity
+                    .ok("Restauración desde archivo subido programada. El sistema se reiniciará en breve.");
+        } catch (Exception e) {
+            log.error("Restore from upload failed", e);
+            return ResponseEntity.internalServerError().body("Fallo al restaurar: " + e.getMessage());
         }
     }
 }

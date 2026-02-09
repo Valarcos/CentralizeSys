@@ -54,8 +54,9 @@ class BackupControllerTest {
 
         try {
             // Act
-            mockMvc.perform(post("/api/backup/restore/" + filename)
-                    .param("confirm", "true"))
+            // Path updated to /api/backups
+            mockMvc.perform(post("/api/backups/restore/" + filename)
+                            .param("confirm", "true"))
                     .andExpect(status().isOk());
 
             // Assert
@@ -84,7 +85,8 @@ class BackupControllerTest {
 
         try {
             // Act
-            mockMvc.perform(post("/api/backup/now"))
+            // Path updated to /api/backups/create (POST)
+            mockMvc.perform(post("/api/backups/create"))
                     .andExpect(status().isOk());
 
             // Assert

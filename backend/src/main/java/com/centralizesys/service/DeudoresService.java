@@ -96,4 +96,14 @@ public class DeudoresService {
     public boolean hasActiveDebts() {
         return repository.hasActiveDebts();
     }
+
+    /**
+     * Get debts that have been pending/partial for more than X days.
+     * Default to 15 days if not specified.
+     */
+    public List<DeudaResponse> getExpiredDebts() {
+        // Hardcoded to 15 days for now, as implied by "missing api/deudores/expired"
+        // and the "15-day reminder badge" context.
+        return repository.findExpiredDebts(15);
+    }
 }

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import UserFormModal from '../components/UserFormModal';
 import DeleteUserModal from '../components/DeleteUserModal';
+import LocationManagementModal from '../components/LocationManagementModal';
 import './AdminPage.css';
 
 export default function AdminPage() {
@@ -10,6 +11,7 @@ export default function AdminPage() {
     const [loading, setLoading] = useState(true);
     const [showUserForm, setShowUserForm] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showLocationModal, setShowLocationModal] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [deletingUser, setDeletingUser] = useState(null);
 
@@ -75,14 +77,23 @@ export default function AdminPage() {
     return (
         <div className="admin-page container">
             <header className="admin-header">
-                <h1>🔐 Administración de Usuarios</h1>
-                <button
-                    onClick={handleCreateUser}
-                    className="primary"
-                    aria-label="Crear nuevo usuario"
-                >
-                    + Crear Usuario
-                </button>
+                <h1>🔐 Administración</h1>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                        onClick={() => setShowLocationModal(true)}
+                        className="secondary"
+                        aria-label="Gestionar ubicaciones y estanterías"
+                    >
+                        📚 Gestionar Estanterías
+                    </button>
+                    <button
+                        onClick={handleCreateUser}
+                        className="primary"
+                        aria-label="Crear nuevo usuario"
+                    >
+                        + Crear Usuario
+                    </button>
+                </div>
             </header>
 
             {loading ? (
@@ -161,6 +172,14 @@ export default function AdminPage() {
                         setShowDeleteModal(false);
                         setDeletingUser(null);
                     }}
+                />
+            )}
+
+            {showLocationModal && (
+                <LocationManagementModal
+                    onClose={() => setShowLocationModal(false)}
+                    // We don't need to do anything on 'added' here, as the modal manages its own list
+                    // and this page doesn't display locations in the main table.
                 />
             )}
         </div>

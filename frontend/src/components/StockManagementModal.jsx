@@ -123,7 +123,7 @@ export default function StockManagementModal({ product, onClose, onSuccess }) {
                         {/* Current Stock by Location */}
                         <div className="stock-modal-body">
                             <h3>Stock por Ubicación</h3>
-                            {stockLocations.length === 0 ? (
+                            {stockLocations.filter(loc => loc.cantidad > 0).length === 0 ? (
                                 <p className="no-stock-message">
                                     Este producto no tiene stock asignado a ninguna ubicación.
                                 </p>
@@ -136,7 +136,7 @@ export default function StockManagementModal({ product, onClose, onSuccess }) {
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    {stockLocations.map((loc) => (
+                                    {stockLocations.filter(loc => loc.cantidad > 0).map((loc) => (
                                         <tr key={loc.id} className={loc.cantidad < 0 ? 'negative-stock' : ''}>
                                             <td>{loc.nombreUbicacion}</td>
                                             <td className={loc.cantidad < 0 ? 'negative' : ''}>

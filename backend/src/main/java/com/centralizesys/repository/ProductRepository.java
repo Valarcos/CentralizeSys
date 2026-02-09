@@ -87,6 +87,19 @@ public class ProductRepository {
         return namedJdbcTemplate.query(sql, new MapSqlParameterSource("codigo", codigo), rowMapper);
     }
 
+    public Long countAll() {
+        String sql = "SELECT COUNT(*) FROM productos";
+        return jdbcTemplate.queryForObject(sql, Long.class);
+    }
+
+    public List<Product> findAll(Long limit, Long offset) {
+        String sql = "SELECT * FROM productos LIMIT :limit OFFSET :offset";
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        params.addValue("limit", limit);
+        params.addValue("offset", offset);
+        return namedJdbcTemplate.query(sql, params, rowMapper);
+    }
+
     // Buscador "Smart": Busca coincidencias en Código O Descripción
     // Útil para la UI "Super Intuitiva" donde el usuario escribe en un solo campo
     public List<Product> search(String query) {

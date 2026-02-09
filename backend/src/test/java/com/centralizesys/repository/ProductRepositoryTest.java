@@ -29,6 +29,34 @@ class ProductRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
+    @DisplayName("FindAll with Limit/Offset returns correct page")
+    void findAll_Paged_ReturnsCorrectSubset() {
+        // Arrange: Create 25 products
+        for (int i = 0; i < 25; i++) {
+            createTestProduct("PAGE-" + i, 100.0 + i, 10L);
+        }
+
+        // Act: Request Page 2 (Limit 10, Offset 10) -> Should get 10 items (Indices
+        // 10-19)
+        List<Product> page2 = productRepository.findAll(10L, 10L);
+
+        // Assert
+        assertThat(page2).hasSize(10);
+    }
+
+    @Test
+    @DisplayName("CountAll returns total number of products")
+    void countAll_ReturnsCorrectCount() {
+        createTestProduct("CNT-1", 100.0, 10L);
+        createTestProduct("CNT-2", 100.0, 10L);
+        createTestProduct("CNT-3", 100.0, 10L);
+
+        Long count = productRepository.countAll();
+
+        assertThat(count).isEqualTo(3L);
+    }
+
+    @Test
     @DisplayName("FindAll returns all products")
     void findAll_ReturnsAll() {
         createTestProduct("A-001", 100.0, 10L);

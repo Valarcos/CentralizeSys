@@ -46,4 +46,9 @@ public class DeudoresController {
     public ResponseEntity<Boolean> hasActiveDebtsReminder() {
         return ResponseEntity.ok(service.hasActiveDebts());
     }
+
+    @GetMapping("/expired")
+    public ResponseEntity<List<DeudaResponse>> getExpiredDebts() {
+        return ResponseEntity.ok(service.getExpiredDebts());
+    }
 }

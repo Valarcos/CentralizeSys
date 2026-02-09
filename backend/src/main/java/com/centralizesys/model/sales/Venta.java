@@ -9,8 +9,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class Venta {
     private Long id;
-    private String fecha;        // YYYY-MM-DD
+    private String fecha; // YYYY-MM-DD
     private String clienteNombre;
     private Double totalVenta;
-    private Long usuarioId;      // For audit/security
+    private Double descuentoGlobal;
+    private Long usuarioId; // For audit/security
 }

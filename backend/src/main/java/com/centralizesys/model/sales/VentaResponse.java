@@ -14,6 +14,7 @@ public class VentaResponse {
     private String fecha;
     private String clienteNombre;
     private Double totalVenta;
+    private Double descuentoGlobal; // NEW
     private List<DetalleVenta> items;
     private List<PagoVenta> pagos;
 

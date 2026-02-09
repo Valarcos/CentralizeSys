@@ -1,0 +1,367 @@
+/* VentaPage.css */
+
+.venta-page {
+    height: calc(100vh - 70px);
+    /* Adjust for header */
+    display: flex;
+    overflow: hidden;
+    background-color: var(--background-color);
+}
+
+/* --- SPLIT VIEW (Desktop) --- */
+.catalog-panel {
+    flex: 3;
+    /* 60% */
+    padding: 1rem;
+    overflow-y: auto;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.ticket-panel {
+    flex: 2;
+    /* 40% */
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--surface-color);
+    transition: background-color 0.3s ease;
+}
+
+/* --- SALE TYPE THEMES --- */
+.ticket-panel.theme-minorista {
+    background-color: #f0f9ff;
+    /* Very Light Blue */
+    border-left: 5px solid #007bff;
+}
+
+.ticket-panel.theme-mayorista {
+    background-color: #fff8e1;
+    /* Very Light Orange */
+    border-left: 5px solid #ff9800;
+}
+
+/* Dark Mode Overrides for Themes */
+@media (prefers-color-scheme: dark) {
+    .ticket-panel.theme-minorista {
+        background-color: #1a2634;
+        border-left-color: #4da3ff;
+    }
+
+    .ticket-panel.theme-mayorista {
+        background-color: #332b1a;
+        border-left-color: #ffb74d;
+    }
+}
+
+/* --- CATALOG COMPONENTS --- */
+.catalog-header {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.search-bar-large {
+    flex: 1;
+    padding: 1rem;
+    font-size: 1.2rem;
+    border: 2px solid var(--primary-color);
+    border-radius: 8px;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.product-card {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    user-select: none;
+}
+
+.product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary-color);
+}
+
+.product-card h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: var(--text-color);
+}
+
+.product-card .price {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: var(--primary-color);
+}
+
+.product-card .stock {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.stock-warning {
+    color: var(--color-error);
+    font-weight: bold;
+}
+
+/* --- TICKET PANE COMPONENTS --- */
+.ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sale-type-toggle {
+    display: flex;
+    background-color: #f0f0f0;
+    padding: 0.3rem;
+    border-radius: 8px;
+    gap: 0.5rem;
+    border: 1px solid #ddd;
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 6px;
+    font-weight: 500;
+    color: #666;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn.active {
+    background-color: white;
+    color: #333;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-weight: bold;
+}
+
+/* Specific theme colors for active state */
+.theme-minorista .toggle-btn.active {
+    color: var(--primary-color);
+    border-left: 4px solid var(--primary-color);
+}
+
+.theme-mayorista .toggle-btn.active {
+    color: var(--color-warning);
+    border-left: 4px solid var(--color-warning);
+}
+
+.current-client-input {
+    width: 100%;
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.cart-items-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.cart-item-info {
+    flex: 1;
+}
+
+.cart-item-qty {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-right: 1rem;
+}
+
+.qty-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--surface-color);
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.cart-item-total {
+    font-weight: bold;
+    font-size: 1.1rem;
+    min-width: 80px;
+    text-align: right;
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: var(--color-error);
+    margin-left: 0.5rem;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+/* --- PAYMENT SECTION (Bottom of Ticket) --- */
+.payment-section {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 2px solid var(--border-color);
+}
+
+.payment-stack {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 1rem;
+}
+
+.payment-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    align-items: center;
+}
+
+.payment-select,
+.payment-amount {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.payment-select {
+    flex: 2;
+}
+
+.payment-amount {
+    flex: 1;
+    text-align: right;
+}
+
+.add-payment-btn {
+    width: 45px;
+    height: 45px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--primary-color);
+    color: white;
+    font-size: 1.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.1s, background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.add-payment-btn:active {
+    transform: scale(0.95);
+}
+
+.add-payment-btn:hover {
+    background-color: #0056b3;
+    /* Darker Blue */
+}
+
+.totals-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 1rem;
+}
+
+.grand-total {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.pay-btn {
+    width: 100%;
+    padding: 1.2rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    background-color: var(--color-success);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.pay-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+/* --- MOBILE LAYOUT --- */
+@media (max-width: 768px) {
+    .venta-page {
+        flex-direction: column;
+    }
+
+    .catalog-panel,
+    .ticket-panel {
+        flex: 1;
+        width: 100%;
+        display: none;
+        /* Hidden by default, toggled via JS logic (Tabs) */
+    }
+
+    .catalog-panel.active,
+    .ticket-panel.active {
+        display: flex;
+    }
+
+    .mobile-tabs {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background: var(--surface-color);
+        border-top: 1px solid var(--border-color);
+        z-index: 1000;
+    }
+
+    .tab-btn {
+        flex: 1;
+        border: none;
+        background: none;
+        font-weight: bold;
+        color: var(--text-secondary);
+    }
+
+    .tab-btn.active {
+        color: var(--primary-color);
+        border-top: 3px solid var(--primary-color);
+    }
+}

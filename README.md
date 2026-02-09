@@ -16,10 +16,10 @@ Antes de comenzar, asegúrese de tener instalado:
    # Debe mostrar: java version "21.x.x"
    ```
 
-2. **Node.js 18+** - [Descargar Node.js](https://nodejs.org/)
+2. **Node.js 20.19+ (LTS)** - [Descargar Node.js](https://nodejs.org/)
    ```bash
    node -version
-   # Debe mostrar: v18.x.x o superior
+   # Debe mostrar: v20.19.x o superior (Requerido por Vite 6+)
    ```
 
 3. **Git** - [Descargar Git](https://git-scm.com/)
@@ -159,11 +159,14 @@ npm install
 ```
 
 Esto instalará:
-- React 18
-- React Router DOM v6
+- React 19 & React Router v7
 - Axios (cliente HTTP)
 - React Hot Toast (notificaciones)
+- **jsPDF & jsPDF-AutoTable** (Generación de Tickets PDF)
+- **Vitest & Happy-DOM** (Testing Unitario)
 - Vite (build tool)
+
+> **Nota**: Si encuentra errores de dependencias faltantes (ej: `jspdf`), elimine `node_modules` y ejecute `npm install` nuevamente.
 
 #### C. Crear Archivo de Variables de Entorno
 
@@ -512,10 +515,19 @@ npm run preview
 - Ejecute: `npm install` nuevamente
 - Verifique que Node.js 18+ esté instalado
 
-**Error: "VITE_API_URL is not defined"**
-- Cree el archivo `.env` en `frontend/` con:
-  ```env
   VITE_API_URL=http://localhost:8080
+  ```
+
+**Error: "Vite requires Node.js version X.X.X+"**
+- Su versión de Node.js es antigua.
+- **Solución**: Descargue e instale la última versión LTS desde [nodejs.org](https://nodejs.org/).
+
+**Error: "Failed to resolve import..."**
+- Dependencias corruptas o no instaladas.
+- **Solución**:
+  ```bash
+  rm -rf node_modules package-lock.json
+  npm install
   ```
 
 ### Tests fallan

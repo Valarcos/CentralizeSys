@@ -74,7 +74,7 @@ class DeudoresServiceIntegrationTest extends BaseIntegrationTest {
         // 3.34 - 3.34 = 0.00 (Last payment adjusts)
 
         Long userId = createTestUser();
-        Venta venta = new Venta(null, LocalDate.now().toString(), "Math User", 10.0, userId);
+        Venta venta = new Venta(null, LocalDate.now().toString(), "Math User", 10.0, 0.0, userId);
         Long ventaId = ventaRepository.saveVenta(venta);
 
         deudoresRepository.save(ventaId, "Math User", 10.00);

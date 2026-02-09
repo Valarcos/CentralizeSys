@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import MorningAlert from '../components/MorningAlert';
+import StockWarningModal from '../components/StockWarningModal';
 import './DashboardPage.css';
 
 export default function DashboardPage() {
@@ -172,9 +172,10 @@ export default function DashboardPage() {
             {/* Morning Alert Modal */}
             {
                 showMorningAlert && (
-                    <MorningAlert
-                        lowStockProducts={lowStockProducts}
-                        onDismiss={() => setShowMorningAlert(false)}
+                    <StockWarningModal
+                        affectedProducts={lowStockProducts}
+                        onClose={() => setShowMorningAlert(false)}
+                        onContinue={() => setShowMorningAlert(false)}
                     />
                 )
             }

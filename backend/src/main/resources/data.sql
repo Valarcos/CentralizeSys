@@ -55,10 +55,11 @@ INSERT OR IGNORE INTO ventas (fecha, cliente_nombre, total_venta, usuario_id) VA
                                                                                   ('2023-10-01', 'Ingrid Peña', 56800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com')),
                                                                                   ('2023-10-02', 'Maria Gonzalez', 69800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com'));;
 
+-- ALTER TABLE ventas ADD COLUMN descuento_global REAL DEFAULT 0;
 
 -- Script to insert 120 dummy products for Pagination Verification
 -- usage: sqlite3 data/centralizesys.db < backend/scripts/dummy_data.sql
---
+
 -- INSERT INTO productos (codigo, descripcion, precio_costo, precio_mayorista, precio_minorista, cantidad_stock) VALUES
 -- ('DUMMY-1', 'Producto Dummy 1 - Descripcion Generica', 101.0, 151.0, 201.0, 0),
 -- ('DUMMY-2', 'Producto Dummy 2 - Descripcion Generica', 102.0, 152.0, 202.0, 0),

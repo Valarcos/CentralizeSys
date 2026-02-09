@@ -60,6 +60,7 @@ public class VentaService {
                 venta.getFecha(),
                 venta.getClienteNombre(),
                 venta.getTotalVenta(),
+                venta.getDescuentoGlobal(), // NEW
                 detalles,
                 pagos,
                 null // No alerts for historical view
@@ -77,7 +78,33 @@ public class VentaService {
 
         // 2. Process Items (Pure logic + DB Reads)
         // Calculates totals and prepares details, but does not write to DB yet.
-        ProcessedSaleResult processedData = processItems(request.getItems());
+        ProcessedSaleResult processedData = processItems(request.getItems(), request.getTipoVenta());
+
+        // Apply Global Discount
+        // Logic: Total = Sum(Items) - GlobalDiscount
+        // Ensure total doesn't go below 0
+        Double subtotal = processedData.getTotalVenta();
+        Double descuentoGlobal = request.getDescuentoGlobal() != null ? request.getDescuentoGlobal() : 0.0;
+
+        if (descuentoGlobal < 0) {
+            throw new BusinessRuleException("El descuento global no puede ser negativo.");
+        }
+        if (descuentoGlobal > subtotal) {
+            throw new BusinessRuleException("El descuento global ($" + descuentoGlobal
+                    + ") no puede ser mayor al subtotal ($" + subtotal + ").");
+        }
+
+        // Update Total with Discount
+        // We persist the FINAL TOTAL in 'total_venta' column, but we might want to
+        // store subtotal?
+        // Schema says: total_venta REAL NOT NULL.
+        // We added descuento_global column.
+        // So let's say total_venta is the FINAL amount to pay.
+        // And we store descuento_global separately.
+        Double finalTotal = Math.round((subtotal - descuentoGlobal) * 100.0) / 100.0;
+
+        processedData.setTotalVenta(finalTotal);
+        processedData.setDescuentoGlobal(descuentoGlobal);
 
         // 3. Persist Data (Header, Details, Payments)
         // Returns both ID and the processed payments list
@@ -88,14 +115,15 @@ public class VentaService {
         List<String> stockAlerts = updateStockFromDetails(processedData.getDetalles());
 
         // 5. Handle Debt (Fiados)
-        handleDebt(txInfo.getVentaId(), request.getClienteNombre(), processedData.getTotalVenta(), txInfo.getPagosPersistidos());
+        handleDebt(txInfo.getVentaId(), request.getClienteNombre(), processedData.getTotalVenta(),
+                txInfo.getPagosPersistidos());
 
         // 6. Audit Log (The Sale itself)
         auditoriaService.registrarAccion(
                 request.getUsuarioId(),
                 "VENTA",
-                "Venta ID " + txInfo.getVentaId() + " a " + request.getClienteNombre() + ". Total: $" + processedData.getTotalVenta()
-        );
+                "Venta ID " + txInfo.getVentaId() + " a " + request.getClienteNombre() + ". Total: $"
+                        + processedData.getTotalVenta() + " (Desc: " + descuentoGlobal + ")");
 
         // 7. Build Response
         return new VentaResponse(
@@ -103,10 +131,10 @@ public class VentaService {
                 LocalDate.now().toString(),
                 request.getClienteNombre(),
                 processedData.getTotalVenta(),
+                descuentoGlobal, // NEW
                 processedData.getDetalles(),
                 txInfo.getPagosPersistidos(),
-                stockAlerts
-        );
+                stockAlerts);
     }
 
     // --- HELPER CLASSES (Internal DTOs) ---
@@ -115,6 +143,7 @@ public class VentaService {
     static class ProcessedSaleResult {
         private List<DetalleVenta> detalles;
         private Double totalVenta;
+        private Double descuentoGlobal; // Internal tracking
     }
 
     @Data
@@ -135,8 +164,9 @@ public class VentaService {
      * Processes the list of items to calculate prices, discounts and totals.
      * Does NOT update stock. Separation of concerns.
      */
-    // PACKAGE-PRIVATE (Visible to Tests, Hidden from Controller and possible subclasses)
-    ProcessedSaleResult processItems(List<VentaRequest.ItemRequest> itemsReq) {
+    // PACKAGE-PRIVATE (Visible to Tests, Hidden from Controller and possible
+    // subclasses)
+    ProcessedSaleResult processItems(List<VentaRequest.ItemRequest> itemsReq, TipoVenta tipoVenta) {
         ProcessedSaleResult result = new ProcessedSaleResult();
         result.setDetalles(new ArrayList<>());
         Double totalAcumulado = 0.0;
@@ -147,12 +177,13 @@ public class VentaService {
                     .orElseThrow(() -> new ResourceNotFoundException("Producto", itemReq.getProductoId()));
 
             // B. Build Detail & C. Calculate Prices
-            DetalleVenta detalle = createDetalleVenta(producto, itemReq);
+            DetalleVenta detalle = createDetalleVenta(producto, itemReq, tipoVenta);
 
             result.getDetalles().add(detalle);
             totalAcumulado += detalle.getSubtotal();
         }
-        // We round the total ONCE here. This ensures the Venta Header has a clean value.
+        // We round the total ONCE here. This ensures the Venta Header has a clean
+        // value.
         Double totalRounded = Math.round(totalAcumulado * 100.0) / 100.0;
         result.setTotalVenta(totalRounded);
 
@@ -162,7 +193,7 @@ public class VentaService {
     /**
      * Creates a DetalleVenta object with all price calculations applied.
      */
-    private DetalleVenta createDetalleVenta(Product producto, VentaRequest.ItemRequest itemReq) {
+    private DetalleVenta createDetalleVenta(Product producto, VentaRequest.ItemRequest itemReq, TipoVenta tipoVenta) {
         DetalleVenta detalle = new DetalleVenta();
         detalle.setProductoId(producto.getId());
         detalle.setCodigoSnapshot(producto.getCodigo());
@@ -171,7 +202,19 @@ public class VentaService {
 
         // CALCULATE PRICES
         // ---------------------------------------------------------
-        Double precioBase = producto.getPrecioMinorista(); // Official DB Price
+        // Select Price based on Sale Type (Default to Retail if null)
+        Double precioBase;
+        if (tipoVenta == TipoVenta.MAYORISTA) {
+            precioBase = producto.getPrecioMayorista();
+            // Fallback: If wholesale price is missing/zero, should we use retail?
+            // For now, let's assume if it's 0 it's 0 (maybe a gift or unconfigured).
+            // Business Rule: "Wholesale Price >= 0 (if present)".
+            if (precioBase == null)
+                precioBase = 0.0;
+        } else {
+            precioBase = producto.getPrecioMinorista();
+        }
+
         detalle.setPrecioLista(precioBase);
 
         Double valorDescuento = itemReq.getValorDescuento() != null ? itemReq.getValorDescuento() : 0.0;
@@ -198,7 +241,8 @@ public class VentaService {
         }
 
         if (value > basePrice) {
-            throw new BusinessRuleException("El monto de descuento ($" + value + ") no puede ser mayor al precio del producto ($" + basePrice + ") para: " + productName);
+            throw new BusinessRuleException("El monto de descuento ($" + value
+                    + ") no puede ser mayor al precio del producto ($" + basePrice + ") para: " + productName);
         }
 
         Double finalPrice = basePrice - value;
@@ -215,7 +259,9 @@ public class VentaService {
         venta.setFecha(LocalDate.now().toString()); // Result: "ej.: 2025-12-14"
         venta.setClienteNombre(request.getClienteNombre());
         venta.setTotalVenta(processedData.getTotalVenta());
-        // If the frontend sends null, this will be null in DB (allowed by schema if not strict, but good for traceability)
+        venta.setDescuentoGlobal(processedData.getDescuentoGlobal());
+        // If the frontend sends null, this will be null in DB (allowed by schema if not
+        // strict, but good for traceability)
         venta.setUsuarioId(request.getUsuarioId());
 
         Long ventaId = ventaRepository.saveVenta(venta);
@@ -244,14 +290,16 @@ public class VentaService {
      * Handles the physical stock deduction.
      * Iterates over the Processed Details to avoid re-fetching products from DB.
      */
-    // PACKAGE-PRIVATE (Visible to Tests, Hidden from Controller and possible subclasses)
+    // PACKAGE-PRIVATE (Visible to Tests, Hidden from Controller and possible
+    // subclasses)
     List<String> updateStockFromDetails(List<DetalleVenta> detalles) {
         List<String> alerts = new ArrayList<>();
 
         for (DetalleVenta detalle : detalles) {
             // D. Deduct Stock
             // We use detail.getDescripcionSnapshot() as the product name for alerts
-            String alerta = deductStockFromInventory(detalle.getProductoId(), detalle.getDescripcionSnapshot(), detalle.getCantidad());
+            String alerta = deductStockFromInventory(detalle.getProductoId(), detalle.getDescripcionSnapshot(),
+                    detalle.getCantidad());
 
             if (alerta != null) {
                 alerts.add(alerta);
@@ -263,15 +311,18 @@ public class VentaService {
     /**
      * ATOMIC DECREMENT LOGIC
      * Manages stock deduction across multiple locations.
-     * If stock is not enough, it forces a negative balance on the first available location.
+     * If stock is not enough, it forces a negative balance on the first available
+     * location.
      */
-    // PACKAGE-PRIVATE (Visible to Tests, Hidden from Controller and possible subclasses)
+    // PACKAGE-PRIVATE (Visible to Tests, Hidden from Controller and possible
+    // subclasses)
     String deductStockFromInventory(Long productId, String productName, Long quantityNeeded) {
         List<StockLocation> locations = stockRepository.findByProductId(productId);
         Long remainingToDeduct = quantityNeeded;
 
         for (StockLocation loc : locations) {
-            if (remainingToDeduct <= 0) break;
+            if (remainingToDeduct <= 0)
+                break;
             Long available = loc.getCantidad();
 
             // We take from this box if it has positive stock
@@ -286,7 +337,8 @@ public class VentaService {
         if (remainingToDeduct > 0) {
             if (locations.isEmpty()) {
                 // Scenario: Product exists in DB but has NO entry in 'stock_por_ubicacion'
-                return "CRÍTICO: El producto '" + productName + "' se vendió pero NO tiene ubicación de stock asignada.";
+                return "CRÍTICO: El producto '" + productName
+                        + "' se vendió pero NO tiene ubicación de stock asignada.";
             } else {
                 // Scenario: Product exists in 'stock_por_ubicacion' but sum is 0 or low.
                 // We force the subtraction on the first location found, making it negative.
@@ -309,7 +361,8 @@ public class VentaService {
 
         // 3. Epsilon Check
         // Since EPSILON (0.0001) is much larger than math noise (0.00000000001),
-        // this check safely filters out false positives without needing to round 'totalPagado'.
+        // this check safely filters out false positives without needing to round
+        // 'totalPagado'.
         Double epsilon = 0.0001;
 
         if (deuda > epsilon) {
@@ -318,7 +371,8 @@ public class VentaService {
             }
 
             // 4. Final Rounding
-            // We only round here to ensure the database gets a clean "5.50" instead of "5.499999"
+            // We only round here to ensure the database gets a clean "5.50" instead of
+            // "5.499999"
             double deudaFinal = Math.round(deuda * 100.0) / 100.0;
 
             deudoresRepository.save(ventaId, clienteNombre, deudaFinal);

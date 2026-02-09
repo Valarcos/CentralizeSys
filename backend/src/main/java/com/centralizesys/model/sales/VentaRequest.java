@@ -9,8 +9,10 @@ import java.util.List;
 @NoArgsConstructor
 public class VentaRequest {
     private String clienteNombre;
+    private Double descuentoGlobal = 0.0; // NEW
 
     private Long usuarioId; // Enables traceability of who made the sale
+    private TipoVenta tipoVenta = TipoVenta.MINORISTA; // Default to Retail
 
     // The list of products being bought
     private List<ItemRequest> items;

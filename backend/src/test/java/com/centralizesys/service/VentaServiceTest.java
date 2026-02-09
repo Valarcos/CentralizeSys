@@ -8,6 +8,7 @@ import com.centralizesys.model.sales.DetalleVenta;
 import com.centralizesys.model.sales.Venta;
 import com.centralizesys.model.sales.VentaRequest;
 import com.centralizesys.model.sales.VentaResponse;
+import com.centralizesys.model.sales.TipoVenta;
 import com.centralizesys.repository.DeudoresRepository;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.repository.StockRepository;
@@ -100,7 +101,7 @@ class VentaServiceTest {
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
         // Act (Calling package-private method directly)
-        var result = ventaService.processItems(List.of(item));
+        var result = ventaService.processItems(List.of(item), TipoVenta.MINORISTA);
 
         // Assert
         assertEquals(180.0, result.getTotalVenta()); // 90 * 2
@@ -124,7 +125,7 @@ class VentaServiceTest {
         when(productRepository.findById(1L)).thenReturn(Optional.of(product));
 
         // Act
-        var result = ventaService.processItems(List.of(item));
+        var result = ventaService.processItems(List.of(item), TipoVenta.MINORISTA);
 
         // Assert
         assertEquals(100.0, result.getTotalVenta());
@@ -146,7 +147,7 @@ class VentaServiceTest {
 
         List<VentaRequest.ItemRequest> items = List.of(item);
 
-        assertThrows(BusinessRuleException.class, () -> ventaService.processItems(items));
+        assertThrows(BusinessRuleException.class, () -> ventaService.processItems(items, TipoVenta.MINORISTA));
     }
 
     @Test
@@ -164,7 +165,7 @@ class VentaServiceTest {
 
         List<VentaRequest.ItemRequest> items = List.of(item);
 
-        assertThrows(BusinessRuleException.class, () -> ventaService.processItems(items));
+        assertThrows(BusinessRuleException.class, () -> ventaService.processItems(items, TipoVenta.MINORISTA));
     }
 
     @Test
@@ -173,7 +174,8 @@ class VentaServiceTest {
         // Scenario: 3 items at 33.3333333...
         // We simulate this by having 1 product with a weird calculated price
         // OR simply 3 distinct items that sum up weirdly.
-        // Let's use 1 item with quantity 1 and a calculated price that requires rounding.
+        // Let's use 1 item with quantity 1 and a calculated price that requires
+        // rounding.
         // Wait, the logic is: Math.round(totalAcumulado * 100.0) / 100.0
 
         Product p1 = new Product("A", "P1", 10.0, 10.0, 10.555); // DB stores double
@@ -187,11 +189,105 @@ class VentaServiceTest {
         when(productRepository.findById(1L)).thenReturn(Optional.of(p1));
 
         // Act
-        var result = ventaService.processItems(List.of(i1));
+        var result = ventaService.processItems(List.of(i1), TipoVenta.MINORISTA);
 
         // Assert
         // 10.555 rounded should be 10.56
         assertEquals(10.56, result.getTotalVenta());
+    }
+
+    @Test
+    @DisplayName("UT-06B: processItems uses Wholesale Price when TipoVenta is MAYORISTA")
+    void processItems_UsesWholesalePrice() {
+        // Arrange
+        Product p = new Product("A", "P1", 50.0, 100.0, 150.0); // Cost, Wholesale, Retail
+        p.setId(1L);
+
+        VentaRequest.ItemRequest i1 = new VentaRequest.ItemRequest();
+        i1.setProductoId(1L);
+        i1.setCantidad(2L);
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(p));
+
+        // Act
+        var result = ventaService.processItems(List.of(i1), TipoVenta.MAYORISTA);
+
+        // Assert: 2 * 100.0 (Wholesale) = 200.0
+        // If it used Retail, it would be 2 * 150.0 = 300.0
+        assertEquals(200.0, result.getTotalVenta());
+        assertEquals(100.0, result.getDetalles().getFirst().getPrecioUnitario());
+    }
+
+    // --- GLOBAL DISCOUNT TESTS ---
+
+    @Test
+    @DisplayName("UT-17: registrarVenta applies global discount correctly")
+    void registrarVenta_AppliesGlobalDiscount() {
+        // Arrange
+        Product p = new Product("A", "P1", 50.0, 80.0, 100.0);
+        p.setId(1L);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(p));
+        // Mock stock logic to avoid NPE
+        when(stockRepository.findByProductId(anyLong())).thenReturn(List.of());
+        when(ventaRepository.saveVenta(any())).thenReturn(1L);
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(2L); // Subtotal: 200
+        item.setValorDescuento(0.0);
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+        request.setDescuentoGlobal(50.0); // 200 - 50 = 150
+        request.setClienteNombre("Discount User");
+        request.setUsuarioId(1L);
+
+        // Act
+        VentaResponse response = ventaService.registrarVenta(request);
+
+        // Assert
+        assertEquals(150.0, response.getTotalVenta());
+        assertEquals(50.0, response.getDescuentoGlobal());
+    }
+
+    @Test
+    @DisplayName("UT-18: registrarVenta throws when global discount is negative")
+    void registrarVenta_Throws_WhenGlobalDiscountNegative() {
+        // Arrange
+        Product p = new Product("A", "P1", 50.0, 80.0, 100.0);
+        p.setId(1L);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(p));
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+        request.setDescuentoGlobal(-10.0);
+
+        // Act & Assert
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
+    }
+
+    @Test
+    @DisplayName("UT-19: registrarVenta throws when global discount exceeds subtotal")
+    void registrarVenta_Throws_WhenGlobalDiscountExceedsTotal() {
+        // Arrange
+        Product p = new Product("A", "P1", 50.0, 80.0, 100.0);
+        p.setId(1L);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(p));
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L); // Subtotal 100
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+        request.setDescuentoGlobal(101.0);
+
+        // Act & Assert
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
     }
 
     // --- GROUP 3: STOCK LOGIC (Package-Private Testing) ---
@@ -375,8 +471,7 @@ class VentaServiceTest {
 
         // Stock Location mock to avoid NPE in loop
         when(stockRepository.findByProductId(1L)).thenReturn(
-                List.of(new StockLocation(1L, 1L, 1L, "Loc", 100L))
-        );
+                List.of(new StockLocation(1L, 1L, 1L, "Loc", 100L)));
 
         VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
         item.setProductoId(1L);
@@ -384,7 +479,7 @@ class VentaServiceTest {
 
         VentaRequest.PagoRequest pago = new VentaRequest.PagoRequest();
         pago.setMetodoPagoId(1L); // Cash, Card, etc.
-        pago.setMonto(200.0);     // Pay in full
+        pago.setMonto(200.0); // Pay in full
 
         VentaRequest request = new VentaRequest();
         request.setClienteNombre("Client");

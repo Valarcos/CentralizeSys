@@ -37,34 +37,32 @@ public class VentaRepository {
         Long usuarioIdVal = rs.getLong("usuario_id");
         Long usuarioId = rs.wasNull() ? null : usuarioIdVal;
         return new Venta(
-            rs.getLong("id"),
-            rs.getString("fecha"),
-            rs.getString("cliente_nombre"),
-            rs.getDouble("total_venta"),
-            usuarioId);
+                rs.getLong("id"),
+                rs.getString("fecha"),
+                rs.getString("cliente_nombre"),
+                rs.getDouble("total_venta"),
+                rs.getDouble("descuento_global"), // NEW
+                usuarioId);
     };
 
     // We now map directly to the simplified numeric-only constructor.
-    private final RowMapper<DetalleVenta> detalleMapper = (rs, rowNum) ->
-        new DetalleVenta(
-                rs.getLong("id"),
-                rs.getLong(VENTA_ID_COLUMN),
-                rs.getLong("producto_id"),
-                rs.getString("codigo_snapshot"),
-                rs.getString("descripcion_snapshot"),
-                rs.getLong("cantidad"),
-                rs.getDouble("precio_lista"),
-                rs.getDouble("descuento_valor"),
-                rs.getDouble("precio_unitario"),
-                rs.getDouble("subtotal")
-    );
+    private final RowMapper<DetalleVenta> detalleMapper = (rs, rowNum) -> new DetalleVenta(
+            rs.getLong("id"),
+            rs.getLong(VENTA_ID_COLUMN),
+            rs.getLong("producto_id"),
+            rs.getString("codigo_snapshot"),
+            rs.getString("descripcion_snapshot"),
+            rs.getLong("cantidad"),
+            rs.getDouble("precio_lista"),
+            rs.getDouble("descuento_valor"),
+            rs.getDouble("precio_unitario"),
+            rs.getDouble("subtotal"));
 
     private final RowMapper<PagoVenta> pagoMapper = (rs, rowNum) -> new PagoVenta(
             rs.getLong("id"),
             rs.getLong(VENTA_ID_COLUMN),
             rs.getLong("metodo_pago_id"),
-            rs.getDouble("monto")
-    );
+            rs.getDouble("monto"));
 
     // --- SAVE OPERATIONS ---
 
@@ -72,11 +70,12 @@ public class VentaRepository {
      * Saves the Header (Venta) and returns the generated ID.
      */
     public Long saveVenta(Venta venta) {
-        // [NOTE] Using BeanPropertySqlParameterSource matches params to DTO fields automatically.
+        // [NOTE] Using BeanPropertySqlParameterSource matches params to DTO fields
+        // automatically.
         String sql = """
-            INSERT INTO ventas (fecha, cliente_nombre, total_venta, usuario_id)
-            VALUES (:fecha, :clienteNombre, :totalVenta, :usuarioId)
-        """;
+                    INSERT INTO ventas (fecha, cliente_nombre, total_venta, descuento_global, usuario_id)
+                    VALUES (:fecha, :clienteNombre, :totalVenta, :descuentoGlobal, :usuarioId)
+                """;
 
         SqlParameterSource params = new BeanPropertySqlParameterSource(venta);
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -95,19 +94,19 @@ public class VentaRepository {
      */
     public void saveDetalles(List<DetalleVenta> detalles) {
         String sql = """
-            INSERT INTO detalles_venta
-            (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad,
-             precio_lista, descuento_valor, precio_unitario, subtotal)
-            VALUES (:ventaId,
-                    :productoId,
-                    :codigoSnapshot,
-                    :descripcionSnapshot,
-                    :cantidad,
-                    :precioLista,
-                    :descuentoValor,
-                    :precioUnitario,
-                    :subtotal)
-        """;
+                    INSERT INTO detalles_venta
+                    (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad,
+                     precio_lista, descuento_valor, precio_unitario, subtotal)
+                    VALUES (:ventaId,
+                            :productoId,
+                            :codigoSnapshot,
+                            :descripcionSnapshot,
+                            :cantidad,
+                            :precioLista,
+                            :descuentoValor,
+                            :precioUnitario,
+                            :subtotal)
+                """;
 
         List<MapSqlParameterSource> batchParams = detalles.stream()
                 .map(d -> new MapSqlParameterSource()
@@ -129,7 +128,8 @@ public class VentaRepository {
      * Bulk inserts payments.
      */
     public void savePagos(List<PagoVenta> pagos) {
-        if (pagos.isEmpty()) return;
+        if (pagos.isEmpty())
+            return;
         String sql = "INSERT INTO pagos_venta (venta_id, metodo_pago_id, monto) VALUES (:ventaId, :metodoPagoId, :monto)";
         SqlParameterSource[] batch = SqlParameterSourceUtils.createBatch(pagos);
         namedJdbcTemplate.batchUpdate(sql, batch);

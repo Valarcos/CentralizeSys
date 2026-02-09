@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS ventas (
     fecha TEXT NOT NULL,
     cliente_nombre TEXT,
     total_venta REAL NOT NULL,
+    descuento_global REAL DEFAULT 0, -- NEW: Global discount applied to the total
     usuario_id INTEGER, -- Agregado para auditoría
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );;

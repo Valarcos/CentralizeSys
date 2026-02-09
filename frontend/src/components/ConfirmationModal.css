@@ -1,0 +1,46 @@
+.confirmation-modal {
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+.warning-border {
+    border-top: 5px solid var(--color-warning);
+}
+
+.modal-header h3 {
+    margin-top: 0;
+    color: var(--text-color);
+}
+
+.modal-body {
+    margin: 1.5rem 0;
+    font-size: 1.1rem;
+    color: #555;
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.warning-btn {
+    background-color: var(--color-warning);
+    color: #333;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.cancel-btn:hover,
+.primary-btn:hover,
+.warning-btn:hover {
+    opacity: 0.9;
+}

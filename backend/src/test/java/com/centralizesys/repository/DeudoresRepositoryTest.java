@@ -171,4 +171,32 @@ class DeudoresRepositoryTest extends BaseIntegrationTest {
         // Assert
         assertThat(hasDebts).isFalse();
     }
+
+    @Test
+    @DisplayName("findExpiredDebts - returns only debts older than X days")
+    void findExpiredDebts_returnsOldDebts() {
+        // Arrange
+        Long ventaId1 = createTestSale();
+        Long ventaId2 = createTestSale();
+
+        // Debt 1: Today (Not Expired)
+        deudoresRepository.save(ventaId1, "New Debtor", 100.0);
+
+        // Debt 2: 20 Days Ago (Expired)
+        deudoresRepository.save(ventaId2, "Old Debtor", 200.0);
+        // Manually backdate the second debt
+        String oldDate = java.time.LocalDate.now().minusDays(20).toString();
+        // Get ID of the last inserted (Old Debtor)
+        Long oldDebtId = deudoresRepository.findAll().get(0).getId(); // List is ordered DESC, so first is newest (Old
+        // Debtor)
+
+        jdbcTemplate.update("UPDATE deudores SET fecha_deuda = ? WHERE id = ?", oldDate, oldDebtId);
+
+        // Act
+        List<DeudaResponse> expired = deudoresRepository.findExpiredDebts(15);
+
+        // Assert
+        assertThat(expired).hasSize(1);
+        assertThat(expired.getFirst().getClienteNombre()).isEqualTo("Old Debtor");
+    }
 }

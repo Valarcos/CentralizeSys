@@ -2,9 +2,11 @@ package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
+import com.centralizesys.model.dto.PageResponse;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.repository.ProductRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -12,17 +14,58 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository repository;
-    private final AuditoriaService auditoriaService; // [NEW DEPENDENCY]
+    private final AuditoriaService auditoriaService;
+    private final StockService stockService; // [NEW DEPENDENCY]
 
     private static final String PRODUCT = "Product";
 
-    public ProductService(ProductRepository repository, AuditoriaService auditoriaService) {
+    public ProductService(ProductRepository repository, AuditoriaService auditoriaService, StockService stockService) {
         this.repository = repository;
         this.auditoriaService = auditoriaService;
+        this.stockService = stockService;
     }
 
     public List<Product> getAll() {
         return repository.findAll();
+    }
+
+    public PageResponse<Product> getAll(Long page, Long size) {
+        // Defaults to avoid NPE / dumb values
+        long p = (page == null || page < 0) ? 0 : page;
+        long s = (size == null || size <= 0) ? 20 : size;
+
+        long totalElements = repository.countAll();
+        long totalPages = (long) Math.ceil((double) totalElements / s);
+
+        // Optimization: Don't query if page is out of bounds (except page 0)
+        if (p >= totalPages && totalPages > 0) {
+            return new PageResponse<>(
+                    java.util.List.of(), p, s, totalElements, totalPages);
+        }
+
+        List<Product> content = repository.findAll(s, p * s);
+        return new PageResponse<>(
+                content, p, s, totalElements, totalPages);
+    }
+
+    /**
+     * Unified method for Search or Browse.
+     * Always returns PageResponse for consistency.
+     */
+    public PageResponse<Product> getAllOrSearch(String search, Long page, Long size) {
+        if (search != null && !search.isBlank()) {
+            // Search Mode: List -> PageResponse (Page 0, Size 100)
+            List<Product> products = search(search);
+            return new PageResponse<>(
+                    products,
+                    0L,
+                    100L,
+                    (long) products.size(),
+                    1L);
+        } else {
+            // Browse Mode: Standard Pagination
+            return getAll(page, size);
+        }
     }
 
     public Product getById(Long id) {
@@ -61,7 +104,28 @@ public class ProductService {
         }
     }
 
+    @Transactional
     public Product create(Product product) {
+        return internalCreate(product);
+    }
+
+    // Extended create method dealing with initial stock
+    @Transactional
+    public Product createWithStock(Product product, Long locationId, Long quantity) {
+        // Use internal helper to avoid "self-invocation" of Transactional method
+        // (Sonar rule: Call transactional methods via an injected dependency instead of
+        // directly via 'this')
+        Product saved = internalCreate(product);
+
+        if (locationId != null && quantity != null && quantity > 0) {
+            stockService.addStock(saved.getId(), locationId, quantity);
+            return getById(saved.getId());
+        }
+        return saved;
+    }
+
+    // Helper to centralize creation logic and bypass self-invocation issues
+    private Product internalCreate(Product product) {
         validate(product);
         checkVariantCollision(product, null);
         return repository.save(product);

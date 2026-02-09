@@ -79,4 +79,18 @@ public class DeudoresRepository {
         Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
         return count != null && count > 0;
     }
+
+    public List<DeudaResponse> findExpiredDebts(int days) {
+        // SQLite syntax: date('now', '-X days')
+        String sql = """
+                    SELECT * FROM deudores
+                    WHERE estado IN ('PENDIENTE', 'PARCIAL')
+                    AND fecha_deuda <= date('now', '-' || :days || ' days')
+                    ORDER BY fecha_deuda ASC
+                """;
+
+        return namedJdbcTemplate.query(sql,
+                new MapSqlParameterSource("days", days),
+                rowMapper);
+    }
 }

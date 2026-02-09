@@ -230,6 +230,7 @@
         *   **Scaffolding/Abandoned Idea:** If it remains from a previous approach (e.g., an unused Repository after switching to `JdbcTemplate`), **DELETE** it immediately.
         *   **Forgotten Logic:** If it implies a missing feature or unfulfilled requirement, **IMPLEMENT** the missing logic.
         *   **Result:** The final delivery must be free of "dead code", but fully functional. Never simply delete code to silence a linter if it hints at a gap in logic.
+    *   **Implementation Plans:** **NEVER** summarize, shorten, or remove details from the `implementation_plan.md` during iterations. The plan must remain a comprehensive, "source of truth" document. If a section is "done", mark it as such, but do NOT delete the details. Always ADD or REFINE; never SUBTRACT information.
 
 ---
 
@@ -307,3 +308,11 @@
         *   **Requirement:** Ability to edit existing user details (e.g., password, email, role).
         *   **Current Limitation:** No endpoint exists to update user information; only Create and Delete are supported.
         *   **Plan:** Implement `PUT /api/usuarios/{id}` endpoint and corresponding service logic in Phase 2.5/3.
+
+---
+
+## 12. Critical Stability Rules (White Screen of Death Prevention)
+*   **Atomic Refactoring:** When removing functions, variables, or imports, you **MUST** ensure that all references to them are removed or updated in the **SAME** tool call sequence or immediately prior. Never leave a file in a broken state where a defined symbol is removed but still referenced, as this causes the React application to crash (Blank Screen).
+*   **Verification:** After applying a `replace_file_content` that removes code, you MUST verify that the file is syntactically valid and that no lingering references exist.
+*   **Variable Scope Check:** Before finalizing any React component, you MUST explicitly verify that every variable used in the JSX (e.g., inside `{}`) is defined in the component's scope (props, state, or imports). undefined variables cause immediate white-screen crashes.
+*   **Self-Correction:** If a blank screen is reported, your first priority is to check for `ReferenceError` (undefined variables/functions) in the recently edited files.

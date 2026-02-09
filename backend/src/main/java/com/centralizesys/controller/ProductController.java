@@ -1,9 +1,9 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.model.dto.PageResponse;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.model.product.ProductRequest;
 import com.centralizesys.model.product.ProductResponse;
-import com.centralizesys.repository.StockRepository;
 import com.centralizesys.security.SecurityUtils;
 import com.centralizesys.service.ProductService;
 import org.springframework.http.HttpStatus;
@@ -19,30 +19,33 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService service;
-    private final StockRepository stockRepository;
 
-    public ProductController(ProductService service, StockRepository stockRepository) {
+    public ProductController(ProductService service) {
         this.service = service;
-        this.stockRepository = stockRepository;
     }
 
-    // GET /api/productos?search=...
-    // Combines "GetAll" and "Search" into one intuitive endpoint
+    // GET /api/productos?search=...&page=0&size=20
+    // Combines "GetAll" (Paged) and "Search" (List/Limit 100)
+    // Refactored to always return PageResponse to avoid wildcard types (Sonar)
+    // Logic moved to Service
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> getAllOrSearch(
-            @RequestParam(required = false) String search) {
+    public ResponseEntity<PageResponse<ProductResponse>> getAllOrSearch(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") Long page,
+            @RequestParam(defaultValue = "20") Long size) {
 
-        List<Product> products;
+        PageResponse<Product> pageData = service.getAllOrSearch(search, page, size);
 
-        if (search != null && !search.isBlank()) {
-            products = service.search(search);
-        } else {
-            products = service.getAll();
-        }
-
-        List<ProductResponse> response = products.stream()
+        List<ProductResponse> contentDtos = pageData.content().stream()
                 .map(ProductResponse::new)
                 .toList();
+
+        PageResponse<ProductResponse> response = new PageResponse<>(
+                contentDtos,
+                pageData.page(),
+                pageData.size(),
+                pageData.totalElements(),
+                pageData.totalPages());
 
         return ResponseEntity.ok(response);
     }
@@ -65,14 +68,11 @@ public class ProductController {
                 request.getPrecioMayorista(),
                 request.getPrecioMinorista());
 
-        Product saved = service.create(newProduct);
-
-        // If initial stock and location are provided, add stock to that location
-        if (request.getUbicacionId() != null && request.getCantidad() != null && request.getCantidad() > 0) {
-            stockRepository.addStock(saved.getId(), request.getUbicacionId(), request.getCantidad().longValue());
-            // Refresh the product to get updated cantidadStock from trigger
-            saved = service.getById(saved.getId());
-        }
+        // Delegate creation and initial stock handling to Service
+        Product saved = service.createWithStock(
+                newProduct,
+                request.getUbicacionId(),
+                request.getCantidad() != null ? request.getCantidad().longValue() : null);
 
         return new ResponseEntity<>(new ProductResponse(saved), HttpStatus.CREATED);
     }
@@ -102,7 +102,7 @@ public class ProductController {
     }
 
     // GET /api/productos/alerts
-    // Returns products with negative stock for Dashboard warning
+    // Returns products with negative stock for Dashboard "Morning Warning"
     @GetMapping("/alerts")
     public ResponseEntity<List<ProductResponse>> getLowStockAlerts() {
         List<Product> alerts = service.getLowStockAlerts();

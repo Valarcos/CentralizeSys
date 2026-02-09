@@ -7,59 +7,37 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: var(--spacing-sm);
+    /* Reduced from md/lg */
     flex-wrap: wrap;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
 }
 
-.inventario-header h1 {
-    margin: 0;
-    color: var(--color-primary);
+.header-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
 }
 
 /* Search Container */
 .search-container {
     position: relative;
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    /* Reduced from md */
 }
 
-.search-input {
-    width: 100%;
-    padding: var(--spacing-md) var(--spacing-lg);
-    padding-right: 3rem;
-    font-size: 1.1rem;
-    border: 2px solid var(--color-border);
-    border-radius: var(--radius-md);
-    transition: border-color 0.2s ease;
-}
+/* ... existing code ... */
 
-.search-input:focus {
-    border-color: var(--color-primary);
-    outline: 3px solid var(--color-warning);
-    outline-offset: 2px;
-}
-
-.clear-search {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    font-size: 1.2rem;
-    color: var(--color-secondary);
-    cursor: pointer;
-    padding: 0.5rem;
-    min-height: auto;
-}
-
-.clear-search:hover {
-    color: var(--color-primary);
+.results-info-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
 }
 
 .results-info {
     color: var(--color-secondary);
-    margin-bottom: var(--spacing-md);
+    margin-bottom: 0;
     font-size: 0.95rem;
 }
 
@@ -105,11 +83,13 @@
 }
 
 .products-table tbody tr:nth-child(even) {
-    background-color: #fafafa;
+    background-color: #f2f2f2;
+    /* Darkened from #fafafa */
 }
 
 .products-table tbody tr:nth-child(even):hover {
-    background-color: #f0f0f0;
+    background-color: #e6e6e6;
+    /* Darkened from #f0f0f0 */
 }
 
 .product-name-cell {
@@ -229,85 +209,306 @@
     border: 0;
 }
 
-/* Responsive Table */
+/* Responsive Table & Cards */
 @media (max-width: 768px) {
-
-    /* Container Breakout Strategy:
-       The parent .main-content has 2rem (spacing-lg) padding.
-       We remove local padding and pull the table out by negative 2rem to touch edges.
-    */
     .inventario-page {
-        padding: 0;
-        width: 100%;
-    }
-
-    .inventario-header {
-        margin-bottom: var(--spacing-sm);
-        padding: 0 0.5rem;
-    }
-
-    .inventario-header h1 {
-        font-size: 1.5rem;
-    }
-
-    .search-container {
-        margin-bottom: var(--spacing-sm);
-        padding: 0 0.5rem;
-    }
-
-    .results-info {
-        padding: 0 0.5rem;
+        padding: var(--spacing-sm);
     }
 
     .products-table-container {
-        /* Negative Margin Breakout with Breathing Room */
-        /* Parent padding is 2rem (spacing-lg). We want 0.5rem gap.
-           So we pull back by 1.5rem (-24px). */
-        margin-left: calc(-1.5rem);
-        margin-right: calc(-1.5rem);
-        width: calc(100% + 3rem);
-
         border-radius: 0;
         box-shadow: none;
-        border-left: none;
-        border-right: none;
+        overflow: visible;
+        /* Allow cards to flow */
     }
 
+    .products-table,
+    .products-table thead,
+    .products-table tbody,
     .products-table th,
+    .products-table td,
+    .products-table tr {
+        display: block;
+    }
+
+    /* Hide table headers (but keep accessible) */
+    .products-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .products-table tr {
+        background-color: white;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--spacing-md);
+        padding: var(--spacing-md);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
     .products-table td {
-        padding: 0.5rem 0.4rem;
-        font-size: 0.85rem;
+        /* Behave like a "row" */
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 50%;
+        /* Make space for label */
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        text-align: right;
     }
 
-    /* Hide Code column on mobile */
-    .products-table th:first-child,
-    .products-table td:first-child {
-        display: none;
+    .products-table td:last-child {
+        border-bottom: none;
     }
 
-    /* Narrow description - allows taller rows but saves horizontal space */
+    .products-table td::before {
+        /* Now like a table header */
+        position: absolute;
+        /* Top/Left values mimic padding */
+        top: 0.5rem;
+        left: 0.5rem;
+        width: 45%;
+        padding-right: 10px;
+        font-weight: 600;
+        text-align: left;
+        color: var(--color-secondary);
+        content: attr(data-label);
+        /* Label comes from JS */
+    }
+
+    /* Specific adjustments for cells */
     .product-name-cell {
-        max-width: 100px;
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-        hyphens: auto;
+        font-weight: 700;
+        color: var(--color-primary);
+        font-size: 1.1rem;
+        text-align: left !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-bottom: 0.5rem;
+        border-bottom: 2px solid var(--color-secondary) !important;
+    }
+
+    .product-name-cell::before {
+        display: none;
+        /* Hide label for name, it's the card title */
     }
 
     .actions-cell {
-        flex-direction: column;
-        gap: 0.25rem;
+        display: flex;
+        justify-content: space-between;
+        gap: var(--spacing-sm);
+        padding-left: 0 !important;
+        margin-top: 0.5rem;
+    }
+
+    .actions-cell::before {
+        display: none;
     }
 
     .action-btn {
-        width: 100%;
+        flex: 1;
         justify-content: center;
-        padding: 0.4rem 0.5rem;
-        font-size: 0.8rem;
-        min-height: 36px;
+    }
+}
+
+/* Visuals */
+.cost-column {
+    font-weight: 800;
+    /* Bold as requested */
+    color: #333;
+}
+
+/* Jump Buttons */
+.jump-buttons {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 200;
+    /* Above bottom-nav (100) and top-nav (100) */
+}
+
+@media (max-width: 768px) {
+    .jump-buttons {
+        bottom: 6rem;
+        /* Push up above bottom-nav (80px ~ 5rem) */
+    }
+}
+
+.jump-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background-color: var(--color-primary);
+    color: white;
+    font-size: 1.2rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, background-color 0.2s;
+    opacity: 0.8;
+}
+
+.jump-btn:hover {
+    transform: scale(1.1);
+    background-color: #003366;
+    opacity: 1;
+}
+
+/* Pagination Controls Base */
+.pagination-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.page-indicator {
+    font-weight: bold;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Responsive Table & Cards */
+@media (max-width: 768px) {
+    .inventario-page {
+        padding: var(--spacing-sm);
     }
 
-    .stock-badge {
-        font-size: 0.75rem;
-        padding: 0.2rem 0.5rem;
+    /* Stack results bar */
+    .results-info-bar {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 0.5rem;
+    }
+
+    .results-info {
+        margin-bottom: 0;
+        font-size: 0.9rem;
+    }
+
+    .pagination-controls {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .pagination-controls button {
+        flex: 1;
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .products-table-container {
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+        /* Allow cards to flow */
+        margin: 0 -0.5rem;
+        /* Negative margin to reach edges */
+        width: calc(100% + 1rem);
+    }
+
+    .products-table,
+    .products-table thead,
+    .products-table tbody,
+    .products-table th,
+    .products-table td,
+    .products-table tr {
+        display: block;
+    }
+
+    /* Hide table headers (but keep accessible) */
+    .products-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .products-table tr {
+        background-color: white;
+        border-top: 1px solid var(--color-border);
+        border-bottom: 1px solid var(--color-border);
+        margin-bottom: var(--spacing-md);
+        padding: var(--spacing-md);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .products-table td {
+        /* Behave like a "row" */
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 50%;
+        /* Make space for label */
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        text-align: right;
+        min-height: 2.5rem;
+        /* Ensure height */
+    }
+
+    .products-table td:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .products-table td::before {
+        /* Now like a table header */
+        position: absolute;
+        /* Top/Left values mimic padding */
+        top: 0.5rem;
+        left: 0;
+        /* Align left */
+        width: 45%;
+        padding-right: 10px;
+        font-weight: 600;
+        text-align: left;
+        color: var(--color-secondary);
+        content: attr(data-label);
+    }
+
+    /* Specific adjustments for cells */
+    .product-name-cell {
+        font-weight: 700;
+        color: var(--color-primary);
+        font-size: 1.1rem;
+        text-align: left !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        margin-bottom: 0.5rem;
+        border-bottom: 2px solid var(--color-secondary) !important;
+    }
+
+    .product-name-cell::before {
+        display: none;
+    }
+
+    .actions-cell {
+        display: flex;
+        justify-content: flex-end;
+        /* Align right */
+        gap: var(--spacing-sm);
+        padding-left: 0 !important;
+        margin-top: 0.5rem;
+        flex-wrap: wrap;
+        /* Wrap if needed on tiny screens */
+    }
+
+    .actions-cell::before {
+        display: none;
+    }
+
+    .action-btn {
+        flex: initial;
+        /* Don't stretch */
+        min-width: auto;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.85rem;
     }
 }

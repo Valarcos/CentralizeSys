@@ -49,9 +49,12 @@ export default function AppLayout() {
                         <NavLink to="/reportes" className={isActive('/reportes') ? 'active' : ''}>
                             📊 Reportes
                         </NavLink>
+                        <NavLink to="/backups" className={isActive('/backups') ? 'active' : ''}>
+                            💾 Respaldos
+                        </NavLink>
                         {userRole === 'ADMIN' && (
                             <NavLink to="/admin" className={isActive('/admin') ? 'active' : ''}>
-                                🔐 Administración
+                                🔐 Admin
                             </NavLink>
                         )}
                     </div>
@@ -152,12 +155,11 @@ export default function AppLayout() {
                         >
                             👥 Deudores
                         </NavLink>
-                        <NavLink
-                            to="/reportes"
-                            onClick={() => setShowMobileMenu(false)}
-                            className={isActive('/reportes') ? 'active' : ''}
-                        >
+                        <NavLink to="/reportes" className={isActive('/reportes') ? 'active' : ''}>
                             📊 Reportes
+                        </NavLink>
+                        <NavLink to="/backups" className={isActive('/backups') ? 'active' : ''}>
+                            💾 Respaldos
                         </NavLink>
                         {userRole === 'ADMIN' && (
                             <NavLink

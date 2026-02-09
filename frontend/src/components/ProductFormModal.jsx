@@ -53,7 +53,7 @@ export default function ProductFormModal({ product, onSuccess, onCancel }) {
             }
         } catch (error) {
             console.error('Error loading ubicaciones:', error);
-            toast.error('Error al cargar ubicaciones');
+            if (!isEditing) toast.error('Error al cargar ubicaciones');
         } finally {
             setLoadingUbicaciones(false);
         }
@@ -169,6 +169,9 @@ export default function ProductFormModal({ product, onSuccess, onCancel }) {
         <div className="modal-overlay" onClick={onCancel} role="dialog" aria-modal="true">
             <div className="product-form-modal" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
+                    <div className="modal-header">
+                        <h2>{isEditing ? 'Editar Producto' : 'Nuevo Producto'}</h2>
+                    </div>
 
                     <div className="form-body">
                         {/* Codigo */}
@@ -287,7 +290,7 @@ export default function ProductFormModal({ product, onSuccess, onCancel }) {
                                         ) : ubicaciones.length === 0 ? (
                                             <p className="warning-text">
                                                 No hay ubicaciones registradas.
-                                                Agregue una ubicación primero.
+                                                Contacte al administrador para agregar ubicaciones.
                                             </p>
                                         ) : (
                                             <select
@@ -312,7 +315,7 @@ export default function ProductFormModal({ product, onSuccess, onCancel }) {
 
                                     <div className="form-group">
                                         <label htmlFor="cantidad">
-                                            Cantidad de Unidades <span className="required">*</span>
+                                            Cantidad <span className="required">*</span>
                                         </label>
                                         <input
                                             id="cantidad"

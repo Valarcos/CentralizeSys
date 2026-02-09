@@ -5,6 +5,10 @@
     padding: var(--spacing-xl);
     width: 90%;
     max-width: 450px;
+    max-height: 90vh;
+    /* Allow it to fit on screen */
+    overflow-y: auto;
+    /* Enable scrolling if content is tall */
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     text-align: center;
 }

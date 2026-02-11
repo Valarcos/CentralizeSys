@@ -48,9 +48,10 @@ public class BackupService {
     private static final String EXT_DB = ".db";
     private static final String EXT_XLSX = ".xlsx";
     private static final String PREFIX_DB = "centralizesys_";
-    private static final String RESTORE_TRIGGER_PATH = DataPathConfig.resolveString("data/centralizesys.restore");
+
     private static final Long RETENTION_DAYS_DAILY = 60L;
-    private static final Long CHECKPOINT_TTL_MS = 12 * 60 * 60 * 1000L;
+    private static final Long CHECKPOINT_TTL_MS = 12 * 60 * 60 * 1000L; // 12 Hours
+    private static final Long PRE_RESTORE_RETENTION_MS = 180L * 24 * 60 * 60 * 1000L; // 6 Months
     private static final String FECHA = "Fecha";
 
     private final JdbcTemplate jdbcTemplate;
@@ -168,120 +169,13 @@ public class BackupService {
             CellStyle currencyStyle = workbook.createCellStyle();
             currencyStyle.setDataFormat(workbook.createDataFormat().getFormat("$#,##0.00"));
 
-            // --- SHEET 1: PRODUCTOS ---
-            Sheet sheetProd = workbook.createSheet("Productos");
-            String[] headersProd = { "ID", "Código", "Descripción", "Costo", "Precio Mayorista", "Precio Minorista",
-                    "Stock" };
-            createHeader(sheetProd, headersProd, headerStyle);
-
-            List<Product> products = productRepository.findAll();
-            int rowNum = 1;
-            for (Product p : products) {
-                Row row = sheetProd.createRow(rowNum++);
-                row.createCell(0).setCellValue(p.getId());
-                row.createCell(1).setCellValue(p.getCodigo());
-                row.createCell(2).setCellValue(p.getDescripcion());
-                createNumericCell(row, 3, p.getPrecioCosto(), currencyStyle);
-                createNumericCell(row, 4, p.getPrecioMayorista(), currencyStyle);
-                createNumericCell(row, 5, p.getPrecioMinorista(), currencyStyle);
-                row.createCell(6).setCellValue(p.getCantidadStock());
-            }
-            for (int i = 0; i < 3; i++)
-                sheetProd.autoSizeColumn(i);
-
-            // --- SHEET 2: VENTAS ---
-            Sheet sheetVentas = workbook.createSheet("Ventas");
-            String[] headersVentas = { "ID", FECHA, "Cliente", "Total" };
-            createHeader(sheetVentas, headersVentas, headerStyle);
-
-            List<Venta> sales = ventaRepository.findAll();
-            rowNum = 1;
-            for (Venta v : sales) {
-                Row row = sheetVentas.createRow(rowNum++);
-                row.createCell(0).setCellValue(v.getId());
-                row.createCell(1).setCellValue(v.getFecha());
-                row.createCell(2).setCellValue(v.getClienteNombre());
-                createNumericCell(row, 3, v.getTotalVenta(), currencyStyle);
-            }
-            sheetVentas.autoSizeColumn(1);
-            sheetVentas.autoSizeColumn(2);
-
-            // --- SHEET 3: COMPRAS ---
-            Sheet sheetCompras = workbook.createSheet("Compras");
-            createHeader(sheetCompras, new String[] { "ID", FECHA, "Proveedor", "Comprobante", "Total" },
-                    headerStyle);
-            int rowC = 1;
-            var compras = compraRepository.findAll();
-            for (var c : compras) {
-                Row row = sheetCompras.createRow(rowC++);
-                row.createCell(0).setCellValue(c.getId());
-                row.createCell(1).setCellValue(c.getFecha());
-                row.createCell(2).setCellValue(c.getProveedor());
-                row.createCell(3).setCellValue(c.getNroComprobante());
-                createNumericCell(row, 4, c.getTotalCompra(), currencyStyle);
-            }
-            sheetCompras.autoSizeColumn(1);
-            sheetCompras.autoSizeColumn(2);
-
-            // --- SHEET 4: DEUDORES ---
-            Sheet sheetDeuda = workbook.createSheet("Deudores");
-            createHeader(sheetDeuda, new String[] { "ID", "Cliente", "Monto Deuda", FECHA, "Estado" }, headerStyle);
-            int rowD = 1;
-            var deudores = deudoresRepository.findAll();
-            for (var d : deudores) {
-                Row row = sheetDeuda.createRow(rowD++);
-                row.createCell(0).setCellValue(d.getId());
-                row.createCell(1).setCellValue(d.getClienteNombre());
-                createNumericCell(row, 2, d.getMontoDeuda(), currencyStyle);
-                row.createCell(3).setCellValue(d.getFechaDeuda());
-                row.createCell(4).setCellValue(d.getEstado());
-            }
-            sheetDeuda.autoSizeColumn(1);
-
-            // --- SHEET 5: STOCK POR UBICACION ---
-            Sheet sheetStock = workbook.createSheet("Stock_Ubicacion");
-            createHeader(sheetStock, new String[] { "Producto ID", "Código", "Descripción", "Cantidad", "Ubicación" },
-                    headerStyle);
-            // Uses JDBC directly because StockRepository might separate logic awkwardly for
-            // bulk dump
-            // Or use a join query here for simplicity
-            String sqlStock = """
-                        SELECT p.id, p.codigo, p.descripcion, s.cantidad, u.nombre
-                        FROM stock_por_ubicacion s
-                        JOIN productos p ON s.producto_id = p.id
-                        JOIN ubicaciones u ON s.ubicacion_id = u.id
-                    """;
-            int rowS = 1;
-            var stockRows = jdbcTemplate.queryForList(sqlStock);
-            for (var map : stockRows) {
-                Row row = sheetStock.createRow(rowS++);
-                row.createCell(0).setCellValue(((Number) map.get("id")).longValue());
-                row.createCell(1).setCellValue((String) map.get("codigo"));
-                row.createCell(2).setCellValue((String) map.get("descripcion"));
-                row.createCell(3).setCellValue(((Number) map.get("cantidad")).intValue());
-                row.createCell(4).setCellValue((String) map.get("nombre"));
-            }
-            sheetStock.autoSizeColumn(1);
-            sheetStock.autoSizeColumn(2);
-            sheetStock.autoSizeColumn(4);
-
-            // --- SHEET 6: AUDITORIA ---
-            Sheet sheetAudit = workbook.createSheet("Auditoria");
-            createHeader(sheetAudit, new String[] { "ID", FECHA, "Acción", "Detalles", "Usuario ID" }, headerStyle);
-            int rowA = 1;
-            // Limit to last 1000 or relevant period to avoid massive explosion?
-            // Request said "comprehensive". Let's dump all (SQLite is small usually).
-            var audits = auditoriaRepository.findAll();
-            for (var a : audits) {
-                Row row = sheetAudit.createRow(rowA++);
-                row.createCell(0).setCellValue(a.getId());
-                row.createCell(1).setCellValue(a.getFechaHora());
-                row.createCell(2).setCellValue(a.getAccion());
-                row.createCell(3).setCellValue(a.getDetalles());
-                row.createCell(4).setCellValue(a.getUsuarioId() != null ? a.getUsuarioId() : 0);
-            }
-            sheetAudit.autoSizeColumn(1);
-            sheetAudit.autoSizeColumn(2);
+            // --- SHEETS ---
+            populateProductsSheet(workbook, headerStyle, currencyStyle);
+            populateSalesSheet(workbook, headerStyle, currencyStyle);
+            populatePurchasesSheet(workbook, headerStyle, currencyStyle);
+            populateDebtorsSheet(workbook, headerStyle, currencyStyle);
+            populateStockSheet(workbook, headerStyle);
+            populateAuditSheet(workbook, headerStyle);
 
             try (FileOutputStream fos = new FileOutputStream(filePath)) {
                 workbook.write(fos);
@@ -487,7 +381,11 @@ public class BackupService {
             throw new IllegalArgumentException("Only .db files can be restored.");
         }
 
-        Path restoreTrigger = Paths.get(RESTORE_TRIGGER_PATH);
+        // Use DataPathConfig for robust resolution
+        Path restoreTrigger = DataPathConfig.resolve("data/centralizesys.restore");
+
+        // Ensure parent dir exists (should be 'data', which usually exists, but safe to
+        // check)
         Path parent = restoreTrigger.getParent();
         if (parent != null && !Files.exists(parent)) {
             Files.createDirectories(parent);
@@ -524,31 +422,40 @@ public class BackupService {
             return;
 
         long now = System.currentTimeMillis();
-
-        // Use atomic counter for lambda finality
         AtomicInteger deleted = new AtomicInteger(0);
 
-        // Checkpoint TTL (time to live - lifespan of temporary checkpoints) Cleanup
         try (Stream<Path> stream = Files.list(dir)) {
-            stream.filter(p -> p.getFileName().toString().startsWith("checkpoint_")
-                            && p.getFileName().toString().endsWith(EXT_DB))
-                    .forEach(p -> {
-                        if (now - p.toFile().lastModified() > CHECKPOINT_TTL_MS) {
-                            try {
-                                Files.delete(p);
-                                deleted.incrementAndGet();
-                            } catch (IOException e) {
-                                log.warn("Failed to delete checkpoint: {}", p);
-                            }
-                        }
-                    });
+            stream.filter(p -> p.getFileName().toString().endsWith(EXT_DB))
+                    .filter(p -> isCheckpointExpired(p, now))
+                    .forEach(p -> deleteFileSafely(p, deleted));
         } catch (IOException e) {
             log.warn("Checkpoint cleanup failed", e);
         }
         // System Cleanup Task - UserID 0
         if (deleted.get() > 0) {
             auditoriaService.registrarAccion(0L, "CHECKPOINT_CLEANUP",
-                    "Deleted " + deleted.get() + " expired checkpoints.");
+                    "Deleted " + deleted.get() + " expired checkpoints/safety backups.");
+        }
+    }
+
+    private boolean isCheckpointExpired(Path p, long now) {
+        String name = p.getFileName().toString();
+        long lastModified = p.toFile().lastModified();
+
+        if (name.startsWith("checkpoint_")) {
+            return now - lastModified > CHECKPOINT_TTL_MS;
+        } else if (name.startsWith("pre_restore_")) {
+            return now - lastModified > PRE_RESTORE_RETENTION_MS;
+        }
+        return false;
+    }
+
+    private void deleteFileSafely(Path p, AtomicInteger deleted) {
+        try {
+            Files.delete(p);
+            deleted.incrementAndGet();
+        } catch (IOException e) {
+            log.warn("Failed to delete checkpoint/backup: {}", p);
         }
     }
 
@@ -563,7 +470,9 @@ public class BackupService {
             throw new IllegalArgumentException("Only .db files can be restored.");
         }
 
-        Path restoreTrigger = Paths.get(RESTORE_TRIGGER_PATH);
+        // Use DataPathConfig
+        Path restoreTrigger = DataPathConfig.resolve("data/centralizesys.restore");
+
         Path parent = restoreTrigger.getParent();
         if (parent != null && !Files.exists(parent)) {
             Files.createDirectories(parent);
@@ -587,17 +496,138 @@ public class BackupService {
 
         try (Stream<Path> stream = Files.list(dir)) {
             stream.filter(p -> p.getFileName().toString().contains(midDaySuffix))
-                    .forEach(p -> {
-                        try {
-                            Files.delete(p);
-                            auditoriaService.registrarAccion(0L, "BACKUP_CLEANUP",
-                                    "Removed Mid-Day Backup: " + p.getFileName());
-                        } catch (IOException e) {
-                            log.warn("Failed to delete mid-day backup: {}", p);
-                        }
-                    });
+                    .forEach(this::deleteMidDayBackup);
         } catch (IOException e) {
             log.warn("Mid-day cleanup failed", e);
         }
+    }
+
+    private void deleteMidDayBackup(Path p) {
+        try {
+            Files.delete(p);
+            auditoriaService.registrarAccion(0L, "BACKUP_CLEANUP",
+                    "Removed Mid-Day Backup: " + p.getFileName());
+        } catch (IOException e) {
+            log.warn("Failed to delete mid-day backup: {}", p);
+        }
+    }
+    // --- Helper Methods for Excel Export ---
+
+    private void populateProductsSheet(Workbook workbook, CellStyle headerStyle, CellStyle currencyStyle) {
+        Sheet sheet = workbook.createSheet("Productos");
+        String[] headers = { "ID", "Código", "Descripción", "Costo", "Precio Mayorista", "Precio Minorista", "Stock" };
+        createHeader(sheet, headers, headerStyle);
+
+        List<Product> products = productRepository.findAll();
+        int rowNum = 1;
+        for (Product p : products) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(p.getId());
+            row.createCell(1).setCellValue(p.getCodigo());
+            row.createCell(2).setCellValue(p.getDescripcion());
+            createNumericCell(row, 3, p.getPrecioCosto(), currencyStyle);
+            createNumericCell(row, 4, p.getPrecioMayorista(), currencyStyle);
+            createNumericCell(row, 5, p.getPrecioMinorista(), currencyStyle);
+            row.createCell(6).setCellValue(p.getCantidadStock());
+        }
+        for (int i = 0; i < 3; i++)
+            sheet.autoSizeColumn(i);
+    }
+
+    private void populateSalesSheet(Workbook workbook, CellStyle headerStyle, CellStyle currencyStyle) {
+        Sheet sheet = workbook.createSheet("Ventas");
+        String[] headers = { "ID", FECHA, "Cliente", "Total" };
+        createHeader(sheet, headers, headerStyle);
+
+        List<Venta> sales = ventaRepository.findAll();
+        int rowNum = 1;
+        for (Venta v : sales) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(v.getId());
+            row.createCell(1).setCellValue(v.getFecha());
+            row.createCell(2).setCellValue(v.getClienteNombre());
+            createNumericCell(row, 3, v.getTotalVenta(), currencyStyle);
+        }
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(2);
+    }
+
+    private void populatePurchasesSheet(Workbook workbook, CellStyle headerStyle, CellStyle currencyStyle) {
+        Sheet sheet = workbook.createSheet("Compras");
+        createHeader(sheet, new String[] { "ID", FECHA, "Proveedor", "Comprobante", "Total" }, headerStyle);
+
+        int rowNum = 1;
+        var compras = compraRepository.findAll();
+        for (var c : compras) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(c.getId());
+            row.createCell(1).setCellValue(c.getFecha());
+            row.createCell(2).setCellValue(c.getProveedor());
+            row.createCell(3).setCellValue(c.getNroComprobante());
+            createNumericCell(row, 4, c.getTotalCompra(), currencyStyle);
+        }
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(2);
+    }
+
+    private void populateDebtorsSheet(Workbook workbook, CellStyle headerStyle, CellStyle currencyStyle) {
+        Sheet sheet = workbook.createSheet("Deudores");
+        createHeader(sheet, new String[] { "ID", "Cliente", "Monto Deuda", FECHA, "Estado" }, headerStyle);
+
+        int rowNum = 1;
+        var deudores = deudoresRepository.findAll();
+        for (var d : deudores) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(d.getId());
+            row.createCell(1).setCellValue(d.getClienteNombre());
+            createNumericCell(row, 2, d.getMontoDeuda(), currencyStyle);
+            row.createCell(3).setCellValue(d.getFechaDeuda());
+            row.createCell(4).setCellValue(d.getEstado());
+        }
+        sheet.autoSizeColumn(1);
+    }
+
+    private void populateStockSheet(Workbook workbook, CellStyle headerStyle) {
+        Sheet sheet = workbook.createSheet("Stock_Ubicacion");
+        createHeader(sheet, new String[] { "Producto ID", "Código", "Descripción", "Cantidad", "Ubicación" },
+                headerStyle);
+
+        String sqlStock = """
+                    SELECT p.id, p.codigo, p.descripcion, s.cantidad, u.nombre
+                    FROM stock_por_ubicacion s
+                    JOIN productos p ON s.producto_id = p.id
+                    JOIN ubicaciones u ON s.ubicacion_id = u.id
+                """;
+        int rowNum = 1;
+        var stockRows = jdbcTemplate.queryForList(sqlStock);
+        for (var map : stockRows) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(((Number) map.get("id")).longValue());
+            row.createCell(1).setCellValue((String) map.get("codigo"));
+            row.createCell(2).setCellValue((String) map.get("descripcion"));
+            row.createCell(3).setCellValue(((Number) map.get("cantidad")).intValue());
+            row.createCell(4).setCellValue((String) map.get("nombre"));
+        }
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(2);
+        sheet.autoSizeColumn(4);
+    }
+
+    private void populateAuditSheet(Workbook workbook, CellStyle headerStyle) {
+        Sheet sheet = workbook.createSheet("Auditoria");
+        createHeader(sheet, new String[] { "ID", FECHA, "Acción", "Detalles", "Usuario ID" }, headerStyle);
+
+        int rowNum = 1;
+        var audits = auditoriaRepository.findAll();
+        for (var a : audits) {
+            Row row = sheet.createRow(rowNum++);
+            row.createCell(0).setCellValue(a.getId());
+            row.createCell(1).setCellValue(a.getFechaHora());
+            row.createCell(2).setCellValue(a.getAccion());
+            row.createCell(3).setCellValue(a.getDetalles());
+            row.createCell(4).setCellValue(a.getUsuarioId() != null ? a.getUsuarioId() : 0);
+        }
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(2);
     }
 }

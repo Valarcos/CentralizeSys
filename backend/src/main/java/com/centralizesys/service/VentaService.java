@@ -43,6 +43,10 @@ public class VentaService {
         return ventaRepository.findAll();
     }
 
+    public List<String> getClientes() {
+        return ventaRepository.findDistinctClientNames();
+    }
+
     public VentaResponse getVentaById(Long id) {
         // 1. Fetch Header
         Venta venta = ventaRepository.findById(id)
@@ -60,8 +64,8 @@ public class VentaService {
                 venta.getFecha(),
                 venta.getClienteNombre(),
                 venta.getTotalVenta(),
-                venta.getDescuentoGlobal(),
-                venta.getTipoVenta(),
+                venta.getDescuentoGlobal(), // NEW
+                venta.getTipoVenta(), // NEW
                 detalles,
                 pagos,
                 null // No alerts for historical view

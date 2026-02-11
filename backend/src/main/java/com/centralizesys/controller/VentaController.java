@@ -57,4 +57,9 @@ public class VentaController {
     public ResponseEntity<List<MetodoPago>> getMetodosPago() {
         return ResponseEntity.ok(metodoPagoRepository.findAll());
     }
+
+    @GetMapping("/clientes")
+    public ResponseEntity<List<String>> getClientes() {
+        return ResponseEntity.ok(ventaService.getClientes());
+    }
 }

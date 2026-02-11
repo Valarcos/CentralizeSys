@@ -157,4 +157,9 @@ public class VentaRepository {
         String sql = "SELECT * FROM pagos_venta WHERE venta_id = :ventaId";
         return namedJdbcTemplate.query(sql, new MapSqlParameterSource(VENTA_ID_PARAM, ventaId), pagoMapper);
     }
+
+    public List<String> findDistinctClientNames() {
+        String sql = "SELECT DISTINCT cliente_nombre FROM ventas WHERE cliente_nombre IS NOT NULL AND cliente_nombre != '' ORDER BY cliente_nombre";
+        return jdbcTemplate.queryForList(sql, String.class);
+    }
 }

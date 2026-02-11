@@ -56,6 +56,21 @@ INSERT OR IGNORE INTO ventas (fecha, cliente_nombre, total_venta, usuario_id) VA
                                                                                   ('2023-10-02', 'Maria Gonzalez', 69800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com'));;
 
 -- ALTER TABLE ventas ADD COLUMN descuento_global REAL DEFAULT 0;
+-- ALTER TABLE ventas ADD COLUMN tipo_venta TEXT NOT NULL DEFAULT 'MINORISTA';
+--
+--
+-- CREATE TABLE IF NOT EXISTS pagos_deuda (
+--     id INTEGER PRIMARY KEY AUTOINCREMENT,
+--     deuda_id INTEGER NOT NULL,
+--     metodo_pago_id INTEGER NOT NULL,
+--     monto REAL NOT NULL,
+--     fecha_pago TEXT NOT NULL, -- YYYY-MM-DD
+--     observaciones TEXT,
+--     usuario_id INTEGER, -- Auditoria de quien cobró
+--     FOREIGN KEY (deuda_id) REFERENCES deudores(id),
+--     FOREIGN KEY (metodo_pago_id) REFERENCES metodos_pago(id),
+--     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+--
 
 -- Script to insert 120 dummy products for Pagination Verification
 -- usage: sqlite3 data/centralizesys.db < backend/scripts/dummy_data.sql

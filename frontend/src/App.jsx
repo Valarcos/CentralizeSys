@@ -4,8 +4,14 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import BackupPage from './pages/BackupPage';
 import AdminPage from './pages/AdminPage';
+import SalesHistoryPage from './pages/SalesHistoryPage';
+import DebtorsPage from './pages/DebtorsPage';
 import VentaPage from './pages/VentaPage';
 import InventarioPage from './pages/InventarioPage';
+
+// ...
+
+
 import AppLayout from './layouts/AppLayout';
 
 /**
@@ -86,9 +92,10 @@ function App() {
                     <Route path="dashboard" element={<DashboardPage />} />
                     <Route path="backups" element={<BackupPage />} />
                     <Route path="ventas" element={<VentaPage />} />
+
                     <Route path="inventario" element={<InventarioPage />} />
-                    <Route path="deudores" element={<PlaceholderPage title="Deudores" sprint={4} />} />
-                    <Route path="reportes" element={<PlaceholderPage title="Reportes" sprint={5} />} />
+                    <Route path="deudores" element={<DebtorsPage />} />
+                    <Route path="reportes" element={<SalesHistoryPage />} />
                     <Route
                         path="admin"
                         element={

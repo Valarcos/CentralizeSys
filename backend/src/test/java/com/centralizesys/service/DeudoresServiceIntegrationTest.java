@@ -2,6 +2,7 @@ package com.centralizesys.service;
 
 import com.centralizesys.BaseIntegrationTest;
 import com.centralizesys.model.debt.DeudaResponse;
+import com.centralizesys.model.debt.PagoDeudaRequest; // NEW
 import com.centralizesys.model.enums.DebtStatus;
 import com.centralizesys.model.sales.Venta;
 import com.centralizesys.repository.DeudoresRepository;
@@ -51,15 +52,21 @@ class DeudoresServiceIntegrationTest extends BaseIntegrationTest {
         assertEquals(DebtStatus.PENDIENTE.name(), initialDebt.getEstado());
 
         // 2. Partial Payment ($50.20)
-        // Expected Balance: 100.50 - 50.20 = 50.30
-        DeudaResponse partial = deudoresService.registrarPago(deudaId, 50.20, userId);
+        PagoDeudaRequest p1 = new PagoDeudaRequest();
+        p1.setMontoPago(50.20);
+        p1.setMetodoPagoId(1L);
+        p1.setObservaciones("Test Partial");
+        DeudaResponse partial = deudoresService.registrarPago(deudaId, java.util.List.of(p1), userId);
 
         assertEquals(50.30, partial.getMontoDeuda(), 0.001, "Balance should be 50.30");
         assertEquals(DebtStatus.PARCIAL.name(), partial.getEstado());
 
         // 3. Full Payment ($50.30)
-        // Expected Balance: 0.00
-        DeudaResponse full = deudoresService.registrarPago(deudaId, 50.30, userId);
+        PagoDeudaRequest p2 = new PagoDeudaRequest();
+        p2.setMontoPago(50.30);
+        p2.setMetodoPagoId(1L);
+        p2.setObservaciones("Test Full");
+        DeudaResponse full = deudoresService.registrarPago(deudaId, java.util.List.of(p2), userId);
 
         assertEquals(0.00, full.getMontoDeuda(), 0.001);
         assertEquals(DebtStatus.PAGADO.name(), full.getEstado());
@@ -69,29 +76,68 @@ class DeudoresServiceIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Should handle tiny rounding issues gracefully")
     void shouldHandleRounding() {
         // Scenario: 10.00 debt. Payment of 3.33 repeated 3 times.
-        // 10.00 - 3.33 = 6.67
-        // 6.67 - 3.33 = 3.34
-        // 3.34 - 3.34 = 0.00 (Last payment adjusts)
-
         Long userId = createTestUser();
-        Venta venta = new Venta(null, LocalDate.now().toString(), "Math User", 10.0, 0.0, userId);
+        Venta venta = new Venta(null, LocalDate.now().toString(), "Math User", 10.0, 0.0, "MINORISTA", userId);
         Long ventaId = ventaRepository.saveVenta(venta);
 
         deudoresRepository.save(ventaId, "Math User", 10.00);
         Long deudaId = deudoresRepository.findAll().getFirst().getId();
 
+        // Helper
+        PagoDeudaRequest p = new PagoDeudaRequest();
+        p.setMetodoPagoId(1L);
+        p.setObservaciones("Round");
+
         // Pay 1: 3.33
-        DeudaResponse r1 = deudoresService.registrarPago(deudaId, 3.33, userId);
+        p.setMontoPago(3.33);
+        DeudaResponse r1 = deudoresService.registrarPago(deudaId, java.util.List.of(p), userId);
         assertEquals(6.67, r1.getMontoDeuda());
 
         // Pay 2: 3.33
-        DeudaResponse r2 = deudoresService.registrarPago(deudaId, 3.33, userId);
+        // Reuse object? Better new one to avoid side effects if service modifies it (it
+        // shouldn't)
+        PagoDeudaRequest p2 = new PagoDeudaRequest();
+        p2.setMetodoPagoId(1L);
+        p2.setMontoPago(3.33);
+        DeudaResponse r2 = deudoresService.registrarPago(deudaId, java.util.List.of(p2), userId);
         assertEquals(3.34, r2.getMontoDeuda());
-        // Note: 6.67 - 3.33 = 3.34 exactly in double, but we verify our rounding holds.
 
         // Pay 3: 3.34 (Clean finish)
-        DeudaResponse r3 = deudoresService.registrarPago(deudaId, 3.34, userId);
+        PagoDeudaRequest p3 = new PagoDeudaRequest();
+        p3.setMetodoPagoId(1L);
+        p3.setMontoPago(3.34);
+        DeudaResponse r3 = deudoresService.registrarPago(deudaId, java.util.List.of(p3), userId);
         assertEquals(0.00, r3.getMontoDeuda());
         assertEquals(DebtStatus.PAGADO.name(), r3.getEstado());
+    }
+
+    @Test
+    @DisplayName("Should record payment in pagos_deuda history")
+    void shouldRecordPaymentInHistory() {
+        Long userId = createTestUser();
+        Venta venta = new Venta(null, LocalDate.now().toString(), "History User", 100.0, 0.0, "MINORISTA", userId);
+        Long ventaId = ventaRepository.saveVenta(venta);
+
+        deudoresRepository.save(ventaId, "History User", 100.0);
+        Long deudaId = deudoresRepository.findAll().stream()
+                .filter(d -> d.getVentaId().equals(ventaId))
+                .findFirst()
+                .orElseThrow().getId();
+
+        // Act
+        PagoDeudaRequest p = new PagoDeudaRequest();
+        p.setMontoPago(20.0);
+        p.setMetodoPagoId(1L);
+        p.setObservaciones("First Installment");
+        deudoresService.registrarPago(deudaId, java.util.List.of(p), userId);
+
+        // Assert History
+        var pagos = deudoresService.getPagos(deudaId);
+        assertEquals(1, pagos.size());
+        assertEquals(20.0, pagos.getFirst().getMonto());
+        assertEquals(1L, pagos.getFirst().getMetodoPagoId());
+        assertEquals("First Installment", pagos.getFirst().getObservaciones());
+        assertNotNull(pagos.getFirst().getUsuarioNombre());
+        assertEquals("Efectivo", pagos.getFirst().getMetodoPagoNombre()); // Assuming 1=Efectivo
     }
 }

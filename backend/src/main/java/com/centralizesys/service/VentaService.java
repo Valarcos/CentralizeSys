@@ -60,7 +60,8 @@ public class VentaService {
                 venta.getFecha(),
                 venta.getClienteNombre(),
                 venta.getTotalVenta(),
-                venta.getDescuentoGlobal(), // NEW
+                venta.getDescuentoGlobal(),
+                venta.getTipoVenta(),
                 detalles,
                 pagos,
                 null // No alerts for historical view
@@ -132,6 +133,7 @@ public class VentaService {
                 request.getClienteNombre(),
                 processedData.getTotalVenta(),
                 descuentoGlobal, // NEW
+                request.getTipoVenta() != null ? request.getTipoVenta().name() : "MINORISTA", // NEW
                 processedData.getDetalles(),
                 txInfo.getPagosPersistidos(),
                 stockAlerts);
@@ -260,6 +262,8 @@ public class VentaService {
         venta.setClienteNombre(request.getClienteNombre());
         venta.setTotalVenta(processedData.getTotalVenta());
         venta.setDescuentoGlobal(processedData.getDescuentoGlobal());
+        venta.setTipoVenta(request.getTipoVenta() != null ? request.getTipoVenta().name() : "MINORISTA"); // Default
+        // safe
         // If the frontend sends null, this will be null in DB (allowed by schema if not
         // strict, but good for traceability)
         venta.setUsuarioId(request.getUsuarioId());

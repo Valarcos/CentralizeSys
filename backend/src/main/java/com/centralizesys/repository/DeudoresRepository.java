@@ -1,6 +1,7 @@
 package com.centralizesys.repository;
 
 import com.centralizesys.model.debt.DeudaResponse;
+import com.centralizesys.model.debt.PagoDeuda;
 import com.centralizesys.model.enums.DebtStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -29,7 +30,9 @@ public class DeudoresRepository {
             rs.getString("cliente_nombre"),
             rs.getDouble("monto_deuda"),
             rs.getString("fecha_deuda"), // SQLite stores YYYY-MM-DD
-            rs.getString("estado"));
+            rs.getString("estado"),
+            rs.getDouble("monto_original"),
+            rs.getString("fecha_ultimo_pago"));
 
     public void save(Long ventaId, String clienteNombre, Double montoDeuda) {
         // Use native ISO format for SQLite compatibility
@@ -48,14 +51,25 @@ public class DeudoresRepository {
     }
 
     public List<DeudaResponse> findAll() {
-        return jdbcTemplate.query("SELECT * FROM deudores ORDER BY id DESC", rowMapper);
+        String sql = """
+                    SELECT d.*, v.total_venta as monto_original, d.fecha_pago as fecha_ultimo_pago
+                    FROM deudores d
+                    JOIN ventas v ON d.venta_id = v.id
+                    ORDER BY d.id DESC
+                """;
+        return jdbcTemplate.query(sql, rowMapper);
     }
 
     // --- OPTIONAL USAGE EXPLANATION ---
     // Returns Optional<DeudaResponse> because a query by ID might result in 0 rows.
     // This forces the Service layer to explicitly handle the "Not Found" scenario.
     public Optional<DeudaResponse> findById(Long id) {
-        String sql = "SELECT * FROM deudores WHERE id = :id";
+        String sql = """
+                    SELECT d.*, v.total_venta as monto_original, d.fecha_pago as fecha_ultimo_pago
+                    FROM deudores d
+                    JOIN ventas v ON d.venta_id = v.id
+                    WHERE d.id = :id
+                """;
         List<DeudaResponse> list = namedJdbcTemplate.query(sql, new MapSqlParameterSource("id", id), rowMapper);
         return list.stream().findFirst();
     }
@@ -83,14 +97,57 @@ public class DeudoresRepository {
     public List<DeudaResponse> findExpiredDebts(int days) {
         // SQLite syntax: date('now', '-X days')
         String sql = """
-                    SELECT * FROM deudores
-                    WHERE estado IN ('PENDIENTE', 'PARCIAL')
-                    AND fecha_deuda <= date('now', '-' || :days || ' days')
-                    ORDER BY fecha_deuda ASC
+                    SELECT d.*, v.total_venta as monto_original, d.fecha_pago as fecha_ultimo_pago
+                    FROM deudores d
+                    JOIN ventas v ON d.venta_id = v.id
+                    WHERE d.estado IN ('PENDIENTE', 'PARCIAL')
+                    AND d.fecha_deuda <= date('now', '-' || :days || ' days')
+                    ORDER BY d.fecha_deuda ASC
                 """;
 
         return namedJdbcTemplate.query(sql,
                 new MapSqlParameterSource("days", days),
                 rowMapper);
+    }
+
+    public List<PagoDeuda> getPagosByDeudaId(Long deudaId) {
+        String sql = """
+                    SELECT p.*, m.descripcion as metodo_pago_nombre, u.nombre as usuario_nombre
+                    FROM pagos_deuda p
+                    JOIN metodos_pago m ON p.metodo_pago_id = m.id
+                    LEFT JOIN usuarios u ON p.usuario_id = u.id
+                    WHERE p.deuda_id = :deudaId
+                    ORDER BY p.fecha_pago DESC, p.id DESC
+                """;
+
+        return namedJdbcTemplate.query(sql,
+                new MapSqlParameterSource("deudaId", deudaId),
+                (rs, rowNum) -> new PagoDeuda(
+                        rs.getLong("id"),
+                        rs.getLong("deuda_id"),
+                        rs.getLong("metodo_pago_id"),
+                        rs.getDouble("monto"),
+                        rs.getString("fecha_pago"),
+                        rs.getString("observaciones"),
+                        rs.getLong("usuario_id"),
+                        rs.getString("metodo_pago_nombre"),
+                        rs.getString("usuario_nombre")));
+    }
+
+    public void insertarPagoDeuda(Long deudaId, Long metodoPagoId, Double monto, String observaciones, Long usuarioId) {
+        String sql = """
+                    INSERT INTO pagos_deuda (deuda_id, metodo_pago_id, monto, fecha_pago, observaciones, usuario_id)
+                    VALUES (:deudaId, :metodoPagoId, :monto, datetime('now', 'localtime'), :observaciones, :usuarioId)
+                """;
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("deudaId", deudaId)
+                .addValue("metodoPagoId", metodoPagoId)
+                .addValue("monto", monto)
+                // fecha_pago handled by sql
+                .addValue("observaciones", observaciones)
+                .addValue("usuarioId", usuarioId);
+
+        namedJdbcTemplate.update(sql, params);
     }
 }

@@ -28,7 +28,41 @@ CREATE TABLE IF NOT EXISTS ubicaciones (
     nombre TEXT NOT NULL UNIQUE
 );;
 
--- 3. Stock por Ubicación (Tabla Intermedia)
+-- 3. Usuarios (MOVED UP FOR FK DEPENDENCY)
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    rol TEXT NOT NULL DEFAULT 'EMPLEADO' CHECK(rol IN ('ADMIN', 'EMPLEADO')),
+    fecha_creacion TEXT DEFAULT (datetime('now', 'localtime'))
+);;
+
+-- Usuario Admin por defecto
+-- TODO: Delete this insertion before production deployment (Sprint 8)
+INSERT OR IGNORE INTO usuarios (nombre, email, password_hash)
+VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu');;
+
+-- 4. Métodos de Pago (MOVED UP FOR FK DEPENDENCY)
+CREATE TABLE IF NOT EXISTS metodos_pago (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    acronimo TEXT NOT NULL UNIQUE,
+    descripcion TEXT NOT NULL
+);;
+
+INSERT OR IGNORE INTO metodos_pago (acronimo, descripcion) VALUES
+('E', 'Efectivo'),
+('TCM', 'Tarjeta Crédito Macro'),
+('TCS', 'Tarjeta Crédito Santander'),
+('TCG', 'Tarjeta Crédito Galicia'),
+('TBC', 'Transferencia Claudia'),
+('TBS', 'Transferencia Silvia'),
+('TBF', 'Transferencia Fico'),
+('TBMP', 'MercadoPago'),
+('TBH', 'Transferencia Habitualitá'),
+('TB3', 'Transferencia a Terceros');;
+
+-- 5. Stock por Ubicación (Tabla Intermedia)
 CREATE TABLE IF NOT EXISTS stock_por_ubicacion (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     producto_id INTEGER NOT NULL,
@@ -39,7 +73,7 @@ CREATE TABLE IF NOT EXISTS stock_por_ubicacion (
     UNIQUE(producto_id, ubicacion_id)
 );;
 
--- 4. Compra de mercaderia
+-- 6. Compra de mercaderia
 CREATE TABLE IF NOT EXISTS compras (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL,
@@ -50,7 +84,7 @@ CREATE TABLE IF NOT EXISTS compras (
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );;
 
--- 5. Detalles de compra
+-- 7. Detalles de compra
 CREATE TABLE IF NOT EXISTS detalles_compra (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     compra_id INTEGER NOT NULL,
@@ -62,18 +96,19 @@ CREATE TABLE IF NOT EXISTS detalles_compra (
     FOREIGN KEY (producto_id) REFERENCES productos(id)
 );;
 
--- 6. Tabla de VENTAS (Cabecera)
+-- 8. Tabla de VENTAS (Cabecera)
 CREATE TABLE IF NOT EXISTS ventas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL,
     cliente_nombre TEXT,
     total_venta REAL NOT NULL,
     descuento_global REAL DEFAULT 0, -- NEW: Global discount applied to the total
+    tipo_venta TEXT,                 -- NEW: Records 'MAYORISTA' or 'MINORISTA' for history accuracy
     usuario_id INTEGER, -- Agregado para auditoría
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );;
 
--- 7. Tabla DETALLES_VENTA
+-- 9. Tabla DETALLES_VENTA
 CREATE TABLE IF NOT EXISTS detalles_venta (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     venta_id INTEGER NOT NULL,
@@ -98,7 +133,7 @@ CREATE TABLE IF NOT EXISTS detalles_venta (
     FOREIGN KEY (producto_id) REFERENCES productos(id)
 );;
 
--- 8. Tabla PAGOS_VENTA
+-- 10. Tabla PAGOS_VENTA
 CREATE TABLE IF NOT EXISTS pagos_venta (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     venta_id INTEGER NOT NULL,
@@ -108,7 +143,7 @@ CREATE TABLE IF NOT EXISTS pagos_venta (
     FOREIGN KEY (metodo_pago_id) REFERENCES metodos_pago(id)
 );;
 
--- 9. Tabla DEUDORES
+-- 11. Tabla DEUDORES
 CREATE TABLE IF NOT EXISTS deudores (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     venta_id INTEGER NOT NULL,
@@ -117,45 +152,24 @@ CREATE TABLE IF NOT EXISTS deudores (
     fecha_deuda TEXT NOT NULL,
     fecha_pago TEXT,
     estado TEXT CHECK(estado IN ('PENDIENTE', 'PARCIAL', 'PAGADO')) DEFAULT 'PENDIENTE',
-    FOREIGN KEY (venta_id) REFERENCES ventas(id)
+FOREIGN KEY (venta_id) REFERENCES ventas(id)
 );;
 
--- 10. Métodos de Pago
-CREATE TABLE IF NOT EXISTS metodos_pago (
+-- 12. Tabla PAGOS_DEUDA (Historial de pagos de deudas)
+CREATE TABLE IF NOT EXISTS pagos_deuda (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    acronimo TEXT NOT NULL UNIQUE,
-    descripcion TEXT NOT NULL
+    deuda_id INTEGER NOT NULL,
+    metodo_pago_id INTEGER NOT NULL,
+    monto REAL NOT NULL,
+    fecha_pago TEXT NOT NULL, -- YYYY-MM-DD
+    observaciones TEXT,
+    usuario_id INTEGER, -- Auditoria de quien cobró
+    FOREIGN KEY (deuda_id) REFERENCES deudores(id),
+    FOREIGN KEY (metodo_pago_id) REFERENCES metodos_pago(id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );;
 
-INSERT OR IGNORE INTO metodos_pago (acronimo, descripcion) VALUES
-('E', 'Efectivo'),
-('TCM', 'Tarjeta Crédito Macro'),
-('TCS', 'Tarjeta Crédito Santander'),
-('TCG', 'Tarjeta Crédito Galicia'),
-('TBC', 'Transferencia Claudia'),
-('TBS', 'Transferencia Silvia'),
-('TBF', 'Transferencia Fico'),
-('TBMP', 'MercadoPago'),
-('TBH', 'Transferencia Habitualitá'),
-('TB3', 'Transferencia a Terceros');;
-
--- 11. Usuarios
-CREATE TABLE IF NOT EXISTS usuarios (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    rol TEXT NOT NULL DEFAULT 'EMPLEADO' CHECK(rol IN ('ADMIN', 'EMPLEADO')),
-    fecha_creacion TEXT DEFAULT (datetime('now', 'localtime'))
-);;
-
--- Usuario Admin por defecto
--- TODO: Delete this insertion before production deployment (Sprint 8)
-INSERT OR IGNORE INTO usuarios (nombre, email, password_hash)
-VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu');;
-
-
--- 12. Auditoria
+-- 13. Auditoria
 CREATE TABLE IF NOT EXISTS auditoria (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha_hora TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),

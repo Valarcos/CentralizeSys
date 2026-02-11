@@ -14,10 +14,11 @@ public class VentaResponse {
     private String fecha;
     private String clienteNombre;
     private Double totalVenta;
-    private Double descuentoGlobal; // NEW
+    private Double descuentoGlobal;
+    private String tipoVenta;
     private List<DetalleVenta> items;
     private List<PagoVenta> pagos;
 
-    // NEW: List of warning messages (e.g., "Stock negativo para ART-123")
+    // List of warning messages (e.g., "Stock negativo para ART-123")
     private List<String> alertas;
 }

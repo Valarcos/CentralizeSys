@@ -181,12 +181,34 @@ export default function VentaPage() {
     }, [searchQuery]);
 
     // --- HANDLERS ---
+
+
+    const [pendingSaleType, setPendingSaleType] = useState(null);
+    const [pendingProductToAdd, setPendingProductToAdd] = useState(null); // New state for force add
+
+    // MODIFIED: Intercept Add to Cart
     const handleAddToCart = (product) => {
+        // Find existing quantity in cart
+        const existingItem = cartItems.find(item => item.product.id === product.id);
+        const currentQty = existingItem ? existingItem.quantity : 0;
+
+        // Check against stock
+        if (currentQty + 1 > product.cantidadStock) {
+            setPendingProductToAdd(product);
+            return; // Stop here, wait for modal confirmation
+        }
+
         addToCart(product);
         toast.success(`Agregado: ${product.descripcion}`, { duration: 1000, position: 'bottom-left' });
     };
 
-    const [pendingSaleType, setPendingSaleType] = useState(null);
+    const confirmForceAdd = () => {
+        if (pendingProductToAdd) {
+            addToCart(pendingProductToAdd);
+            toast.success(`Agregado (Sin Stock): ${pendingProductToAdd.descripcion}`, { icon: '⚠️', duration: 2000, position: 'bottom-left' });
+            setPendingProductToAdd(null);
+        }
+    };
 
     const handleSaleTypeChange = (type) => {
         if (cartItems.length > 0 && type !== saleType) {
@@ -234,22 +256,8 @@ export default function VentaPage() {
     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
     const remaining = totals.total - totalPaid;
 
-    // Smart Dropdown: Filter out methods?
-    // Requirement says: "dropdown for payment method selection (filters out already used methods?)"
-    // It's usually better to allow multiple generic payments (e.g. 2 credit cards), but maybe filter unique named ones?
-    // Let's keep it simple: Show all, but maybe highlight defaults.
-    // Actually, user said "filters out already used methods" in summary.
-    // Let's implement that:
-    // Filter out methods that are already used in the current payment stack
-    // Exception: If we decide to allow multiple of same type (e.g. 2 Cards), we would remove this.
-    // But per user request: "dropdownlist must only show the options that are not already selected"
+    // Smart Dropdown: Filter out methods that are already used in the current payment stack
     const availableMethods = paymentMethods.filter(m => !payments.some(p => p.methodId === m.id));
-    // Re-read: "Filters out already used methods" -> If I used Cash, I can't use Cash again?
-    // Use Case: Pay half Cash, half Card.
-    // If I want to pay 2 Cards, I might need to allow it?
-    // Let's assume Unique Methods for now to avoid complexity unless requested otherwise.
-    // Wait, if I filter them out, I can't do split payments with same type (e.g. 2 debit cards).
-    // I will NOT filter them out for now, to be safe.
 
 
     // Auto-fill amount logic: When selecting a method, autofill with remaining?
@@ -339,7 +347,7 @@ export default function VentaPage() {
 
                 <div className="cart-items-list">
                     {cartItems.map((item, index) => (
-                        <div key={index} className="cart-item">
+                        <div key={index} className={`cart-item ${item.quantity > item.product.cantidadStock ? 'stock-warning-row' : ''}`}>
                             <div className="cart-item-info">
                                 <b>{item.product.descripcion}</b>
                                 <div>{formatCurrency(item.unitPrice)} x {item.quantity}</div>
@@ -432,6 +440,18 @@ export default function VentaPage() {
                 </div>
 
                 {/* MODALS */}
+                {pendingProductToAdd && (
+                    <ConfirmationModal
+                        title="⚠️ Stock Insuficiente"
+                        message={`El producto "${pendingProductToAdd.descripcion}" tiene un stock de ${pendingProductToAdd.cantidadStock}. ¿Desea agregarlo de todas formas?`}
+                        confirmText="Sí, Agregar"
+                        cancelText="Cancelar"
+                        isWarning={true}
+                        onConfirm={confirmForceAdd}
+                        onCancel={() => setPendingProductToAdd(null)}
+                    />
+                )}
+
                 {pendingSaleType && (
                     <ConfirmationModal
                         title="Cambiar Tipo de Venta"

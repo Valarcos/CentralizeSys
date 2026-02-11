@@ -1,0 +1,110 @@
+.history-page {
+    padding: 2rem;
+    background-color: var(--background-color);
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.date-filter {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.history-table th,
+.history-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.history-table th {
+    background-color: var(--surface-color);
+    font-weight: bold;
+    color: var(--text-secondary);
+}
+
+.history-table tr:hover {
+    background-color: #f9f9f9;
+}
+
+.amount-cell {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.btn-details {
+    padding: 0.4rem 0.8rem;
+    background-color: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-pay {
+    padding: 0.4rem 0.8rem;
+    background-color: var(--color-success);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.status-pill {
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-pagado {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-parcial {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.status-pendiente {
+    background-color: #fee2e2;
+    color: #b91c1c;
+}
+
+.btn-print {
+    padding: 0.6rem 1.2rem;
+    background-color: #3b82f6;
+    color: white;
+    border: 1px solid #2563eb;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+.btn-print:hover {
+    background-color: #2563eb;
+}

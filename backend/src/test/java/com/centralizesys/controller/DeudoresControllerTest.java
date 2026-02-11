@@ -60,22 +60,26 @@ class DeudoresControllerTest {
         SecurityContextHolder.setContext(securityContext);
 
         try {
-            // Prepare Request (without user ID)
-            PagoDeudaRequest request = new PagoDeudaRequest();
-            request.setMontoPago(50.0);
+            // Prepare Request (List)
+            PagoDeudaRequest pago = new PagoDeudaRequest();
+            pago.setMontoPago(50.0);
+            pago.setMetodoPagoId(1L); // Mock ID
+            pago.setObservaciones("Test Note");
+
+            java.util.List<PagoDeudaRequest> requests = java.util.List.of(pago);
 
             // Mock Service Response
             DeudaResponse response = new DeudaResponse(); // Empty response fine for test
-            when(deudoresService.registrarPago(deudaId, 50.0, userId)).thenReturn(response);
+            when(deudoresService.registrarPago(eq(deudaId), anyList(), eq(userId))).thenReturn(response);
 
             // Act
             mockMvc.perform(post("/api/deudores/" + deudaId + "/pagar")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(request)))
+                            .content(objectMapper.writeValueAsString(requests)))
                     .andExpect(status().isOk());
 
             // Assert
-            verify(deudoresService).registrarPago(deudaId, 50.0, userId);
+            verify(deudoresService).registrarPago(eq(deudaId), anyList(), eq(userId));
 
         } finally {
             SecurityContextHolder.clearContext();

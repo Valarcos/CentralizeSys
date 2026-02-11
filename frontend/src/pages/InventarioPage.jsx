@@ -5,6 +5,7 @@ import ProductFormModal from '../components/ProductFormModal';
 import DeleteProductModal from '../components/DeleteProductModal';
 import StockManagementModal from '../components/StockManagementModal';
 import LocationManagementModal from '../components/LocationManagementModal';
+import StockEntryModal from '../components/StockEntryModal'; // Imported
 import './InventarioPage.css';
 
 export default function InventarioPage() {
@@ -20,6 +21,8 @@ export default function InventarioPage() {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showStockModal, setShowStockModal] = useState(false);
     const [showLocationModal, setShowLocationModal] = useState(false);
+    const [showPurchaseModal, setShowPurchaseModal] = useState(false); // New State
+
     const [editingProduct, setEditingProduct] = useState(null);
     const [deletingProduct, setDeletingProduct] = useState(null);
     const [stockProduct, setStockProduct] = useState(null);
@@ -79,38 +82,14 @@ export default function InventarioPage() {
     // Auto-refresh interval
     useEffect(() => {
         const intervalId = setInterval(() => {
-            // Refresh current page
-            // Note: If user is "browsing", we refresh current 'page'.
-            // If searching, we refresh the search results.
-            // Using 'page' from state binding might be stale in closure?
-            // Use functional update or ref if needed?
-            // Simplified: Just re-call fetch with current state logic
-            // But 'page' is local state. We need to pass it.
-            // Actually 'fetchProducts' uses 'currentPage' arg.
-            // If we call fetchProducts(page, true) inside interval, 'page' will be stale closure.
-            // We should just trigger a re-fetch.
-            // Use a ref to hold current page for interval?
-            // For now, let's disable auto-refresh on pagination to avoid complexity/jumping?
-            // No, user wants updates.
-            // We will skip interval for now to ensure stability, or fix it later.
-            // Let's rely on manual refresh for pagination for this iteration,
-            // OR simple implementation:
-
             // fetchProducts(page, true);
         }, 30000);
 
         return () => clearInterval(intervalId);
-    }, [fetchProducts]); // Re-binds when fetchProducts changes (searchQuery changes)
+    }, [fetchProducts]);
 
     // Handle Search Input Change
-    // We already have 'searchQuery' state.
-    // Effect to reset page when search changes?
     useEffect(() => {
-        // When search query changes, 'fetchProducts' changes.
-        // The main useEffect calls fetchProducts(0).
-        // So we technically don't need extra logic here, BUT:
-        // We want to debounce or wait?
-        // The main useEffect [fetchProducts] triggers immediately.
     }, [searchQuery]);
 
 
@@ -163,6 +142,12 @@ export default function InventarioPage() {
         }
     };
 
+    // Purchase Success
+    const handlePurchaseSuccess = () => {
+        setShowPurchaseModal(false);
+        fetchProducts(page); // Refresh inventory check
+    };
+
     const getStockClass = (product) => {
         const stock = product.cantidadStock || 0;
         if (stock < 0) return 'stock-badge negative-stock';
@@ -181,6 +166,14 @@ export default function InventarioPage() {
             <header className="inventario-header">
                 <h1>📦 Gestión de Inventario</h1>
                 <div className="header-actions">
+                    <button
+                        onClick={() => setShowPurchaseModal(true)}
+                        className="action-btn stock"
+                        style={{ marginRight: '1rem', backgroundColor: '#d97706', fontSize: '0.9rem' }}
+                    >
+                        📥 Registrar Compra
+                    </button>
+
                     <button onClick={() => setShowLocationModal(true)} className="secondary" style={{ marginRight: '1rem' }}>
                         📍 Gestionar Ubicaciones
                     </button>
@@ -353,10 +346,15 @@ export default function InventarioPage() {
                 <LocationManagementModal
                     onClose={() => setShowLocationModal(false)}
                     onLocationAdded={() => {
-                        // Optional: Refresh any location-dependent views if needed
-                        // For now, ProductFormModal refetches on mount, so it's fine.
                         toast.success('Lista de ubicaciones actualizada');
                     }}
+                />
+            )}
+
+            {showPurchaseModal && (
+                <StockEntryModal
+                    onClose={() => setShowPurchaseModal(false)}
+                    onSuccess={handlePurchaseSuccess}
                 />
             )}
         </div>

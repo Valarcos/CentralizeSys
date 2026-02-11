@@ -13,5 +13,7 @@ public class DeudaResponse {
     private String clienteNombre;
     private Double montoDeuda; // The current remaining balance
     private String fechaDeuda; // dd-mm-YYYY
-    private String estado;     // PENDIENTE, PARCIAL, PAGADO
+    private String estado; // PENDIENTE, PARCIAL, PAGADO
+    private Double montoOriginal; // NEW: From ventas.total_venta
+    private String fechaUltimoPago; // NEW: From deudores.fecha_pago
 }

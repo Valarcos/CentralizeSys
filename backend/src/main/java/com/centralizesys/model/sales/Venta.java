@@ -13,5 +13,6 @@ public class Venta {
     private String clienteNombre;
     private Double totalVenta;
     private Double descuentoGlobal;
+    private String tipoVenta; // NEW: Persisted 'MAYORISTA' or 'MINORISTA'
     private Long usuarioId; // For audit/security
 }

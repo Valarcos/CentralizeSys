@@ -26,7 +26,7 @@ public class DeudoresController {
     @PostMapping("/{id}/pagar")
     public ResponseEntity<DeudaResponse> pagarDeuda(
             @PathVariable Long id,
-            @RequestBody PagoDeudaRequest request) {
+            @RequestBody List<PagoDeudaRequest> pagos) {
 
         // Use SecurityContext to identify user
         Long usuarioId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
@@ -34,7 +34,7 @@ public class DeudoresController {
         // Pass the extracted ID to the Service
         DeudaResponse updated = service.registrarPago(
                 id,
-                request.getMontoPago(),
+                pagos,
                 usuarioId);
 
         return ResponseEntity.ok(updated);

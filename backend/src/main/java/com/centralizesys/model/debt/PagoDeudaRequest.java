@@ -7,5 +7,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PagoDeudaRequest {
     private Double montoPago; // How much are they paying today?
+    private Long metodoPagoId; // Payment method selected
+    private String observaciones; // Optional notes
     private Long usuarioId; // The user recording the payment
 }

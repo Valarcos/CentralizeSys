@@ -365,3 +365,9 @@
         border-top: 3px solid var(--primary-color);
     }
 }
+
+.cart-item.stock-warning-row {
+    border: 2px solid var(--color-error);
+    background-color: #fff5f5;
+    /* Light red */
+}

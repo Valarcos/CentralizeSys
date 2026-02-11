@@ -123,6 +123,7 @@ public abstract class BaseIntegrationTest {
         jdbcTemplate.execute("DELETE FROM auditoria");
 
         // Sales Cycle
+        jdbcTemplate.execute("DELETE FROM pagos_deuda");
         jdbcTemplate.execute("DELETE FROM deudores");
         jdbcTemplate.execute("DELETE FROM pagos_venta");
         jdbcTemplate.execute("DELETE FROM detalles_venta");

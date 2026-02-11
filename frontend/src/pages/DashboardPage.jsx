@@ -9,7 +9,7 @@ export default function DashboardPage() {
     const [userRole, setUserRole] = useState('');
     const [lowStockProducts, setLowStockProducts] = useState([]);
     const [showMorningAlert, setShowMorningAlert] = useState(false);
-    // const [debtorReminder, setDebtorReminder] = useState(null); // Future Sprint
+    const [hasActiveDebts, setHasActiveDebts] = useState(false);
     const [backupWarning, setBackupWarning] = useState(false);
     const navigate = useNavigate();
 
@@ -19,12 +19,10 @@ export default function DashboardPage() {
 
         const fetchDashboardData = async () => {
             try {
-                // calls to /api/deudores/* are commented out as they belong to Sprint 5/6
-                const [stockRes, backupRes] = await Promise.all([
+                const [stockRes, backupRes, reminderRes] = await Promise.all([
                     api.get('/api/productos/alerts'),
-                    // api.get('/api/deudores/expired').catch(() => ({ data: [] })),
                     api.get('/api/backups/last').catch(() => ({ data: null })),
-                    // api.get('/api/deudores/reminder').catch(() => ({ data: null }))
+                    api.get('/api/deudores/reminder').catch(() => ({ data: false }))
                 ]);
 
                 // Low Stock Alerts
@@ -33,13 +31,10 @@ export default function DashboardPage() {
                     setShowMorningAlert(true);
                 }
 
-                // Debtor Logic (Future)
-                /*
-                if (reminderRes.data) {
-                    setDebtorReminder(reminderRes.data);
+                // Debtor Logic
+                if (reminderRes.data === true) {
+                    setHasActiveDebts(true);
                 }
-                setExpiredDebtors(debtorsRes.data);
-                */
 
                 // Check Backup Status
                 if (!backupRes.data) {
@@ -66,6 +61,21 @@ export default function DashboardPage() {
             <h1>Bienvenido, {userName}</h1>
             <p className="dashboard-subtitle">Sistema operativo y listo</p>
 
+            {/* Debtor Reminder Badge */}
+            {hasActiveDebts && (
+                <div
+                    className="alert-card info clickable"
+                    onClick={() => navigate('/deudores')}
+                >
+                    <span className="alert-icon">💳</span>
+                    <div className="alert-content">
+                        <strong>Cuentas por Cobrar Activas</strong>
+                        <p>Existen cuentas pendientes de cobro.</p>
+                    </div>
+                    <span className="alert-action">Ver Deudores →</span>
+                </div>
+            )}
+
             {/* Backup Warning */}
             {backupWarning && (
                 <div className="alert-card warning" onClick={() => navigate('/backups')}>
@@ -77,27 +87,6 @@ export default function DashboardPage() {
                     <span className="alert-action">Realizar ahora →</span>
                 </div>
             )}
-
-            {/* Debtor Reminder Badge (Future Sprint) */}
-            {/*
-                debtorReminder && debtorReminder.count > 0 && (
-                    <div
-                        className="debtor-reminder"
-                        role="alert"
-                        aria-label="Recordatorio de deudores"
-                        onClick={() => navigate('/deudores')}
-                    >
-                        <span className="reminder-icon" aria-hidden="true">💳</span>
-                        <span className="reminder-text">
-                            Tiene <strong>{debtorReminder.count}</strong> deudores con pagos pendientes
-                        </span>
-                        <span className="reminder-amount">
-                            Total: <strong>${debtorReminder.totalAmount?.toLocaleString('es-AR') || 0}</strong>
-                        </span>
-                        <span className="reminder-arrow" aria-hidden="true">→</span>
-                    </div>
-                )
-            */}
 
             <div className="dashboard-grid">
                 <div
@@ -156,16 +145,20 @@ export default function DashboardPage() {
                 </div>
 
                 {userRole === 'ADMIN' && (
-                    <div
-                        className="dashboard-card clickable admin-card"
-                        onClick={() => navigate('/admin')}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => e.key === 'Enter' && navigate('/admin')}
-                    >
-                        <h3>🔐 Administración</h3>
-                        <p>Gestionar usuarios y permisos</p>
-                    </div>
+                    <>
+
+
+                        <div
+                            className="dashboard-card clickable admin-card"
+                            onClick={() => navigate('/admin')}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => e.key === 'Enter' && navigate('/admin')}
+                        >
+                            <h3>🔐 Administración</h3>
+                            <p>Gestionar usuarios y permisos</p>
+                        </div>
+                    </>
                 )}
             </div>
 

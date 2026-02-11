@@ -42,6 +42,7 @@ public class VentaRepository {
                 rs.getString("cliente_nombre"),
                 rs.getDouble("total_venta"),
                 rs.getDouble("descuento_global"), // NEW
+                rs.getString("tipo_venta"), // NEW
                 usuarioId);
     };
 
@@ -73,8 +74,8 @@ public class VentaRepository {
         // [NOTE] Using BeanPropertySqlParameterSource matches params to DTO fields
         // automatically.
         String sql = """
-                    INSERT INTO ventas (fecha, cliente_nombre, total_venta, descuento_global, usuario_id)
-                    VALUES (:fecha, :clienteNombre, :totalVenta, :descuentoGlobal, :usuarioId)
+                    INSERT INTO ventas (fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id)
+                    VALUES (:fecha, :clienteNombre, :totalVenta, :descuentoGlobal, :tipoVenta, :usuarioId)
                 """;
 
         SqlParameterSource params = new BeanPropertySqlParameterSource(venta);

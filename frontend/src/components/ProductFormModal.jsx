@@ -7,8 +7,8 @@ import './ProductFormModal.css';
  * Modal for creating/editing products.
  * For new products, includes location selection and quantity input.
  */
-export default function ProductFormModal({ product, onSuccess, onCancel }) {
-    const isEditing = !!product;
+export default function ProductFormModal({ product, isVariant = false, onSuccess, onCancel }) {
+    const isEditing = !!product && !isVariant;
     const firstInputRef = useRef(null);
 
     // Ubicaciones (locations) for dropdown
@@ -19,7 +19,12 @@ export default function ProductFormModal({ product, onSuccess, onCancel }) {
     const [formData, setFormData] = useState({
         codigo: product?.codigo || '',
         descripcion: product?.descripcion || '',
-        precioCosto: product?.precioCosto || '',
+        precioCosto: isVariant ? '' : (product?.precioCosto || ''), // Clear cost for variant? Or keep? User prompt said "pre-filled data & new cost". I'll keep it/allow override. Actually, StockEntryModal will likely pass the NEW cost. Let's keep existing logic:
+        // BETTER: If isVariant, we might want to pre-fill from 'product' but maybe clear Cost if we want them to type it?
+        // User said: "Opens ProductForm... with pre-filled data & new cost."
+        // So I should probably allow passing 'initialCost' or just let caller modify 'product' object before passing it?
+        // Let's just use product fields.
+
         precioMayorista: product?.precioMayorista || '',
         precioMinorista: product?.precioMinorista || '',
         ubicacionId: '',
@@ -147,15 +152,18 @@ export default function ProductFormModal({ product, onSuccess, onCancel }) {
                 payload.cantidad = parseInt(formData.cantidad);
             }
 
+            let savedProduct;
             if (isEditing) {
-                await api.put(`/api/productos/${product.id}`, payload);
+                const res = await api.put(`/api/productos/${product.id}`, payload);
+                savedProduct = res.data;
                 toast.success('Producto actualizado correctamente');
             } else {
-                await api.post('/api/productos', payload);
+                const res = await api.post('/api/productos', payload);
+                savedProduct = res.data;
                 toast.success('Producto creado correctamente');
             }
 
-            onSuccess();
+            onSuccess(savedProduct);
         } catch (error) {
             console.error('Error saving product:', error);
             const message = error.response?.data?.message || 'Error al guardar producto';
@@ -170,7 +178,7 @@ export default function ProductFormModal({ product, onSuccess, onCancel }) {
             <div className="product-form-modal" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
-                        <h2>{isEditing ? 'Editar Producto' : 'Nuevo Producto'}</h2>
+                        <h2>{isEditing ? 'Editar Producto' : (isVariant ? 'Nueva Variante' : 'Nuevo Producto')}</h2>
                     </div>
 
                     <div className="form-body">

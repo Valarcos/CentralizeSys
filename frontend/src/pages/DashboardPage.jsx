@@ -53,7 +53,35 @@ export default function DashboardPage() {
             }
         };
 
+        // Initial Load
         fetchDashboardData();
+
+        // Smart Timer: Check clock every minute, but only trigger API at specific hours
+        const targetHours = [8, 10, 12, 14, 16, 18, 20];
+        let lastCheckedHour = new Date().getHours();
+
+        const checkTime = () => {
+            const now = new Date();
+            const currentHour = now.getHours();
+
+            // Logic:
+            // 1. Is it a target hour?
+            // 2. Have we already checked this hour? (Prevent infinite loops in that hour)
+            if (targetHours.includes(currentHour) && currentHour !== lastCheckedHour) {
+                console.log(`⏰ Triggering Scheduled Stock Check at ${currentHour}:00`);
+                fetchDashboardData();
+                lastCheckedHour = currentHour;
+            }
+            // Reset tracker if hour changes to a non-target hour (so next target hits)
+            else if (currentHour !== lastCheckedHour) {
+                lastCheckedHour = currentHour;
+            }
+        };
+
+        // Check every 60 seconds to catch the hour change
+        const intervalId = setInterval(checkTime, 60 * 1000);
+
+        return () => clearInterval(intervalId);
     }, []);
 
     return (

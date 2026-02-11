@@ -35,6 +35,20 @@ export default function VentaPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('catalog');
     const [loading, setLoading] = useState(false);
+    const [availableClients, setAvailableClients] = useState([]); // New Autocomplete State
+
+    // Fetch Clients for Autocomplete
+    useEffect(() => {
+        const fetchClients = async () => {
+            try {
+                const res = await api.get('/api/ventas/clientes');
+                setAvailableClients(res.data);
+            } catch (err) {
+                console.error("Error loading clients", err);
+            }
+        };
+        fetchClients();
+    }, []);
 
     // Stock Warning State
     const [affectedProducts, setAffectedProducts] = useState([]);
@@ -337,13 +351,21 @@ export default function VentaPage() {
                     </div>
                 </div>
 
-                <input
-                    type="text"
-                    className={`current-client-input ${!clientName ? 'required-empty' : ''}`} // Add styling class
-                    placeholder={!clientName ? "Ingrese Cliente - Requerido" : "Cliente"}
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                />
+                <div className="client-autocomplete-container">
+                    <input
+                        type="text"
+                        list="client-suggestions"
+                        className={`current-client-input ${!clientName ? 'required-empty' : ''}`}
+                        placeholder={!clientName ? "Ingrese Cliente - Requerido" : "Cliente"}
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                    />
+                    <datalist id="client-suggestions">
+                        {availableClients.map((client, index) => (
+                            <option key={index} value={client} />
+                        ))}
+                    </datalist>
+                </div>
 
                 <div className="cart-items-list">
                     {cartItems.map((item, index) => (

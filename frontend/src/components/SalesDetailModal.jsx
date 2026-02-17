@@ -89,13 +89,13 @@ export default function SalesDetailModal({ sale, onClose }) {
                         <tbody>
                         {(sale.items || []).map((d, index) => (
                             <tr key={index}>
-                                <td>
+                                <td data-label="Producto">
                                     <div>{d.descripcionSnapshot || d.productoNombre}</div>
                                     <small className="text-muted">{d.codigoSnapshot || d.productoCodigo}</small>
                                 </td>
-                                <td>{d.cantidad}</td>
-                                <td>{formatCurrency(d.precioUnitario)}</td>
-                                <td>{formatCurrency(d.subtotal)}</td>
+                                <td data-label="Cant">{d.cantidad}</td>
+                                <td data-label="P. Unit">{formatCurrency(d.precioUnitario)}</td>
+                                <td data-label="Subtotal">{formatCurrency(d.delineaTotal || d.subtotal)}</td>
                             </tr>
                         ))}
                         </tbody>

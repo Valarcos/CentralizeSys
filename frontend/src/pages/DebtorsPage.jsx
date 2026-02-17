@@ -162,20 +162,20 @@ export default function DebtorsPage() {
                         <tbody>
                         {debtors.map(d => (
                             <tr key={d.id}>
-                                <td>{d.clienteNombre}</td>
-                                <td>#{d.ventaId}</td>
-                                <td>{formatDate(d.fechaDeuda)}</td>
-                                <td className="amount-cell">{formatCurrency(d.montoOriginal)}</td>
-                                <td className="amount-cell" style={{ fontWeight: 'bold', color: '#dc2626' }}>
+                                <td data-label="Cliente">{d.clienteNombre}</td>
+                                <td data-label="ID Venta">#{d.ventaId}</td>
+                                <td data-label="Fecha Deuda">{formatDate(d.fechaDeuda)}</td>
+                                <td data-label="Monto Original" className="amount-cell">{formatCurrency(d.montoOriginal)}</td>
+                                <td data-label="Deuda Actual" className="amount-cell" style={{ fontWeight: 'bold', color: '#dc2626' }}>
                                     {formatCurrency(d.montoDeuda)}
                                 </td>
-                                <td>{d.fechaUltimoPago ? formatDate(d.fechaUltimoPago) : '-'}</td>
-                                <td>
+                                <td data-label="Último Pago">{d.fechaUltimoPago ? formatDate(d.fechaUltimoPago) : '-'}</td>
+                                <td data-label="Estado">
                                         <span className={`status-pill status-${d.estado?.toLowerCase()}`}>
                                             {d.estado}
                                         </span>
                                 </td>
-                                <td>
+                                <td data-label="Acciones">
                                     <div className="action-buttons">
                                         <button
                                             className="btn-details"

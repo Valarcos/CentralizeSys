@@ -15,6 +15,9 @@ import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 
+import com.centralizesys.service.AuditoriaService;
+import org.springframework.mock.web.MockHttpServletRequest;
+import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -25,18 +28,24 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class GlobalExceptionHandlerTest {
 
-    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    private GlobalExceptionHandler handler;
+    private AuditoriaService auditoriaService;
+    private MockHttpServletRequest request;
 
     // Logback test infrastructure
     private Logger handlerLogger;
     private ListAppender<ILoggingEvent> listAppender;
 
     @BeforeEach
-    void setupLogCapture() {
-        // Get the logger used by GlobalExceptionHandler
-        handlerLogger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    void setup() {
+        // Mock dependencies
+        auditoriaService = mock(AuditoriaService.class);
+        handler = new GlobalExceptionHandler(auditoriaService);
+        request = new MockHttpServletRequest();
+        request.setRequestURI("/api/test");
 
-        // Create and attach a list appender to capture log events
+        // Setup Logback capture
+        handlerLogger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
         listAppender = new ListAppender<>();
         listAppender.start();
         handlerLogger.addAppender(listAppender);
@@ -49,11 +58,11 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("Handle BusinessRuleException: Returns 400 Bad Request")
+    @DisplayName("Handle BusinessRuleException: Returns 400 Bad Request and Audits Failure")
     void handleBusinessRule() {
         BusinessRuleException ex = new BusinessRuleException("Regla de negocio violada");
 
-        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleBusinessRule(ex);
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleBusinessRule(ex, request);
 
         // Verify user-facing response
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -66,6 +75,10 @@ class GlobalExceptionHandlerTest {
         assertEquals(1, logs.size());
         assertEquals(Level.WARN, logs.getFirst().getLevel());
         assertTrue(logs.getFirst().getFormattedMessage().contains("Regla de negocio violada"));
+
+        // Verify Audit Service was called
+        verify(auditoriaService).registrarAccion(any(), eq("FALLO_REGLA_NEGOCIO"),
+                contains("Regla de negocio violada"));
     }
 
     @Test
@@ -89,13 +102,14 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("Handle DataIntegrityViolation: Returns 400 with user-friendly message, logs technical detail")
+    @DisplayName("Handle DataIntegrityViolation: Returns 400 with user-friendly message, logs technical detail and Audits Failure")
     void handleDataIntegrityViolation() {
         // Compose a wrapped exception (Spring style)
         Exception rootCause = new Exception("UNIQUE constraint failed: usuarios.email");
         DataIntegrityViolationException ex = new DataIntegrityViolationException("Spring Wrapper", rootCause);
 
-        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleDataIntegrityViolation(ex);
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleDataIntegrityViolation(ex,
+                request);
 
         // Verify user-facing response (Spanish, no technical leak)
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -109,14 +123,18 @@ class GlobalExceptionHandlerTest {
         assertEquals(Level.ERROR, logs.getFirst().getLevel());
         assertTrue(logs.getFirst().getFormattedMessage().contains("UNIQUE constraint failed"),
                 "Technical detail should be logged for debugging");
+
+        // Verify Audit Service was called
+        verify(auditoriaService).registrarAccion(any(), eq("FALLO_INTEGRIDAD_DATOS"),
+                contains("UNIQUE constraint failed"));
     }
 
     @Test
-    @DisplayName("Handle Generic Exception: Returns 500 with safe message, logs technical detail")
+    @DisplayName("Handle Generic Exception: Returns 500 with safe message, logs technical detail and Audits Failure")
     void handleGenericException() {
         Exception ex = new RuntimeException("Unexpected Crash");
 
-        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleGenericException(ex);
+        ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleGenericException(ex, request);
 
         // Verify user-facing response (generic, no technical leak)
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
@@ -130,5 +148,8 @@ class GlobalExceptionHandlerTest {
         assertEquals(Level.ERROR, logs.getFirst().getLevel());
         assertTrue(logs.getFirst().getFormattedMessage().contains("Unexpected Crash"),
                 "Technical exception message should be logged for debugging");
+
+        // Verify Audit Service was called
+        verify(auditoriaService).registrarAccion(any(), eq("ERROR_SISTEMA"), contains("Unexpected Crash"));
     }
 }

@@ -37,10 +37,12 @@ export default function useCart() {
     }, [saleType, calculateItemPrice]);
 
     const updateQuantity = useCallback((productId, newQuantity) => {
-        if (newQuantity < 1) return;
+        if (newQuantity < 0) return 'negative_blocked';
+        if (newQuantity < 1) return 'zero_blocked';
         setCartItems(prev => prev.map(item =>
             item.product.id === productId ? { ...item, quantity: newQuantity } : item
         ));
+        return 'ok';
     }, []);
 
     const updateItemDiscount = useCallback((productId, discountValue) => {

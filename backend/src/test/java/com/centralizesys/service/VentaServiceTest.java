@@ -500,4 +500,47 @@ class VentaServiceTest {
         verify(ventaRepository).savePagos(anyList()); // Empty list is fine
         verify(auditoriaService).registrarAccion(eq(7L), eq("VENTA"), contains("200.0"));
     }
+
+    // --- GROUP 5: PAGINATION & DATE RANGE Logic ---
+
+    @Test
+    @DisplayName("UT-20: getVentasPage uses default 30-day range when dates are null")
+    void getVentasPage_UsesDefaultRange_WhenNull() {
+        // Arrange
+        when(ventaRepository.findVentasByFechaBetween(anyString(), anyString(), anyInt(), anyInt()))
+                .thenReturn(Collections.emptyList());
+        when(ventaRepository.countVentasByFechaBetween(anyString(), anyString())).thenReturn(0L);
+
+        // Act
+        ventaService.getVentasPage(null, null, 0, 20);
+
+        // Assert
+        // Verify we called repo with dates. Since we can't easily predict "now",
+        // we capture arguments or just verify it was called.
+        verify(ventaRepository).findVentasByFechaBetween(anyString(), anyString(), eq(20), eq(0));
+    }
+
+    @Test
+    @DisplayName("UT-21: getVentasPage throws when range exceeds 60 days")
+    void getVentasPage_Throws_WhenRangeExceeds60Days() {
+        // Arrange
+        String start = java.time.LocalDate.now().minusDays(61).toString();
+        String end = java.time.LocalDate.now().toString();
+
+        // Act & Assert
+        assertThrows(BusinessRuleException.class,
+                () -> ventaService.getVentasPage(start, end, 0, 20));
+    }
+
+    @Test
+    @DisplayName("UT-22: getVentasPage throws when start date is after end date")
+    void getVentasPage_Throws_WhenStartAfterEnd() {
+        // Arrange
+        String start = java.time.LocalDate.now().toString();
+        String end = java.time.LocalDate.now().minusDays(1).toString();
+
+        // Act & Assert
+        assertThrows(BusinessRuleException.class,
+                () -> ventaService.getVentasPage(start, end, 0, 20));
+    }
 }

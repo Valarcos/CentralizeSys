@@ -3,17 +3,79 @@
     background-color: var(--background-color);
 }
 
-.history-header {
+.history-header-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.date-filters-row {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+}
+
+.pagination-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    width: 100%;
 }
 
-.date-filter {
-    padding: 0.5rem;
+.bottom-pagination {
+    justify-content: flex-end;
+    /* Bottom pagination aligned right */
+    margin-top: 1rem;
+}
+
+.pagination-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.btn-pagination {
+    padding: 0.4rem 0.8rem;
+    background-color: white;
     border: 1px solid var(--border-color);
     border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.btn-pagination:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.page-indicator {
+    font-weight: bold;
+    min-width: 50px;
+    text-align: center;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+    .date-filters-row {
+        flex-direction: row;
+        /* Keep horizontal on mobile per request */
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .pagination-row {
+        flex-direction: column;
+        align-items: flex-end;
+        /* Align right on mobile like Inventory */
+        gap: 1rem;
+    }
+
+    .total-label {
+        align-self: flex-start;
+        /* Label on top-left of pagination block */
+        margin-bottom: 0.5rem;
+    }
 }
 
 .history-table {
@@ -29,17 +91,37 @@
 .history-table td {
     padding: 1rem;
     text-align: left;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #dee2e6;
+    /* Darker border */
+    border-right: 1px solid #f0f0f0;
+    /* Subtle vertical separation */
+}
+
+.history-table td:last-child,
+.history-table th:last-child {
+    border-right: none;
 }
 
 .history-table th {
-    background-color: var(--surface-color);
+    background-color: var(--color-primary);
+    /* Distinctive header background */
     font-weight: bold;
-    color: var(--text-secondary);
+    color: white;
+    /* White text for contrast */
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+.history-table tr:nth-child(even) {
+    background-color: #f8f9fa;
+    /* Light alternating background */
 }
 
 .history-table tr:hover {
-    background-color: #f9f9f9;
+    background-color: #e9ecef;
+    /* Slightly darker hover effect */
+    transition: background-color 0.2s ease;
 }
 
 .amount-cell {

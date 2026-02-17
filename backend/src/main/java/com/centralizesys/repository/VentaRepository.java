@@ -158,6 +158,33 @@ public class VentaRepository {
         return namedJdbcTemplate.query(sql, new MapSqlParameterSource(VENTA_ID_PARAM, ventaId), pagoMapper);
     }
 
+    public List<Venta> findVentasByFechaBetween(String startDate, String endDate, int limit, int offset) {
+        String sql = """
+                    SELECT * FROM ventas
+                    WHERE fecha BETWEEN :startDate AND :endDate
+                    ORDER BY fecha DESC, id DESC
+                    LIMIT :limit OFFSET :offset
+                """;
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("startDate", startDate)
+                .addValue("endDate", endDate)
+                .addValue("limit", limit)
+                .addValue("offset", offset);
+
+        return namedJdbcTemplate.query(sql, params, ventaMapper);
+    }
+
+    public long countVentasByFechaBetween(String startDate, String endDate) {
+        String sql = "SELECT COUNT(*) FROM ventas WHERE fecha BETWEEN :startDate AND :endDate";
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("startDate", startDate)
+                .addValue("endDate", endDate);
+
+        return Optional.ofNullable(namedJdbcTemplate.queryForObject(sql, params, Long.class)).orElse(0L);
+    }
+
     public List<String> findDistinctClientNames() {
         String sql = "SELECT DISTINCT cliente_nombre FROM ventas WHERE cliente_nombre IS NOT NULL AND cliente_nombre != '' ORDER BY cliente_nombre";
         return jdbcTemplate.queryForList(sql, String.class);

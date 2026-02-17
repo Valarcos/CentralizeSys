@@ -36,10 +36,16 @@ public class VentaController {
 
     // --- QUERIES ---
 
-    // GET /api/ventas (History List - Headers only for performance)
+    // GET /api/ventas (Paginated & Filtered)
+    // Default: Page 0, Size 20, Last 30 Days (Service handles defaults)
     @GetMapping
-    public ResponseEntity<List<Venta>> getAll() {
-        return ResponseEntity.ok(ventaService.getAllVentas());
+    public ResponseEntity<com.centralizesys.model.dto.PageResponse<Venta>> getAll(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        return ResponseEntity.ok(ventaService.getVentasPage(startDate, endDate, page, size));
     }
 
     // GET /api/ventas/{id} (Full Receipt: Header + Items + Payments)

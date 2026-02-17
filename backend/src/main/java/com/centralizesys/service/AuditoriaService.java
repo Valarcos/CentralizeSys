@@ -5,7 +5,6 @@ import com.centralizesys.repository.AuditoriaRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -24,9 +23,10 @@ public class AuditoriaService {
     /**
      * Records an audit log.
      * Use of Propagation.SUPPORTS allows it to participate in existing transactions
-     * but the try-catch ensures it doesn't crash the main business logic if it fails.
+     * but the try-catch ensures it doesn't crash the main business logic if it
+     * fails.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void registrarAccion(Long usuarioId, String accion, String detalles) {
         try {
             repository.save(usuarioId, accion, detalles);

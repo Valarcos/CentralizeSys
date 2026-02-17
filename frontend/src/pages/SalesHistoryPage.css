@@ -108,3 +108,127 @@
 .btn-print:hover {
     background-color: #2563eb;
 }
+
+/* Responsive Table & Cards (Adapted from InventarioPage.css) */
+@media (max-width: 768px) {
+    .history-page {
+        padding: 0.5rem;
+    }
+
+    .history-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .date-filter {
+        width: 100%;
+    }
+
+    .table-responsive {
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    .history-table,
+    .history-table thead,
+    .history-table tbody,
+    .history-table th,
+    .history-table td,
+    .history-table tr {
+        display: block;
+    }
+
+    /* Hide table headers (but keep accessible) */
+    .history-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .history-table tr {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .history-table td {
+        /* Behave like a "row" */
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 50%;
+        /* Make space for label */
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+        text-align: right;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .history-table td:last-child {
+        border-bottom: none;
+        justify-content: flex-end;
+        /* Actions align right */
+        padding-top: 1rem;
+        margin-top: 0.5rem;
+        border-top: 1px solid #eee;
+    }
+
+    .history-table td::before {
+        /* Now like a table header */
+        content: attr(data-label);
+        font-weight: 600;
+        color: #6c757d;
+        text-align: left;
+        /* Positioning handled by flex (justify-content: space-between) */
+        /* But to be safe/consistent with Inventory pattern: */
+        width: 45%;
+        /* existing flex handles placement, but we keep this if not using absolute positioning like Inventory?
+           Inventory used absolute positioning for ::before.
+           Let's stick to Flexbox which is cleaner if possible,
+           but Inventory code used absolute. Let's try Flex first as it's cleaner.
+           Actually, Inventory uses absolute left:0.
+           Let's use the exact Inventory approach for consistency. */
+    }
+
+    /* Reverting to Inventory-like Absolute positioning for labels if Flex fails?
+       No, Inventory uses:
+       td { position: relative; padding-left: 50%; text-align: right; }
+       td::before { position: absolute; left: 0; width: 45%; ... }
+
+       Let's stick to the Inventory Code Pattern exactly for safety.
+    */
+    .history-table td {
+        display: block;
+        /* Reset back to block for absolute positioning to work predictably */
+        text-align: right;
+    }
+
+    .history-table td::before {
+        position: absolute;
+        top: 0.5rem;
+        left: 0.5rem;
+        /* Padding adjustment */
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+    }
+
+    .action-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .amount-cell {
+        font-size: 1.1rem;
+        color: var(--color-primary);
+    }
+}

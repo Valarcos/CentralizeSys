@@ -37,6 +37,9 @@ class ProductControllerTest {
     @MockBean
     private ProductService service;
 
+    @MockBean
+    private com.centralizesys.service.AuditoriaService auditoriaService;
+
     // Security Mocks need to be present even if filters are off for context loading
     // usually,
     // or sometimes just having them mocked avoids bean creation issues if they are

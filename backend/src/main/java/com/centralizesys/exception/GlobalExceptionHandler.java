@@ -1,5 +1,7 @@
 package com.centralizesys.exception;
 
+import com.centralizesys.security.SecurityUtils;
+import com.centralizesys.service.AuditoriaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.CannotAcquireLockException;
@@ -11,6 +13,8 @@ import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.security.access.AccessDeniedException;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -20,6 +24,13 @@ import org.springframework.web.server.ResponseStatusException;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private final AuditoriaService auditoriaService;
+
+    private static final String RUTA = "Ruta: ";
+
+    public GlobalExceptionHandler(AuditoriaService auditoriaService) {
+        this.auditoriaService = auditoriaService;
+    }
 
     // ══════════════════════════════════════════════════════════════════════════════
     // DOMAIN EXCEPTIONS (Business Logic)
@@ -36,8 +47,19 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(BusinessRuleException.class)
-    public ResponseEntity<ErrorResponse> handleBusinessRule(BusinessRuleException ex) {
+    public ResponseEntity<ErrorResponse> handleBusinessRule(BusinessRuleException ex, HttpServletRequest req) {
         log.warn("Business rule violation: {}", ex.getMessage());
+
+        // Audit Failure
+        try {
+            Long userId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
+            String path = req.getRequestURI();
+            auditoriaService.registrarAccion(userId, "FALLO_REGLA_NEGOCIO",
+                    RUTA + path + " | Error: " + ex.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to audit error", e);
+        }
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.value(),
                 ex.getMessage(), // Already user-friendly
@@ -52,7 +74,8 @@ public class GlobalExceptionHandler {
     // Handles DB constraints: UNIQUE, FK, CHECK, NOT NULL (codes: 19, 275, 531,
     // 787, etc.)
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex,
+                                                                      HttpServletRequest req) {
         String detail = ex.getMostSpecificCause().getMessage();
         log.error("DATA INTEGRITY VIOLATION: {}", detail, ex);
 
@@ -70,6 +93,17 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST.value(),
                 userMessage,
                 System.currentTimeMillis());
+
+        // Audit Failure
+        try {
+            Long userId = SecurityUtils.getAuthenticatedUserId();
+            String path = req.getRequestURI();
+            auditoriaService.registrarAccion(userId, "FALLO_INTEGRIDAD_DATOS",
+                    RUTA + path + " | Detalle: " + detail);
+        } catch (Exception e) {
+            log.error("Failed to audit error", e);
+        }
+
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
@@ -146,8 +180,19 @@ public class GlobalExceptionHandler {
     // ══════════════════════════════════════════════════════════════════════════════
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, HttpServletRequest req) {
         log.error("UNEXPECTED ERROR: {}", ex.getMessage(), ex);
+
+        // Audit Failure
+        try {
+            Long userId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
+            String path = req.getRequestURI();
+            auditoriaService.registrarAccion(userId, "ERROR_SISTEMA",
+                    RUTA + path + " | Excepción no controlada: " + ex.getMessage());
+        } catch (Exception e) {
+            // Swallow logging error to ensure response goes out
+        }
+
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Ocurrió un error inesperado. Contacte al administrador.",

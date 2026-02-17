@@ -181,35 +181,106 @@
     gap: 0.5rem;
 }
 
+/* --- CART ITEM — 3-Row Card Layout --- */
 .cart-item {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
     padding: 0.8rem;
     background: white;
-    border-radius: 4px;
+    border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    gap: 0.3rem;
 }
 
-.cart-item-info {
-    flex: 1;
+.cart-row {
+    display: flex;
+    align-items: center;
+}
+
+.cart-row-name b {
+    font-size: 1rem;
+    color: var(--text-color);
+}
+
+.cart-row-price {
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.price-label {
+    white-space: nowrap;
+}
+
+.item-discount {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+}
+
+.item-discount label {
+    white-space: nowrap;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.discount-input {
+    width: 95px;
+    padding: 0.2rem 0.4rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    text-align: right;
+    font-size: 0.85rem;
+}
+
+.cart-row-actions {
+    justify-content: space-between;
+    gap: 0.5rem;
 }
 
 .cart-item-qty {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-right: 1rem;
+    gap: 0.4rem;
 }
 
 .qty-btn {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     border: 1px solid var(--border-color);
     background: var(--surface-color);
     cursor: pointer;
     font-weight: bold;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.qty-btn:hover {
+    background-color: #e9ecef;
+}
+
+.qty-input {
+    width: 45px;
+    text-align: center;
+    padding: 0.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* Hide number input spinners globally */
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button,
+.discount-input::-webkit-outer-spin-button,
+.discount-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 .cart-item-total {
@@ -223,12 +294,17 @@
     background: none;
     border: none;
     color: var(--color-error);
-    margin-left: 0.5rem;
+    margin-left: 0.3rem;
     cursor: pointer;
-    font-size: 1.2rem;
+    font-size: 1.3rem;
+    font-weight: bold;
 }
 
-/* --- PAYMENT SECTION (Bottom of Ticket) --- */
+.remove-btn:hover {
+    color: #a31b1b;
+}
+
+/* --- PAYMENT SECTION --- */
 .payment-section {
     margin-top: auto;
     padding-top: 1rem;
@@ -236,16 +312,18 @@
 }
 
 .payment-stack {
-    max-height: 150px;
-    overflow-y: auto;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
 }
 
 .payment-row {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
-    align-items: center;
+    align-items: stretch;
+}
+
+.payment-row-new {
+    align-items: stretch;
 }
 
 .payment-select,
@@ -264,14 +342,14 @@
     text-align: right;
 }
 
+/* Issue #1: Solid, opaque, distinct color for payment add button */
 .add-payment-btn {
     width: 45px;
-    height: 45px;
     border: none;
     border-radius: 8px;
-    background-color: var(--primary-color);
+    background-color: #0066cc;
     color: white;
-    font-size: 1.8rem;
+    font-size: 1.5rem;
     font-weight: bold;
     cursor: pointer;
     transition: transform 0.1s, background-color 0.2s;
@@ -279,6 +357,7 @@
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    opacity: 1;
 }
 
 .add-payment-btn:active {
@@ -286,21 +365,68 @@
 }
 
 .add-payment-btn:hover {
-    background-color: #0056b3;
-    /* Darker Blue */
+    background-color: #0052a3;
 }
 
+/* --- TOTALS AREA — Horizontal: Discount Left, Numbers Right --- */
 .totals-area {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    margin-bottom: 1rem;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    padding-top: 0.5rem;
 }
 
-.grand-total {
-    font-size: 2rem;
+.totals-discount-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.discount-global-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.discount-global-input {
+    width: 105px;
+    padding: 0.4rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    text-align: right;
+    font-size: 1rem;
+}
+
+.discount-global-input::-webkit-outer-spin-button,
+.discount-global-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.totals-numbers-col {
+    text-align: right;
+}
+
+.totals-line {
+    font-size: 0.95rem;
+    margin-bottom: 0.15rem;
+}
+
+.totals-total {
     font-weight: bold;
-    color: var(--text-color);
+    font-size: 1.1rem;
+}
+
+.totals-falta {
+    color: var(--color-error, red);
+    font-weight: 600;
+}
+
+.totals-cubierto {
+    color: var(--color-success, green);
+    font-weight: 600;
 }
 
 .pay-btn {
@@ -321,10 +447,12 @@
     cursor: not-allowed;
 }
 
-/* --- MOBILE LAYOUT --- */
+/* --- MOBILE LAYOUT — Density Mode --- */
 @media (max-width: 768px) {
     .venta-page {
         flex-direction: column;
+        height: calc(100vh - 50px - var(--bottom-nav-height));
+        overflow: hidden;
     }
 
     .catalog-panel,
@@ -332,7 +460,6 @@
         flex: 1;
         width: 100%;
         display: none;
-        /* Hidden by default, toggled via JS logic (Tabs) */
     }
 
     .catalog-panel.active,
@@ -340,29 +467,199 @@
         display: flex;
     }
 
-    .mobile-tabs {
-        display: flex;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 60px;
-        background: var(--surface-color);
-        border-top: 1px solid var(--border-color);
-        z-index: 1000;
+    /* --- Density: Reduce panel padding --- */
+    .catalog-panel {
+        padding: 0.25rem;
+        gap: 0.5rem;
     }
 
-    .tab-btn {
+    .ticket-panel {
+        padding: 0.25rem;
+        overflow-y: auto;
+    }
+
+    /* --- Ticket Header: prevent Minorista/Mayorista cutoff --- */
+    .ticket-header {
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.3rem;
+    }
+
+    .ticket-header h2 {
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+
+    .sale-type-toggle {
         flex: 1;
-        border: none;
-        background: none;
-        font-weight: bold;
-        color: var(--text-secondary);
+        min-width: 0;
+        padding: 0.2rem;
+        gap: 0.3rem;
     }
 
-    .tab-btn.active {
-        color: var(--primary-color);
-        border-top: 3px solid var(--primary-color);
+    .toggle-btn {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.8rem;
+        white-space: nowrap;
+    }
+
+    /* --- Client input: compact --- */
+    .current-client-input {
+        padding: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    /* --- Cart items: density adjustments --- */
+    .cart-item {
+        padding: 0.4rem;
+        gap: 0.2rem;
+        border-radius: 4px;
+    }
+
+    .cart-row-name b {
+        font-size: 0.9rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: block;
+    }
+
+    .cart-row-price {
+        font-size: 0.8rem;
+    }
+
+    .item-discount label {
+        font-size: 0.75rem;
+    }
+
+    .discount-input {
+        width: 75px;
+        padding: 0.15rem 0.3rem;
+        font-size: 0.8rem;
+    }
+
+    .cart-row-actions {
+        gap: 0.3rem;
+    }
+
+    .qty-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 0.9rem;
+    }
+
+    .qty-input {
+        width: 38px;
+        font-size: 0.9rem;
+        padding: 0.15rem;
+    }
+
+    .cart-item-total {
+        min-width: auto;
+        font-size: 0.9rem;
+    }
+
+    .remove-btn {
+        font-size: 1.1rem;
+    }
+
+    /* --- Cart list scrollable with protected space --- */
+    .cart-items-list {
+        flex: 1;
+        min-height: 100px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.3rem;
+    }
+
+    /* --- Payment section: compact --- */
+    .payment-section {
+        padding-top: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .payment-stack {
+        max-height: 120px;
+        overflow-y: auto;
+        margin-bottom: 0.3rem;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .payment-row {
+        gap: 0.3rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .payment-select {
+        flex: 2;
+        font-size: 0.8rem;
+        padding: 0.4rem;
+    }
+
+    .payment-amount {
+        flex: 1;
+        font-size: 0.8rem;
+        padding: 0.4rem;
+    }
+
+    /* Issue #7: Payment + button matches element height */
+    .add-payment-btn {
+        width: 38px;
+        height: auto;
+        font-size: 1.2rem;
+        padding: 0.4rem;
+    }
+
+    /* --- Totals area: horizontal, compact --- */
+    .totals-area {
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        padding-top: 0.3rem;
+    }
+
+    .discount-global-label {
+        font-size: 0.8rem;
+    }
+
+    .discount-global-input {
+        width: 85px;
+        padding: 0.3rem;
+        font-size: 0.85rem;
+    }
+
+    .totals-line {
+        font-size: 0.85rem;
+    }
+
+    .totals-total {
+        font-size: 1rem;
+    }
+
+    /* --- FINALIZAR button: compact --- */
+    .pay-btn {
+        padding: 0.8rem;
+        font-size: 1.1rem;
+    }
+
+    /* --- Catalog: compact product cards --- */
+    .product-card {
+        padding: 0.5rem;
+    }
+
+    .product-card h3 {
+        font-size: 0.9rem;
+        margin: 0 0 0.2rem 0;
+    }
+
+    .product-card .price {
+        font-size: 1rem;
+    }
+
+    .search-bar-large {
+        padding: 0.5rem;
+        font-size: 0.95rem;
     }
 }
 

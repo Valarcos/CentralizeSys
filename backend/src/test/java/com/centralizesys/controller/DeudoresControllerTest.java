@@ -34,6 +34,9 @@ class DeudoresControllerTest {
     @MockBean
     private DeudoresService deudoresService;
 
+    @MockBean
+    private com.centralizesys.service.AuditoriaService auditoriaService;
+
     // Security Mocks
     @MockBean
     private com.centralizesys.security.JwtTokenProvider jwtTokenProvider;

@@ -8,8 +8,10 @@ export default function AppLayout() {
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [userName, setUserName] = useState('');
     const [userRole, setUserRole] = useState('');
+    const [salesActiveTab, setSalesActiveTab] = useState('catalog');
     const navigate = useNavigate();
     const location = useLocation();
+    const isVentasPage = location.pathname.startsWith('/ventas');
 
     useEffect(() => {
         setUserName(localStorage.getItem('userName') || 'Usuario');
@@ -88,50 +90,83 @@ export default function AppLayout() {
 
             {/* Main Content */}
             <main className="main-content">
-                <Outlet />
+                <Outlet context={{ salesActiveTab, setSalesActiveTab }} />
             </main>
 
-            {/* Mobile Bottom Navigation */}
-            <nav className="bottom-nav mobile-only" aria-label="Navegación móvil">
-                <button
-                    onClick={() => navigate('/dashboard')}
-                    className={isActive('/dashboard') ? 'active' : ''}
-                    aria-label="Ir a inicio"
-                    aria-current={isActive('/dashboard') ? 'page' : undefined}
-                >
-                    <span className="icon" aria-hidden="true">🏠</span>
-                    <span>Inicio</span>
-                </button>
+            {/* Mobile Bottom Navigation — Contextual for Sales page */}
+            <nav className={`bottom-nav mobile-only ${isVentasPage ? 'sales-mode' : ''}`} aria-label="Navegación móvil">
+                {isVentasPage ? (
+                    /* Sales-specific tabs */
+                    <>
+                        <button
+                            onClick={() => navigate('/dashboard')}
+                            className="sales-tab-btn inicio"
+                            aria-label="Volver a inicio"
+                        >
+                            <span className="icon" aria-hidden="true">🏠</span>
+                            <span>Inicio</span>
+                        </button>
+                        <button
+                            onClick={() => setSalesActiveTab('catalog')}
+                            className={`sales-tab-btn ${salesActiveTab === 'catalog' ? 'active' : ''}`}
+                            aria-label="Ver catálogo"
+                        >
+                            <span className="icon" aria-hidden="true">📋</span>
+                            <span>Catálogo</span>
+                        </button>
+                        <button
+                            onClick={() => setSalesActiveTab('ticket')}
+                            className={`sales-tab-btn ${salesActiveTab === 'ticket' ? 'active' : ''}`}
+                            aria-label="Ver ticket"
+                        >
+                            <span className="icon" aria-hidden="true">🧾</span>
+                            <span>Ticket</span>
+                        </button>
+                    </>
+                ) : (
+                    /* Standard navigation */
+                    <>
+                        <button
+                            onClick={() => navigate('/dashboard')}
+                            className={isActive('/dashboard') ? 'active' : ''}
+                            aria-label="Ir a inicio"
+                            aria-current={isActive('/dashboard') ? 'page' : undefined}
+                        >
+                            <span className="icon" aria-hidden="true">🏠</span>
+                            <span>Inicio</span>
+                        </button>
 
-                <button
-                    onClick={() => navigate('/ventas')}
-                    className={isActive('/ventas') ? 'active' : ''}
-                    aria-label="Ir a ventas"
-                    aria-current={isActive('/ventas') ? 'page' : undefined}
-                >
-                    <span className="icon" aria-hidden="true">💰</span>
-                    <span>Ventas</span>
-                </button>
+                        <button
+                            onClick={() => navigate('/ventas')}
+                            className={isActive('/ventas') ? 'active' : ''}
+                            aria-label="Ir a ventas"
+                            aria-current={isActive('/ventas') ? 'page' : undefined}
+                        >
+                            <span className="icon" aria-hidden="true">💰</span>
+                            <span>Ventas</span>
+                        </button>
 
-                <button
-                    onClick={() => navigate('/inventario')}
-                    className={isActive('/inventario') ? 'active' : ''}
-                    aria-label="Ir a inventario"
-                    aria-current={isActive('/inventario') ? 'page' : undefined}
-                >
-                    <span className="icon" aria-hidden="true">📦</span>
-                    <span>Inventario</span>
-                </button>
+                        <button
+                            onClick={() => navigate('/inventario')}
+                            className={isActive('/inventario') ? 'active' : ''}
+                            aria-label="Ir a inventario"
+                            aria-current={isActive('/inventario') ? 'page' : undefined}
+                        >
+                            <span className="icon" aria-hidden="true">📦</span>
+                            <span>Inventario</span>
+                        </button>
 
-                <button
-                    onClick={() => setShowMobileMenu(true)}
-                    className={showMobileMenu ? 'active' : ''}
-                    aria-label="Abrir menú"
-                    aria-expanded={showMobileMenu}
-                >
-                    <span className="icon" aria-hidden="true">⋮</span>
-                    <span>Más</span>
-                </button>
+                        <button
+                            onClick={() => setShowMobileMenu(true)}
+                            className={showMobileMenu ? 'active' : ''}
+                            aria-label="Abrir menú"
+                            aria-expanded={showMobileMenu}
+                        >
+                            <span className="icon" aria-hidden="true">⋮</span>
+                            <span>Más</span>
+                        </button>
+                    </>
+                )}
             </nav>
 
             {/* Mobile "Más" Menu (Overlay) */}

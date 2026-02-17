@@ -39,6 +39,9 @@ class CompraControllerTest {
     @MockBean
     private CompraService compraService;
 
+    @MockBean
+    private com.centralizesys.service.AuditoriaService auditoriaService;
+
     // Security Mocks
     @MockBean
     private com.centralizesys.security.JwtTokenProvider jwtTokenProvider;

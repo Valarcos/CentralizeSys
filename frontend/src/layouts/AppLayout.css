@@ -135,6 +135,13 @@
     padding-bottom: calc(var(--bottom-nav-height) + var(--spacing-lg));
 }
 
+@media (max-width: 768px) {
+    .main-content {
+        padding: var(--spacing-xs);
+        padding-bottom: calc(var(--bottom-nav-height) + var(--spacing-xs));
+    }
+}
+
 @media (min-width: 768px) {
     .main-content {
         padding-bottom: var(--spacing-lg);
@@ -278,4 +285,59 @@
     margin-top: var(--spacing-md);
     background-color: var(--color-secondary);
     color: white;
+}
+
+/* Sales-Mode Bottom Navigation */
+.bottom-nav.sales-mode {
+    background-color: var(--color-primary);
+    border-top: 2px solid #003366;
+}
+
+.bottom-nav.sales-mode .sales-tab-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+    background: none;
+    border: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.7);
+    padding: var(--spacing-xs);
+    font-size: 0.85rem;
+    min-height: auto;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bottom-nav.sales-mode .sales-tab-btn:last-child {
+    border-right: none;
+}
+
+.bottom-nav.sales-mode .sales-tab-btn .icon {
+    font-size: 1.6rem;
+}
+
+.bottom-nav.sales-mode .sales-tab-btn.active {
+    color: white;
+    font-weight: 700;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-bottom: 3px solid var(--color-warning);
+}
+
+.bottom-nav.sales-mode .sales-tab-btn.inicio {
+    color: rgba(255, 255, 255, 0.85);
+    flex: 0.7;
+    /* Slightly narrower than the main tabs */
+    border-right: 2px solid rgba(255, 255, 255, 0.4);
+    /* Thicker divider to separate Inicio */
+}
+
+.bottom-nav.sales-mode .sales-tab-btn:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.bottom-nav.sales-mode .sales-tab-btn:active {
+    background-color: rgba(255, 255, 255, 0.2);
 }

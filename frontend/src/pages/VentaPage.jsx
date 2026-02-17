@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import useCart from '../hooks/useCart';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -33,7 +34,7 @@ export default function VentaPage() {
     const [products, setProducts] = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState('catalog');
+    const { salesActiveTab: activeTab } = useOutletContext();
     const [loading, setLoading] = useState(false);
     const [availableClients, setAvailableClients] = useState([]); // New Autocomplete State
 
@@ -370,29 +371,61 @@ export default function VentaPage() {
                 <div className="cart-items-list">
                     {cartItems.map((item, index) => (
                         <div key={index} className={`cart-item ${item.quantity > item.product.cantidadStock ? 'stock-warning-row' : ''}`}>
-                            <div className="cart-item-info">
+                            {/* Row 1: Product Name */}
+                            <div className="cart-row cart-row-name">
                                 <b>{item.product.descripcion}</b>
-                                <div>{formatCurrency(item.unitPrice)} x {item.quantity}</div>
-                                <div style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
-                                    Desc. Unit:
+                            </div>
+                            {/* Row 2: Unit Price x Qty + Discount Input */}
+                            <div className="cart-row cart-row-price">
+                                <span className="price-label">{formatCurrency(item.unitPrice)} x {item.quantity}</span>
+                                <div className="item-discount">
+                                    <label>Descuento</label>
                                     <input
-                                        type="number"
+                                        type="text"
+                                        inputMode="numeric"
                                         value={item.discount || ''}
-                                        onChange={(e) => updateItemDiscount(item.product.id, e.target.value)}
-                                        placeholder="0"
-                                        style={{ width: '50px', marginLeft: '5px' }}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/[^0-9.]/g, '');
+                                            updateItemDiscount(item.product.id, val);
+                                        }}
+                                        placeholder="$0"
+                                        className="discount-input"
                                     />
                                 </div>
                             </div>
-                            <div className="cart-item-qty">
-                                <button className="qty-btn" onClick={() => updateQuantity(item.product.id, item.quantity - 1)}>-</button>
-                                <span>{item.quantity}</span>
-                                <button className="qty-btn" onClick={() => updateQuantity(item.product.id, item.quantity + 1)}>+</button>
+                            {/* Row 3: Qty Controls + Total + Remove */}
+                            <div className="cart-row cart-row-actions">
+                                <div className="cart-item-qty">
+                                    <button className="qty-btn" onClick={() => {
+                                        const result = updateQuantity(item.product.id, item.quantity - 1);
+                                        if (result === 'zero_blocked') {
+                                            toast('Para eliminar producto tocar su botón ×', { icon: 'ℹ️', duration: 2000 });
+                                        }
+                                    }}>-</button>
+                                    <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        className="qty-input"
+                                        value={item.quantity}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                                            if (!isNaN(val) && val >= 1) {
+                                                updateQuantity(item.product.id, val);
+                                            }
+                                        }}
+                                        onBlur={(e) => {
+                                            if (!e.target.value || parseInt(e.target.value, 10) < 1) {
+                                                updateQuantity(item.product.id, 1);
+                                            }
+                                        }}
+                                    />
+                                    <button className="qty-btn" onClick={() => updateQuantity(item.product.id, item.quantity + 1)}>+</button>
+                                </div>
+                                <div className="cart-item-total">
+                                    {formatCurrency((Math.max(0, item.unitPrice - (item.discount || 0))) * item.quantity)}
+                                </div>
+                                <button className="remove-btn" onClick={() => removeFromCart(item.product.id)}>×</button>
                             </div>
-                            <div className="cart-item-total">
-                                {formatCurrency((Math.max(0, item.unitPrice - (item.discount || 0))) * item.quantity)}
-                            </div>
-                            <button className="remove-btn" onClick={() => removeFromCart(item.product.id)}>×</button>
                         </div>
                     ))}
                 </div>
@@ -409,7 +442,7 @@ export default function VentaPage() {
                         ))}
 
                         {/* New Payment Input Row */}
-                        <div className="payment-row">
+                        <div className="payment-row payment-row-new">
                             <select
                                 className="payment-select"
                                 value={selectedMethodId}
@@ -423,7 +456,7 @@ export default function VentaPage() {
                             <input
                                 type="number"
                                 className="payment-amount"
-                                placeholder="$" // placeholder
+                                placeholder="$"
                                 value={paymentAmount}
                                 onChange={(e) => setPaymentAmount(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleAddPayment()}
@@ -433,32 +466,36 @@ export default function VentaPage() {
                     </div>
 
                     <div className="totals-area">
-                        <div style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <span>Desc. Global:</span>
+                        <div className="totals-discount-col">
+                            <label className="discount-global-label">Desc. Global</label>
                             <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 value={globalDiscount || ''}
-                                onChange={(e) => setGlobalDiscount(parseFloat(e.target.value) || 0)}
-                                placeholder="0"
-                                style={{ width: '80px', textAlign: 'right' }}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/[^0-9.]/g, '');
+                                    setGlobalDiscount(parseFloat(val) || 0);
+                                }}
+                                placeholder="$0"
+                                className="discount-global-input"
                             />
                         </div>
-                        <div>
-                            <div>Subtotal: {formatCurrency(totals.subtotal)}</div>
-                            <div style={{ fontWeight: 'bold' }}>Total: {formatCurrency(totals.total)}</div>
-                            <div style={{ color: remaining > 0.01 ? 'red' : 'green' }}>
+                        <div className="totals-numbers-col">
+                            <div className="totals-line">Subtotal: {formatCurrency(totals.subtotal)}</div>
+                            <div className="totals-line totals-total">Total: {formatCurrency(totals.total)}</div>
+                            <div className={`totals-line ${remaining > 0.01 ? 'totals-falta' : 'totals-cubierto'}`}>
                                 {remaining > 0.01 ? `Falta: ${formatCurrency(remaining)}` : 'Cubierto'}
                             </div>
                         </div>
-                        <button
-                            className="pay-btn"
-                            disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim()}
-                            onClick={handlePrePaymentCheck}
-                            style={{ opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim()) ? 0.5 : 1 }}
-                        >
-                            FINALIZAR
-                        </button>
                     </div>
+                    <button
+                        className="pay-btn"
+                        disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim()}
+                        onClick={handlePrePaymentCheck}
+                        style={{ opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim()) ? 0.5 : 1 }}
+                    >
+                        FINALIZAR
+                    </button>
                 </div>
 
                 {/* MODALS */}
@@ -507,10 +544,7 @@ export default function VentaPage() {
                 )}
             </div>
 
-            <div className="mobile-tabs mobile-only">
-                <button className={`tab-btn ${activeTab === 'catalog' ? 'active' : ''}`} onClick={() => setActiveTab('catalog')}>Catálogo</button>
-                <button className={`tab-btn ${activeTab === 'ticket' ? 'active' : ''}`} onClick={() => setActiveTab('ticket')}>Ticket ({cartItems.length})</button>
-            </div>
+            {/* Tab switching is now handled by the contextual bottom-nav in AppLayout */}
         </div>
     );
 }

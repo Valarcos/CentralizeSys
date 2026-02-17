@@ -76,16 +76,16 @@ export default function SalesHistoryPage() {
                         <tbody>
                         {filteredSales.map(sale => (
                             <tr key={sale.id}>
-                                <td>#{sale.id}</td>
-                                <td>{formatDate(sale.fecha)}</td>
-                                <td>{sale.clienteNombre || 'Consumidor Final'}</td>
-                                <td>
+                                <td data-label="ID">#{sale.id}</td>
+                                <td data-label="Fecha">{formatDate(sale.fecha)}</td>
+                                <td data-label="Cliente">{sale.clienteNombre || 'Consumidor Final'}</td>
+                                <td data-label="Tipo">
                                         <span className={`badge ${sale.tipoVenta === 'MAYORISTA' ? 'badge-wholesale' : 'badge-retail'}`}>
                                             {sale.tipoVenta || 'ESTÁNDAR'}
                                         </span>
                                 </td>
-                                <td className="amount-cell">{formatCurrency(sale.totalVenta)}</td>
-                                <td>
+                                <td data-label="Total" className="amount-cell">{formatCurrency(sale.totalVenta)}</td>
+                                <td data-label="Acciones">
                                     <button className="btn-details" onClick={() => handleOpenDetails(sale.id)}>
                                         Ver
                                     </button>
@@ -94,7 +94,7 @@ export default function SalesHistoryPage() {
                         ))}
                         {filteredSales.length === 0 && (
                             <tr>
-                                <td colSpan="5" style={{ textAlign: 'center' }}>No se encontraron ventas.</td>
+                                <td colSpan="6" style={{ textAlign: 'center' }}>No se encontraron ventas.</td>
                             </tr>
                         )}
                         </tbody>

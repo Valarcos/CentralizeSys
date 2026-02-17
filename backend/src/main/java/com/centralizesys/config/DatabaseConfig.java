@@ -57,14 +57,12 @@ public class DatabaseConfig {
     public DataSourceInitializer dataSourceInitializer(DataSource dataSource) {
         ResourceDatabasePopulator resourceDatabasePopulator = new ResourceDatabasePopulator();
 
-        // 1. Load the Structure
+        // Load the Structure (schema.sql includes CREATE TABLE IF NOT EXISTS + essential seed data)
+        // NOTE: data.sql is NOT loaded here. It was previously causing redundant INSERTOR IGNORE
+        // on every startup. schema.sql already seeds admin user, payment methods, and locations.
         resourceDatabasePopulator.addScript(new ClassPathResource("schema.sql"));
 
-        // 2. Load the Data (THIS WAS MISSING)
-        resourceDatabasePopulator.addScript(new ClassPathResource("data.sql"));
-
-        // CRITICAL: Since schema.sql uses ";;" for triggers,
-        // data.sql MUST ALSO use ";;" as the separator.
+        // CRITICAL: schema.sql uses ";;" as separator for triggers
         resourceDatabasePopulator.setSeparator(";;");
 
         DataSourceInitializer dataSourceInitializer = new DataSourceInitializer();

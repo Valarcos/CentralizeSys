@@ -14,6 +14,103 @@
     margin-bottom: var(--spacing-xl);
 }
 
+/* --- Alert Cards (Dashboard Notifications) --- */
+.alert-card {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md) var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.alert-card.clickable {
+    cursor: pointer;
+}
+
+.alert-card.clickable:hover {
+    transform: translateY(-2px);
+}
+
+.alert-card .alert-icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+}
+
+.alert-card .alert-content {
+    flex: 1;
+}
+
+.alert-card .alert-content strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 1.05rem;
+}
+
+.alert-card .alert-content p {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+.alert-card .alert-action {
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Info variant (blue) */
+.alert-card.info {
+    background: linear-gradient(135deg, #e8f4fd 0%, #d0ebff 100%);
+    border: 2px solid #74b9ff;
+    color: #1a5276;
+}
+
+/* Warning variant (amber) */
+.alert-card.warning {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+    border: 2px solid #ffc107;
+    color: #664d03;
+    cursor: pointer;
+}
+
+.alert-card.warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+}
+
+/* Error variant (red — critical system alerts) */
+.alert-card.error {
+    background: linear-gradient(135deg, #fdecea 0%, #f8d7da 100%);
+    border: 2px solid #e74c3c;
+    color: #721c24;
+}
+
+/* Close/dismiss button for persistent alerts */
+.alert-close-btn {
+    background: none;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: inherit;
+    font-size: 0.9rem;
+    font-weight: bold;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.alert-close-btn:hover {
+    opacity: 1;
+}
+
 .dashboard-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

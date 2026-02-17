@@ -1,20 +1,27 @@
 package com.centralizesys.service;
 
-import com.centralizesys.config.DataPathConfig;
+import com.centralizesys.exception.InfrastructureException;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.repository.VentaRepository;
 import com.centralizesys.repository.CompraRepository;
 import com.centralizesys.repository.DeudoresRepository;
 import com.centralizesys.repository.AuditoriaRepository;
+import com.centralizesys.security.CustomUserDetails;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.File;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -44,44 +51,51 @@ class BackupServiceTest {
     @Mock
     private AuditoriaRepository auditoriaRepository;
 
-    // We can't easily mock the final ExcelService/Internal logic yet, so we'll
-    // structure the service
-    // to use dependencies we can mock.
+    @Mock
+    private BackupPathStrategy pathStrategy;
+
+    @TempDir
+    Path tempDir;
 
     @Test
     @DisplayName("performBackup executes VACUUM INTO and audits success")
     void performBackup_Success() {
-        BackupService service = new BackupService(jdbcTemplate, auditoriaService, productRepository, ventaRepository,
-                compraRepository, deudoresRepository, auditoriaRepository);
+        // GIVEN
+        String manualDir = tempDir.resolve("manual").toString();
+        when(pathStrategy.getManualDir()).thenReturn(manualDir);
 
+        BackupService service = new BackupService(jdbcTemplate, auditoriaService, productRepository, ventaRepository,
+                compraRepository, deudoresRepository, auditoriaRepository, pathStrategy);
+
+        // WHEN
         service.performBackup(BackupService.BackupType.MANUAL, 1L);
 
+        // THEN
         // 1. Verify VACUUM INTO was called
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate).execute(sqlCaptor.capture());
         String executedSql = sqlCaptor.getValue();
 
-        // Null check to satisfy linter
         if (executedSql == null)
             executedSql = "";
 
         assertTrue(executedSql.toUpperCase().startsWith("VACUUM INTO"));
-        // Check for manual path
-        assertTrue(executedSql.replace("\\", "/").contains("backups/manual"));
+        // Check for manual path (using replace to handle Windows backslashes)
+        assertTrue(executedSql.replace("\\", "/").contains("manual"));
 
         // 2. Verify Audit Success
         verify(auditoriaService).registrarAccion(eq(1L), eq("BACKUP_EXITOSO"), contains("MANUAL"));
 
-        // 3. Verify Excel File Creation (using DataPathConfig for consistent path)
-        File dir = DataPathConfig.resolve("backups/manual").toFile();
+        // 3. Verify Excel File Creation (using our temp dir)
+        File dir = new File(manualDir);
         if (dir.exists()) {
             File[] excelFiles = dir
                     .listFiles((d, name) -> name.startsWith("centralizesys_manual_") && name.endsWith(".xlsx"));
-            // Cleanup
+            // Cleanup matches
             if (excelFiles != null) {
                 for (File f : excelFiles) {
-                    boolean deleted = f.delete();
-                    assertTrue(deleted, "Failed to delete test file: " + f.getName());
+                    // Java creates it, verify it exists
+                    assertTrue(f.exists());
                 }
             }
         }
@@ -90,15 +104,21 @@ class BackupServiceTest {
     @Test
     @DisplayName("performBackup audits failure if SQL throws exception")
     void performBackup_Failure_AuditsError() {
-        BackupService service = new BackupService(jdbcTemplate, auditoriaService, productRepository, ventaRepository,
-                compraRepository, deudoresRepository, auditoriaRepository);
+        // GIVEN
+        String manualDir = tempDir.resolve("manual").toString();
+        // Use lenient because if exception happens early, this might not be called, or
+        // strictly it IS called to resolve path before try-catch block
+        lenient().when(pathStrategy.getManualDir()).thenReturn(manualDir);
 
-        // Force SQL Exception (DataAccessException is unchecked, use concrete class)
-        doThrow(new org.springframework.dao.DataIntegrityViolationException("Disk Full")).when(jdbcTemplate)
+        BackupService service = new BackupService(jdbcTemplate, auditoriaService, productRepository, ventaRepository,
+                compraRepository, deudoresRepository, auditoriaRepository, pathStrategy);
+
+        // Force SQL Exception
+        doThrow(new DataIntegrityViolationException("Disk Full")).when(jdbcTemplate)
                 .execute(anyString());
 
-        // Verify Audit Failure
-        assertThrows(com.centralizesys.exception.InfrastructureException.class,
+        // WHEN / THEN
+        assertThrows(InfrastructureException.class,
                 () -> service.performBackup(BackupService.BackupType.MANUAL, 1L));
         verify(auditoriaService).registrarAccion(eq(1L), eq("BACKUP_FALLIDO"), contains("Disk Full"));
     }
@@ -106,31 +126,33 @@ class BackupServiceTest {
     @Test
     @DisplayName("performBackup (no-arg) gets User ID from SecurityContext")
     void performBackup_UsesSecurityContext() {
+        // GIVEN
+        String manualDir = tempDir.resolve("manual").toString();
+        when(pathStrategy.getManualDir()).thenReturn(manualDir);
+
         BackupService service = new BackupService(jdbcTemplate, auditoriaService, productRepository, ventaRepository,
-                compraRepository, deudoresRepository, auditoriaRepository);
+                compraRepository, deudoresRepository, auditoriaRepository, pathStrategy);
 
         // Mock Security Context
-        com.centralizesys.security.CustomUserDetails mockUser = mock(
-                com.centralizesys.security.CustomUserDetails.class);
+        CustomUserDetails mockUser = mock(CustomUserDetails.class);
         when(mockUser.getId()).thenReturn(100L);
 
-        org.springframework.security.core.Authentication auth = mock(
-                org.springframework.security.core.Authentication.class);
+        Authentication auth = mock(Authentication.class);
         when(auth.getPrincipal()).thenReturn(mockUser);
 
-        org.springframework.security.core.context.SecurityContext securityContext = mock(
-                org.springframework.security.core.context.SecurityContext.class);
+        SecurityContext securityContext = mock(SecurityContext.class);
         when(securityContext.getAuthentication()).thenReturn(auth);
 
-        org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+        SecurityContextHolder.setContext(securityContext);
 
         try {
+            // WHEN
             service.performBackup(BackupService.BackupType.MANUAL);
 
-            // Verify Audit called with ID 100
+            // THEN
             verify(auditoriaService).registrarAccion(eq(100L), eq("BACKUP_EXITOSO"), anyString());
         } finally {
-            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+            SecurityContextHolder.clearContext();
         }
     }
 }

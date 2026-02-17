@@ -78,34 +78,242 @@ INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, usuario_id
 -- Uses INSERT OR IGNORE to prevent Unique Constraint Crashes if run multiple times.
 -- IDs start at 100 to avoid conflict with default data (IDs 1-5).
 
-BEGIN TRANSACTION;
+-- DATA GENERATION SCRIPT FOR CENTRALIZESYS
+-- Purpose: Populate database with Products and Sales history for testing.
+-- Run this in your SQLite database tool (e.g., DB Browser for SQLite).
 
+-- DATA GENERATION SCRIPT FOR CENTRALIZESYS
+-- Purpose: Populate database with Products and Sales history for testing.
+-- Run this in your SQLite database tool (e.g., DB Browser for SQLite).
+
+-- DATA GENERATION SCRIPT FOR CENTRALIZESYS
+-- Purpose: Populate database with Products and Sales history for testing.
+-- Run this in your SQLite database tool (e.g., DB Browser for SQLite).
+
+BEGIN TRANSACTION;;
+
+-- 1. CLEANUP (Optional - Uncomment if you want to start fresh with these tables)
+DELETE FROM pagos_venta WHERE venta_id >= 1000;;
+DELETE FROM detalles_venta WHERE venta_id >= 1000;;
+DELETE FROM ventas WHERE id >= 1000;;
+DELETE FROM stock_por_ubicacion WHERE producto_id >= 100;;
+DELETE FROM productos WHERE id >= 100;;
+
+-- 2. INSERT DUMMY PRODUCTS (IDs 100-119)
 INSERT OR IGNORE INTO productos (id, codigo, descripcion, precio_costo, precio_minorista, cantidad_stock) VALUES
-(100, 'DUMMY-1', 'Producto Dummy 1 - Descripcion Generica', 101.0, 201.0, 100),
-(101, 'DUMMY-2', 'Producto Dummy 2 - Descripcion Generica', 102.0, 202.0, 100),
-(102, 'DUMMY-3', 'Producto Dummy 3 - Descripcion Generica', 103.0, 203.0, 100),
-(103, 'DUMMY-4', 'Producto Dummy 4 - Descripcion Generica', 104.0, 204.0, 100),
-(104, 'DUMMY-5', 'Producto Dummy 5 - Descripcion Generica', 105.0, 205.0, 100),
-(105, 'DUMMY-6', 'Producto Dummy 6 - Descripcion Generica', 106.0, 206.0, 100),
-(106, 'DUMMY-7', 'Producto Dummy 7 - Descripcion Generica', 107.0, 207.0, 100),
-(107, 'DUMMY-8', 'Producto Dummy 8 - Descripcion Generica', 108.0, 208.0, 100),
-(108, 'DUMMY-9', 'Producto Dummy 9 - Descripcion Generica', 109.0, 209.0, 100),
-(109, 'DUMMY-10', 'Producto Dummy 10 - Descripcion Generica', 110.0, 210.0, 100),
-(110, 'DUMMY-11', 'Producto Dummy 11 - Descripcion Generica', 111.0, 211.0, 100),
-(111, 'DUMMY-12', 'Producto Dummy 12 - Descripcion Generica', 112.0, 212.0, 100),
-(112, 'DUMMY-13', 'Producto Dummy 13 - Descripcion Generica', 113.0, 213.0, 100),
-(113, 'DUMMY-14', 'Producto Dummy 14 - Descripcion Generica', 114.0, 214.0, 100),
-(114, 'DUMMY-15', 'Producto Dummy 15 - Descripcion Generica', 115.0, 215.0, 100),
-(115, 'DUMMY-16', 'Producto Dummy 16 - Descripcion Generica', 116.0, 216.0, 100),
-(116, 'DUMMY-17', 'Producto Dummy 17 - Descripcion Generica', 117.0, 217.0, 100),
-(117, 'DUMMY-18', 'Producto Dummy 18 - Descripcion Generica', 118.0, 218.0, 100),
-(118, 'DUMMY-19', 'Producto Dummy 19 - Descripcion Generica', 119.0, 219.0, 100),
-(119, 'DUMMY-20', 'Producto Dummy 20 - Descripcion Generica', 120.0, 220.0, 100);
+(100, 'DUMMY-1', 'Smartphone Samsung A1', 150.0, 200.0, 100),
+(101, 'DUMMY-2', 'Smartphone Samsung A2', 160.0, 220.0, 100),
+(102, 'DUMMY-3', 'Auriculares Sony XM', 50.0, 80.0, 100),
+(103, 'DUMMY-4', 'Cargador Rápido USBC', 10.0, 25.0, 100),
+(104, 'DUMMY-5', 'Funda Silicona Roja', 2.0, 10.0, 100),
+(105, 'DUMMY-6', 'Protector Pantalla Glass', 1.0, 5.0, 100),
+(106, 'DUMMY-7', 'Teclado Mecánico RGB', 40.0, 80.0, 100),
+(107, 'DUMMY-8', 'Mouse Gamer Logitech', 20.0, 45.0, 100),
+(108, 'DUMMY-9', 'Monitor LG 24 Pulgadas', 100.0, 150.0, 100),
+(109, 'DUMMY-10', 'Cable HDMI 2m', 3.0, 12.0, 100),
+(110, 'DUMMY-11', 'Soporte Monitor VESA', 15.0, 35.0, 100),
+(111, 'DUMMY-12', 'Notebook Dell Inspiron', 500.0, 750.0, 100),
+(112, 'DUMMY-13', 'Mochila Porta Notebook', 20.0, 50.0, 100),
+(113, 'DUMMY-14', 'Disco SSD 500GB', 30.0, 60.0, 100),
+(114, 'DUMMY-15', 'Memoria RAM 8GB DDR4', 25.0, 45.0, 100),
+(115, 'DUMMY-16', 'Pendrive 64GB Kingston', 5.0, 15.0, 100),
+(116, 'DUMMY-17', 'Webcam FullHD 1080p', 25.0, 55.0, 100),
+(117, 'DUMMY-18', 'Micrófono Condensador', 35.0, 70.0, 100),
+(118, 'DUMMY-19', 'Aro de Luz LED', 10.0, 30.0, 100),
+(119, 'DUMMY-20', 'Silla Gamer Ergonómica', 120.0, 250.0, 100);;
 
--- Add Stock for these items so they show up in inventory logic (Optional but good for testing)
--- Assumes 'Salón Principal' has ID 1 (based on data.sql)
-
+-- 3. INSERT STOCK FOR DUMMY PRODUCTS (Using Ubicacion ID 1)
 INSERT OR IGNORE INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad)
-SELECT id, 1, 50 FROM productos WHERE id >= 100 AND id <= 119;
+SELECT id, 1, 50 FROM productos WHERE id >= 100 AND id <= 119;;
 
-COMMIT;
+-- 4. INSERT HISTORIC SALES (IDs 1000+)
+-- Dates:
+-- Group A: Recent (Today/Yesterday)
+-- Group B: Last 30 Days (e.g., -15 days)
+-- Group C: Older (>30 days, <60 days)
+-- Group D: Very Old (>70 days)
+
+-- A. SALES - TODAY (5 Sales)
+INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1000, date('now'), 'Juan Perez', 250.0, 0, 'MINORISTA', 1),
+(1001, date('now'), 'Maria Gomez', 45.0, 0, 'MINORISTA', 1),
+(1002, date('now'), 'Consumidor Final', 200.0, 0, 'MINORISTA', 1),
+(1003, date('now'), 'Empresa ABC', 1500.0, 10.0, 'MAYORISTA', 1),
+(1004, date('now'), 'Lucas Rodriguez', 25.0, 0, 'MINORISTA', 1);;
+
+-- B. SALES - LAST 15 DAYS (5 Sales)
+INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1005, date('now', '-5 days'), 'Ana Martinez', 80.0, 0, 'MINORISTA', 1),
+(1006, date('now', '-10 days'), 'Carlos Lopez', 90.0, 0, 'MINORISTA', 1),
+(1007, date('now', '-12 days'), 'Sofia Silva', 220.0, 0, 'MINORISTA', 1),
+(1008, date('now', '-15 days'), 'Consumidor Final', 12.0, 0, 'MINORISTA', 1),
+(1009, date('now', '-18 days'), 'Miguel Torres', 750.0, 0, 'MINORISTA', 1);;
+
+-- C. SALES - 30 to 60 DAYS AGO (5 Sales)
+INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1010, date('now', '-35 days'), 'Valentina Ruiz', 60.0, 0, 'MINORISTA', 1),
+(1011, date('now', '-40 days'), 'Mateo Fernandez', 45.0, 0, 'MINORISTA', 1),
+(1012, date('now', '-45 days'), 'Consumidor Final', 215.0, 0, 'MINORISTA', 1),
+(1013, date('now', '-50 days'), 'Isabella Diaz', 15.0, 0, 'MINORISTA', 1),
+(1014, date('now', '-55 days'), 'Benjamin Costa', 55.0, 0, 'MINORISTA', 1);;
+
+-- D. SALES - 70+ DAYS AGO (5 Sales)
+INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1015, date('now', '-70 days'), 'Viejo Cliente 1', 200.0, 0, 'MINORISTA', 1),
+(1016, date('now', '-75 days'), 'Viejo Cliente 2', 200.0, 0, 'MINORISTA', 1),
+(1017, date('now', '-80 days'), 'Viejo Cliente 3', 200.0, 0, 'MINORISTA', 1),
+(1018, date('now', '-85 days'), 'Viejo Cliente 4', 200.0, 0, 'MINORISTA', 1),
+(1019, date('now', '-90 days'), 'Viejo Cliente 5', 200.0, 0, 'MINORISTA', 1);;
+
+-- E. BULK SALES - RECENT (25 Sales) - Ensure pagination triggers (Total > 20)
+-- IDs 1020-1044
+INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1020, date('now', '-1 day'), 'Cliente Bulk 1', 50.0, 0, 'MINORISTA', 1),
+(1021, date('now', '-1 day'), 'Cliente Bulk 2', 50.0, 0, 'MINORISTA', 1),
+(1022, date('now', '-2 days'), 'Cliente Bulk 3', 50.0, 0, 'MINORISTA', 1),
+(1023, date('now', '-2 days'), 'Cliente Bulk 4', 50.0, 0, 'MINORISTA', 1),
+(1024, date('now', '-2 days'), 'Cliente Bulk 5', 50.0, 0, 'MINORISTA', 1),
+(1025, date('now', '-3 days'), 'Cliente Bulk 6', 50.0, 0, 'MINORISTA', 1),
+(1026, date('now', '-3 days'), 'Cliente Bulk 7', 50.0, 0, 'MINORISTA', 1),
+(1027, date('now', '-3 days'), 'Cliente Bulk 8', 50.0, 0, 'MINORISTA', 1),
+(1028, date('now', '-4 days'), 'Cliente Bulk 9', 50.0, 0, 'MINORISTA', 1),
+(1029, date('now', '-4 days'), 'Cliente Bulk 10', 50.0, 0, 'MINORISTA', 1),
+(1030, date('now', '-5 days'), 'Cliente Bulk 11', 50.0, 0, 'MINORISTA', 1),
+(1031, date('now', '-5 days'), 'Cliente Bulk 12', 50.0, 0, 'MINORISTA', 1),
+(1032, date('now', '-6 days'), 'Cliente Bulk 13', 50.0, 0, 'MINORISTA', 1),
+(1033, date('now', '-6 days'), 'Cliente Bulk 14', 50.0, 0, 'MINORISTA', 1),
+(1034, date('now', '-7 days'), 'Cliente Bulk 15', 50.0, 0, 'MINORISTA', 1),
+(1035, date('now', '-7 days'), 'Cliente Bulk 16', 50.0, 0, 'MINORISTA', 1),
+(1036, date('now', '-8 days'), 'Cliente Bulk 17', 50.0, 0, 'MINORISTA', 1),
+(1037, date('now', '-8 days'), 'Cliente Bulk 18', 50.0, 0, 'MINORISTA', 1),
+(1038, date('now', '-9 days'), 'Cliente Bulk 19', 50.0, 0, 'MINORISTA', 1),
+(1039, date('now', '-9 days'), 'Cliente Bulk 20', 50.0, 0, 'MINORISTA', 1),
+(1040, date('now', '-10 days'), 'Cliente Bulk 21', 50.0, 0, 'MINORISTA', 1),
+(1041, date('now', '-10 days'), 'Cliente Bulk 22', 50.0, 0, 'MINORISTA', 1),
+(1042, date('now', '-11 days'), 'Cliente Bulk 23', 50.0, 0, 'MINORISTA', 1),
+(1043, date('now', '-11 days'), 'Cliente Bulk 24', 50.0, 0, 'MINORISTA', 1),
+(1044, date('now', '-12 days'), 'Cliente Bulk 25', 50.0, 0, 'MINORISTA', 1);;
+
+
+-- 5. INSERT SALE DETAILS (One detail per sale for simplicity, covering ALL sales 1000-1019)
+INSERT OR IGNORE INTO detalles_venta (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad, precio_lista, descuento_valor, precio_unitario, subtotal) VALUES
+-- Sale 1000 ($250)
+(1000, 119, 'DUMMY-20', 'Silla Gamer Ergonómica', 1, 250.0, 0, 250.0, 250.0),
+-- Sale 1001 ($45)
+(1001, 107, 'DUMMY-8', 'Mouse Gamer Logitech', 1, 45.0, 0, 45.0, 45.0),
+-- Sale 1002 ($200)
+(1002, 100, 'DUMMY-1', 'Smartphone Samsung A1', 1, 200.0, 0, 200.0, 200.0),
+-- Sale 1003 ($1500)
+(1003, 111, 'DUMMY-12', 'Notebook Dell Inspiron', 2, 750.0, 0, 750.0, 1500.0),
+-- Sale 1004 ($25)
+(1004, 103, 'DUMMY-4', 'Cargador Rápido USBC', 1, 25.0, 0, 25.0, 25.0),
+-- Sale 1005 ($80)
+(1005, 106, 'DUMMY-7', 'Teclado Mecánico RGB', 1, 80.0, 0, 80.0, 80.0),
+-- Sale 1006 ($90)
+(1006, 102, 'DUMMY-3', 'Auriculares Sony XM', 1, 80.0, 0, 80.0, 80.0),
+(1006, 104, 'DUMMY-5', 'Funda Silicona Roja', 1, 10.0, 0, 10.0, 10.0),
+-- Sale 1007 ($220)
+(1007, 101, 'DUMMY-2', 'Smartphone Samsung A2', 1, 220.0, 0, 220.0, 220.0),
+-- Sale 1008 ($12)
+(1008, 109, 'DUMMY-10', 'Cable HDMI 2m', 1, 12.0, 0, 12.0, 12.0),
+-- Sale 1009 ($750)
+(1009, 111, 'DUMMY-12', 'Notebook Dell Inspiron', 1, 750.0, 0, 750.0, 750.0),
+-- Sale 1010 ($60)
+(1010, 113, 'DUMMY-14', 'Disco SSD 500GB', 2, 60.0, 0, 30.0, 60.0),
+-- Sale 1011 ($45)
+(1011, 114, 'DUMMY-15', 'Memoria RAM 8GB DDR4', 1, 45.0, 0, 45.0, 45.0),
+-- Sale 1012 ($215)
+(1012, 100, 'DUMMY-1', 'Smartphone Samsung A1', 1, 200.0, 0, 200.0, 200.0),
+(1012, 115, 'DUMMY-16', 'Pendrive 64GB Kingston', 1, 15.0, 0, 15.0, 15.0),
+-- Sale 1013 ($15)
+(1013, 115, 'DUMMY-16', 'Pendrive 64GB Kingston', 1, 15.0, 0, 15.0, 15.0),
+-- Sale 1014 ($55)
+(1014, 116, 'DUMMY-17', 'Webcam FullHD 1080p', 1, 55.0, 0, 55.0, 55.0),
+-- Sale 1015 ($200)
+(1015, 100, 'DUMMY-1', 'Smartphone Samsung A1', 1, 200.0, 0, 200.0, 200.0),
+-- Sale 1016 ($200)
+(1016, 100, 'DUMMY-1', 'Smartphone Samsung A1', 1, 200.0, 0, 200.0, 200.0),
+-- Sale 1017 ($200)
+(1017, 100, 'DUMMY-1', 'Smartphone Samsung A1', 1, 200.0, 0, 200.0, 200.0),
+-- Sale 1018 ($200)
+(1018, 100, 'DUMMY-1', 'Smartphone Samsung A1', 1, 200.0, 0, 200.0, 200.0),
+-- Sale 1019 ($200)
+(1019, 100, 'DUMMY-1', 'Smartphone Samsung A1', 1, 200.0, 0, 200.0, 200.0),
+-- Bulk Sales 1020-1044 (Generic Items)
+(1020, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1021, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1022, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1023, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1024, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1025, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1026, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1027, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1028, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1029, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1030, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1031, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1032, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1033, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1034, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1035, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1036, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1037, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1038, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1039, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1040, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1041, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1042, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1043, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0),
+(1044, 105, 'DUMMY-6', 'Protector Pantalla Glass', 10, 5.0, 0, 5.0, 50.0);;
+
+-- 6. INSERT PAYMENTS (Mapping payments to ALL sales 1000-1044)
+-- Assumes Metodo Pago ID 1 = Efectivo
+INSERT OR IGNORE INTO pagos_venta (venta_id, metodo_pago_id, monto) VALUES
+(1000, 1, 250.0),
+(1001, 1, 45.0),
+(1002, 1, 200.0),
+(1003, 1, 1500.0),
+(1004, 1, 25.0),
+(1005, 1, 80.0),
+(1006, 1, 90.0),
+(1007, 1, 220.0),
+(1008, 1, 12.0),
+(1009, 1, 750.0),
+(1010, 1, 60.0),
+(1011, 1, 45.0),
+(1012, 1, 215.0),
+(1013, 1, 15.0),
+(1014, 1, 55.0),
+(1015, 1, 200.0),
+(1016, 1, 200.0),
+(1017, 1, 200.0),
+(1018, 1, 200.0),
+(1019, 1, 200.0),
+-- Recent Bulk
+(1020, 1, 50.0),
+(1021, 1, 50.0),
+(1022, 1, 50.0),
+(1023, 1, 50.0),
+(1024, 1, 50.0),
+(1025, 1, 50.0),
+(1026, 1, 50.0),
+(1027, 1, 50.0),
+(1028, 1, 50.0),
+(1029, 1, 50.0),
+(1030, 1, 50.0),
+(1031, 1, 50.0),
+(1032, 1, 50.0),
+(1033, 1, 50.0),
+(1034, 1, 50.0),
+(1035, 1, 50.0),
+(1036, 1, 50.0),
+(1037, 1, 50.0),
+(1038, 1, 50.0),
+(1039, 1, 50.0),
+(1040, 1, 50.0),
+(1041, 1, 50.0),
+(1042, 1, 50.0),
+(1043, 1, 50.0),
+(1044, 1, 50.0);;
+
+COMMIT;;

@@ -44,7 +44,7 @@ export default function InventarioPage() {
                 // but we pass them anyway just in case
             } else {
                 params.page = currentPage;
-                params.size = 20; // Hardcoded size
+                params.size = 15; // Updated to 15 per user request
             }
 
             const response = await api.get('/api/productos', { params });
@@ -240,6 +240,7 @@ export default function InventarioPage() {
                 </div>
             ) : (
                 <>
+
                     <div className="products-table-container">
                         <table className="products-table" aria-label="Lista de productos">
                             <thead>
@@ -277,32 +278,32 @@ export default function InventarioPage() {
                         </table>
                     </div>
 
-                    {/* Pagination Controls (Bottom) - Reusing logic by duplication for simplicity in JSX without separate component file yet */}
-                    {!searchQuery && totalPages > 1 && (
-                        <div className="pagination-controls bottom-pagination">
-                            <button
-                                onClick={() => handlePageChange(page - 1)}
-                                disabled={page === 0 || loading}
-                                className="secondary"
-                            >
-                                ← Anterior
-                            </button>
-                            <span className="page-indicator">
+
+
+                {/* Bottom Pagination - Aligned Right */}
+                {totalPages > 1 && (
+                    <div className="pagination-controls" style={{ marginTop: '1rem' }}>
+                        <button
+                            onClick={() => handlePageChange(page - 1)}
+                            disabled={page === 0 || loading}
+                            className="secondary"
+                        >
+                            ← Anterior
+                        </button>
+                        <span className="page-indicator">
                                 {page + 1} / {totalPages}
                             </span>
-                            <button
-                                onClick={() => handlePageChange(page + 1)}
-                                disabled={page >= totalPages - 1 || loading}
-                                className="secondary"
-                            >
-                                Siguiente →
-                            </button>
-                        </div>
-                    )}
+                        <button
+                            onClick={() => handlePageChange(page + 1)}
+                            disabled={page >= totalPages - 1 || loading}
+                            className="secondary"
+                        >
+                            Siguiente →
+                        </button>
+                    </div>
+                )}
                 </>
             )}
-
-            {/* Jump Buttons */}
             <div className="jump-buttons">
                 <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="jump-btn" aria-label="Ir arriba">↑</button>
                 <button onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })} className="jump-btn" aria-label="Ir abajo">↓</button>

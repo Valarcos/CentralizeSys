@@ -230,4 +230,51 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         assertThat(found.getPrecioUnitario()).isEqualTo(45.0);
         assertThat(found.getSubtotal()).isEqualTo(45.0);
     }
+
+    @Test
+    @DisplayName("findVentasByFechaBetween - returns paginated results in range")
+    void findVentasByFechaBetween_returnsPaginatedResults() {
+        // Arrange
+        Long userId = createTestUser();
+        // Insert 5 sales on different dates
+        createVenta(userId, "2023-01-01", "C1", 150.0);
+        createVenta(userId, "2023-01-02", "C2", 200.0);
+        createVenta(userId, "2023-01-03", "C3", 250.0); // Target
+        createVenta(userId, "2023-01-04", "C4", 300.0); // Target
+        createVenta(userId, "2023-01-05", "C5", 350.0);
+
+        // Act - Request page 0, size 1, range 2023-01-03 to 2023-01-04
+        // Should order by date DESC, so C4 then C3
+        List<Venta> results = ventaRepository.findVentasByFechaBetween("2023-01-03", "2023-01-04", 1, 0);
+
+        // Assert
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().getClienteNombre()).isEqualTo("C4");
+    }
+
+    @Test
+    @DisplayName("countVentasByFechaBetween - returns correct count")
+    void countVentasByFechaBetween_returnsCount() {
+        // Arrange
+        Long userId = createTestUser();
+        createVenta(userId, "2023-01-01", "C1", 100.0);
+        createVenta(userId, "2023-01-02", "C2", 200.0); // Target
+        createVenta(userId, "2023-01-03", "C3", 300.0); // Target
+        createVenta(userId, "2023-01-04", "C4", 400.0);
+
+        // Act
+        long count = ventaRepository.countVentasByFechaBetween("2023-01-02", "2023-01-03");
+
+        // Assert
+        assertThat(count).isEqualTo(2);
+    }
+
+    private void createVenta(Long userId, String date, String client, Double total) {
+        Venta v = new Venta();
+        v.setFecha(date);
+        v.setClienteNombre(client);
+        v.setTotalVenta(total);
+        v.setUsuarioId(userId);
+        ventaRepository.saveVenta(v);
+    }
 }

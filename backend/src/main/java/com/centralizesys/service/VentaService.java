@@ -2,6 +2,7 @@ package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
+import com.centralizesys.model.dto.PageResponse;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.model.product.StockLocation;
 import com.centralizesys.model.sales.*;
@@ -39,8 +40,32 @@ public class VentaService {
         this.auditoriaService = auditoriaService;
     }
 
-    public List<Venta> getAllVentas() {
-        return ventaRepository.findAll();
+    public PageResponse<Venta> getVentasPage(String startDate, String endDate, int page,
+                                             int size) {
+        // 1. Set Defaults (Last 30 Days)
+        LocalDate end = (endDate == null || endDate.isBlank()) ? LocalDate.now() : LocalDate.parse(endDate);
+        LocalDate start = (startDate == null || startDate.isBlank()) ? end.minusDays(30) : LocalDate.parse(startDate);
+
+        // 2. Validate Range (Max 60 Days)
+        long daysDiff = java.time.temporal.ChronoUnit.DAYS.between(start, end);
+        if (daysDiff < 0) {
+            throw new BusinessRuleException("La fecha de inicio no puede ser posterior a la fecha de fin.");
+        }
+        if (daysDiff > 60) {
+            throw new BusinessRuleException(
+                    "El rango de fechas no puede exceder los 60 días. (Seleccionado: " + daysDiff + " días)");
+        }
+
+        // 3. Pagination
+        int offset = page * size;
+
+        // 4. Fetch
+        List<Venta> ventas = ventaRepository.findVentasByFechaBetween(start.toString(), end.toString(), size, offset);
+        long totalElements = ventaRepository.countVentasByFechaBetween(start.toString(), end.toString());
+        long totalPages = (long) Math.ceil((double) totalElements / size);
+
+        return new com.centralizesys.model.dto.PageResponse<>(ventas, (long) page, (long) size, totalElements,
+                totalPages);
     }
 
     public List<String> getClientes() {
@@ -147,9 +172,9 @@ public class VentaService {
 
     @Data
     static class ProcessedSaleResult {
-        private List<DetalleVenta> detalles;
         private Double totalVenta;
-        private Double descuentoGlobal; // Internal tracking
+        private List<DetalleVenta> detalles;
+        private Double descuentoGlobal;
     }
 
     @Data

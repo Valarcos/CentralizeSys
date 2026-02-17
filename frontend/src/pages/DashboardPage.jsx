@@ -11,6 +11,7 @@ export default function DashboardPage() {
     const [showMorningAlert, setShowMorningAlert] = useState(false);
     const [hasActiveDebts, setHasActiveDebts] = useState(false);
     const [backupWarning, setBackupWarning] = useState(false);
+    const [systemAlerts, setSystemAlerts] = useState([]);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -19,10 +20,11 @@ export default function DashboardPage() {
 
         const fetchDashboardData = async () => {
             try {
-                const [stockRes, backupRes, reminderRes] = await Promise.all([
+                const [stockRes, backupRes, reminderRes, systemRes] = await Promise.all([
                     api.get('/api/productos/alerts'),
                     api.get('/api/backups/last').catch(() => ({ data: null })),
-                    api.get('/api/deudores/reminder').catch(() => ({ data: false }))
+                    api.get('/api/deudores/reminder').catch(() => ({ data: false })),
+                    api.get('/api/system/alerts').catch(() => ({ data: { alerts: [] } }))
                 ]);
 
                 // Low Stock Alerts
@@ -46,6 +48,11 @@ export default function DashboardPage() {
                     if (hoursDiff > 24) {
                         setBackupWarning(true);
                     }
+                }
+
+                // System Alerts (e.g., restore failures)
+                if (systemRes.data?.alerts?.length > 0) {
+                    setSystemAlerts(systemRes.data.alerts);
                 }
 
             } catch (error) {
@@ -88,6 +95,24 @@ export default function DashboardPage() {
         <div className="dashboard container">
             <h1>Bienvenido, {userName}</h1>
             <p className="dashboard-subtitle">Sistema operativo y listo</p>
+
+            {/* System Critical Alerts (e.g., failed DB restoration) */}
+            {systemAlerts.map((alert, idx) => (
+                <div key={idx} className="alert-card error">
+                    <span className="alert-icon">🚨</span>
+                    <div className="alert-content">
+                        <strong>Alerta del Sistema</strong>
+                        <p>{alert.message}</p>
+                    </div>
+                    <button
+                        className="alert-close-btn"
+                        onClick={() => setSystemAlerts(prev => prev.filter((_, i) => i !== idx))}
+                        aria-label="Cerrar alerta"
+                    >
+                        ✕
+                    </button>
+                </div>
+            ))}
 
             {/* Debtor Reminder Badge */}
             {hasActiveDebts && (

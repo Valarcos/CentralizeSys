@@ -1,6 +1,5 @@
 package com.centralizesys.service;
 
-import com.centralizesys.config.DataPathConfig;
 import com.centralizesys.exception.InfrastructureException;
 import com.centralizesys.model.dto.BackupFileDTO;
 import com.centralizesys.model.product.Product;
@@ -41,10 +40,6 @@ public class BackupService {
     private static final Logger log = LoggerFactory.getLogger(BackupService.class);
     private static final DateTimeFormatter FMT_FILE = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
 
-    // Constants - using DataPathConfig for consistent absolute paths
-    private static final String DIR_DAILY = DataPathConfig.resolveString("backups/daily");
-    private static final String DIR_MANUAL = DataPathConfig.resolveString("backups/manual");
-    private static final String DIR_CHECKPOINTS = DataPathConfig.resolveString("backups/checkpoints");
     private static final String EXT_DB = ".db";
     private static final String EXT_XLSX = ".xlsx";
     private static final String PREFIX_DB = "centralizesys_";
@@ -61,6 +56,7 @@ public class BackupService {
     private final CompraRepository compraRepository;
     private final DeudoresRepository deudoresRepository;
     private final AuditoriaRepository auditoriaRepository;
+    private final BackupPathStrategy pathStrategy;
 
     public BackupService(JdbcTemplate jdbcTemplate,
                          AuditoriaService auditoriaService,
@@ -68,7 +64,8 @@ public class BackupService {
                          VentaRepository ventaRepository,
                          CompraRepository compraRepository,
                          DeudoresRepository deudoresRepository,
-                         AuditoriaRepository auditoriaRepository) {
+                         AuditoriaRepository auditoriaRepository,
+                         BackupPathStrategy pathStrategy) {
         this.jdbcTemplate = jdbcTemplate;
         this.auditoriaService = auditoriaService;
         this.productRepository = productRepository;
@@ -76,16 +73,18 @@ public class BackupService {
         this.compraRepository = compraRepository;
         this.deudoresRepository = deudoresRepository;
         this.auditoriaRepository = auditoriaRepository;
+        this.pathStrategy = pathStrategy;
     }
 
     public enum BackupType {
-        DAILY(DIR_DAILY),
-        MANUAL(DIR_MANUAL);
+        DAILY,
+        MANUAL;
 
-        final String path;
-
-        BackupType(String path) {
-            this.path = path;
+        public String getDirectory(BackupPathStrategy strategy) {
+            return switch (this) {
+                case DAILY -> strategy.getDailyDir();
+                case MANUAL -> strategy.getManualDir();
+            };
         }
     }
 
@@ -105,7 +104,7 @@ public class BackupService {
         String dbFileName = PREFIX_DB + prefix + timestamp + EXT_DB;
         String excelFileName = PREFIX_DB + prefix + timestamp + EXT_XLSX;
 
-        Path dirPath = Paths.get(type.path);
+        Path dirPath = Paths.get(type.getDirectory(pathStrategy));
 
         try {
             if (!Files.exists(dirPath)) {
@@ -216,12 +215,12 @@ public class BackupService {
         }
 
         // Search in Daily
-        Path dailyPath = Paths.get(BackupType.DAILY.path, filename);
+        Path dailyPath = Paths.get(BackupType.DAILY.getDirectory(pathStrategy), filename);
         if (Files.exists(dailyPath))
             return dailyPath.toFile();
 
         // Search in Manual
-        Path manualPath = Paths.get(BackupType.MANUAL.path, filename);
+        Path manualPath = Paths.get(BackupType.MANUAL.getDirectory(pathStrategy), filename);
         if (Files.exists(manualPath))
             return manualPath.toFile();
 
@@ -229,7 +228,7 @@ public class BackupService {
     }
 
     private List<BackupFileDTO> scanDirectory(BackupType type) {
-        Path dirPath = Paths.get(type.path);
+        Path dirPath = Paths.get(type.getDirectory(pathStrategy));
         if (!Files.exists(dirPath))
             return Collections.emptyList();
 
@@ -245,7 +244,7 @@ public class BackupService {
                     .filter(Objects::nonNull)
                     .toList();
         } catch (IOException e) {
-            log.error("Failed to scan directory: {}", type.path, e);
+            log.error("Failed to scan directory: {}", type.name(), e);
             return Collections.emptyList();
         }
     }
@@ -297,7 +296,7 @@ public class BackupService {
 
     // --- Retention Logic (GFS Adapted) ---
     public void cleanupOldBackups() {
-        Path dirPath = Paths.get(DIR_DAILY);
+        Path dirPath = Paths.get(pathStrategy.getDailyDir());
         if (!Files.exists(dirPath))
             return;
 
@@ -381,8 +380,8 @@ public class BackupService {
             throw new IllegalArgumentException("Only .db files can be restored.");
         }
 
-        // Use DataPathConfig for robust resolution
-        Path restoreTrigger = DataPathConfig.resolve("data/centralizesys.restore");
+        // Use Strategy for robust resolution
+        Path restoreTrigger = pathStrategy.getRestoreTriggerPath();
 
         // Ensure parent dir exists (should be 'data', which usually exists, but safe to
         // check)
@@ -401,7 +400,7 @@ public class BackupService {
         String timestamp = now.format(FMT_FILE);
         String filename = "checkpoint_" + reason + "_" + timestamp + EXT_DB;
 
-        Path dir = Paths.get(DIR_CHECKPOINTS);
+        Path dir = Paths.get(pathStrategy.getCheckpointsDir());
 
         try {
             if (!Files.exists(dir))
@@ -417,7 +416,7 @@ public class BackupService {
     }
 
     public void cleanupCheckpoints() {
-        Path dir = Paths.get(DIR_CHECKPOINTS);
+        Path dir = Paths.get(pathStrategy.getCheckpointsDir());
         if (!Files.exists(dir))
             return;
 
@@ -470,8 +469,8 @@ public class BackupService {
             throw new IllegalArgumentException("Only .db files can be restored.");
         }
 
-        // Use DataPathConfig
-        Path restoreTrigger = DataPathConfig.resolve("data/centralizesys.restore");
+        // Use Strategy
+        Path restoreTrigger = pathStrategy.getRestoreTriggerPath();
 
         Path parent = restoreTrigger.getParent();
         if (parent != null && !Files.exists(parent)) {
@@ -490,7 +489,7 @@ public class BackupService {
         String datePart = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String midDaySuffix = "_" + datePart + "_1300";
 
-        Path dir = Paths.get(DIR_DAILY);
+        Path dir = Paths.get(pathStrategy.getDailyDir());
         if (!Files.exists(dir))
             return;
 

@@ -74,14 +74,61 @@
     border-radius: 4px;
 }
 
+/* Container for Search Input + Add Button */
+/* Container for Search Input + Add Button */
+/* Container for Search Input + Add Button */
+.search-container-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    width: 95%;
+    align-items: flex-start;
+    /* STRICTLY Top Align as requested for "same imaginary line" */
+}
+
 .search-bar-large {
-    width: 100%;
-    padding: 1rem;
+    flex: 1;
+    height: 3.5rem;
+    /* Explicit height */
+    padding: 0 1rem;
+    /* Horizontal padding only */
     font-size: 1.1rem;
     border: 2px solid #3b82f6;
     border-radius: 8px;
+    box-sizing: border-box;
+    /* Include border/padding */
+    margin: 0;
+    /* Remove any browser default margins */
 }
 
+.add-product-btn {
+    /* Explicitly Square & Matching Search Bar */
+    height: 3.5rem;
+    width: 3.5rem;
+    aspect-ratio: 1 / 1;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    background-color: var(--color-primary);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    padding: 0;
+    margin: 0;
+    /* Remove any browser default margins */
+    box-sizing: border-box;
+}
+
+.add-product-btn:hover {
+    background-color: #003366;
+}
+
+/* ... existing search-results styles ... */
 .search-results {
     flex: 1;
     overflow-y: auto;
@@ -109,8 +156,19 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem;
-    border-bottom: 1px solid #f1f5f9;
+    padding: 0.4rem 0.75rem;
+    /* Reduced vertical padding */
+    border-bottom: 1px solid #e2e8f0;
+}
+
+/* Alternating Row Colors - Accessibility */
+.draft-item:nth-child(even) {
+    background-color: #f8fafc;
+    /* Very light slate */
+}
+
+.draft-item:nth-child(odd) {
+    background-color: #ffffff;
 }
 
 .draft-item.item-error {
@@ -119,7 +177,8 @@
 }
 
 .item-info {
-    flex: 2;
+    flex: 1.5;
+    /* Reduced flex to give space to inputs */
 }
 
 .error-badge {
@@ -130,18 +189,38 @@
 }
 
 .item-inputs {
-    flex: 2;
+    flex: 2.5;
+    /* Increased flex */
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    justify-content: flex-end;
+}
+
+/* Compact Column for Label + Input */
+.input-group-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.input-group-col label {
+    font-size: 0.7rem;
+    color: #64748b;
+    font-weight: 600;
+    margin-left: 2px;
 }
 
 .qty-input,
 .cost-input {
     width: 80px;
-    padding: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    /* Compact padding */
     border: 1px solid #cbd5e1;
     border-radius: 4px;
+    font-size: 0.95rem;
+    height: 2rem;
+    /* Fixed compact height */
 }
 
 .footer-actions {

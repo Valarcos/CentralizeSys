@@ -22,9 +22,12 @@
     /* Increased for visibility */
     --font-size-base-desktop: 20px;
     /* Comfortable reading size */
-    --font-size-h1: 2.5rem;
-    --font-size-h2: 2rem;
-    --font-size-h3: 1.5rem;
+    --font-size-h1: 1.75rem;
+    /* Reduced from 2.5rem for Mobile */
+    --font-size-h2: 1.5rem;
+    /* Reduced from 2rem */
+    --font-size-h3: 1.25rem;
+    /* Reduced from 1.5rem */
     --font-size-button: 1.25rem;
     /* Large, tappable targets */
 

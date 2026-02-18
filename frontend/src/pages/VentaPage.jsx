@@ -33,6 +33,7 @@ export default function VentaPage() {
 
     const [products, setProducts] = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const { salesActiveTab: activeTab } = useOutletContext();
     const [loading, setLoading] = useState(false);
@@ -95,10 +96,55 @@ export default function VentaPage() {
     };
 
     const handleFinalizeSale = async () => {
+        if (isSubmitting) return;
+
+        // 0. Empty check
+        if (!cartItems || cartItems.length === 0) {
+            toast.error("El carrito está vacío");
+            return;
+        }
+
+        // 1. Stock Validation
+        const insufficientStockItems = cartItems.filter(item => {
+            const currentStock = item.product.cantidadStock || 0;
+            return (currentStock - item.quantity) < 0;
+        });
+
+        if (insufficientStockItems.length > 0) {
+            const confirm = window.confirm(
+                `⚠️ STOCK NEGATIVO\n\nLos siguientes productos quedarán con stock negativo:\n` +
+                insufficientStockItems.map(i => `- ${i.product.descripcion} (Stock: ${i.product.cantidadStock}, Venta: ${i.quantity})`).join('\n') +
+                `\n\n¿Desea continuar de todas formas?`
+            );
+            if (!confirm) return;
+        }
+
+        // 2. Debt Validation (This logic needs to be adapted to the current `payments` and `saleType` state)
+        // The original `handleFinalizeSale` already handles `saleType` and `clientName` for 'FIADO'.
+        // The provided snippet's debt validation seems to be for a different state structure (`paymentMethod`, `amountPaid`).
+        // I will keep the existing `setShowDebtModal` logic from `handlePrePaymentCheck` and assume it leads here.
+        // If `saleType` is 'FIADO' and `clientName` is empty, it should be caught earlier or here.
+        if (saleType === 'FIADO' && !clientName.trim()) {
+            toast.error("Para FIADO, debe ingresar el Nombre del Cliente");
+            return;
+        }
+
+        const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+        const remaining = totals.total - totalPaid;
+
+        // 3. Payment Validation (If not FIADO, payment must cover total)
+        // This part also needs adaptation. The current system uses `payments` array.
+        // The `handlePrePaymentCheck` already handles the `remaining > 0.01` case by showing `setShowDebtModal`.
+        // If we reach here, either `remaining` is 0 or the user confirmed debt via the modal.
+        // The provided snippet's logic for `paid < total` and `confirmDebt` is for a single payment amount.
+        // I will keep the existing flow where `setShowDebtModal` handles this.
+        // If `saleType` is not 'FIADO' and there's a remaining balance, it should have been caught by `handlePrePaymentCheck`.
+
         setShowStockModal(false); // Close modal if open
         setShowDebtModal(false);  // Close debt modal if open
 
         try {
+            setIsSubmitting(true);
             const saleData = {
                 usuarioId: 1, // TODO: Get from Auth Context
                 clienteNombre: clientName,
@@ -117,6 +163,11 @@ export default function VentaPage() {
 
             const response = await api.post('/api/ventas', saleData);
             toast.success("Venta registrada con éxito");
+
+            // Check for alerts (Negative Stock warning from backend)
+            if (response.data.alertas && response.data.alertas.length > 0) {
+                response.data.alertas.forEach(alert => toast(alert, { icon: '⚠️' }));
+            }
 
             // Prepare data for Receipt
             setLastSale({
@@ -141,6 +192,8 @@ export default function VentaPage() {
             console.error("Sale Error:", error);
             const msg = error.response?.data?.message || "Error al procesar la venta";
             toast.error(msg);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -490,11 +543,11 @@ export default function VentaPage() {
                     </div>
                     <button
                         className="pay-btn"
-                        disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim()}
+                        disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting}
                         onClick={handlePrePaymentCheck}
-                        style={{ opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim()) ? 0.5 : 1 }}
+                        style={{ opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting) ? 0.5 : 1 }}
                     >
-                        FINALIZAR
+                        {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
                     </button>
                 </div>
 

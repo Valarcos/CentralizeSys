@@ -14,6 +14,7 @@ export default function AdminPage() {
     const [showLocationModal, setShowLocationModal] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
     const [deletingUser, setDeletingUser] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchUsers = useCallback(async () => {
         try {
@@ -54,9 +55,10 @@ export default function AdminPage() {
     };
 
     const handleDeleteConfirm = async () => {
-        if (!deletingUser) return;
+        if (!deletingUser || isDeleting) return;
 
         try {
+            setIsDeleting(true);
             await api.delete(`/api/usuarios/${deletingUser.id}`);
             toast.success('Usuario eliminado correctamente');
             setShowDeleteModal(false);
@@ -65,6 +67,8 @@ export default function AdminPage() {
         } catch (error) {
             console.error('Error deleting user:', error);
             toast.error('Error al eliminar usuario');
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -168,9 +172,12 @@ export default function AdminPage() {
                 <DeleteUserModal
                     user={deletingUser}
                     onConfirm={handleDeleteConfirm}
+                    loading={isDeleting}
                     onCancel={() => {
-                        setShowDeleteModal(false);
-                        setDeletingUser(null);
+                        if (!isDeleting) {
+                            setShowDeleteModal(false);
+                            setDeletingUser(null);
+                        }
                     }}
                 />
             )}

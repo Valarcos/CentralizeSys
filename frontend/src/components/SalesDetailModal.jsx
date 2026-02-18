@@ -61,10 +61,11 @@ export default function SalesDetailModal({ sale, onClose }) {
 
     return (
         <div className="modal-overlay">
-            <div className="modal-content" style={{ maxWidth: '800px', width: '90%' }}>
+            {/* Class handles width now */}
+            <div className="sales-detail-modal-content">
                 <div className="modal-header">
                     <h2>Detalle de Venta #{sale.id}</h2>
-                    <button onClick={onClose} className="close-btn">×</button>
+                    {/* X button removed per request */}
                 </div>
 
                 <div className="sale-info">
@@ -76,7 +77,7 @@ export default function SalesDetailModal({ sale, onClose }) {
                     )}
                 </div>
 
-                <div className="table-responsive" style={{ marginTop: '1rem' }}>
+                <div className="table-responsive modal-table-container">
                     <table className="history-table">
                         <thead>
                         <tr>
@@ -90,7 +91,7 @@ export default function SalesDetailModal({ sale, onClose }) {
                         {(sale.items || []).map((d, index) => (
                             <tr key={index}>
                                 <td data-label="Producto">
-                                    <div>{d.descripcionSnapshot || d.productoNombre}</div>
+                                    <div className="product-name-cell">{d.descripcionSnapshot || d.productoNombre}</div>
                                     <small className="text-muted">{d.codigoSnapshot || d.productoCodigo}</small>
                                 </td>
                                 <td data-label="Cant">{d.cantidad}</td>
@@ -102,14 +103,14 @@ export default function SalesDetailModal({ sale, onClose }) {
                     </table>
                 </div>
 
-                <div className="modal-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                <div className="modal-actions">
+                    <button onClick={onClose} className="btn-confirm secondary-action">Cerrar</button>
                     <button
                         onClick={handlePrint}
-                        className="btn-print"
+                        className="btn-print primary-action"
                     >
                         🖨️ Imprimir Ticket
                     </button>
-                    <button onClick={onClose} className="btn-confirm">Cerrar</button>
                 </div>
             </div>
         </div>

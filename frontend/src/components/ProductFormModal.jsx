@@ -6,8 +6,9 @@ import './ProductFormModal.css';
 /**
  * Modal for creating/editing products.
  * For new products, includes location selection and quantity input.
+ * @param {boolean} isPurchaseContext - If true, hides initial stock fields (prevents double entry)
  */
-export default function ProductFormModal({ product, isVariant = false, onSuccess, onCancel }) {
+export default function ProductFormModal({ product, isVariant = false, isPurchaseContext = false, initialCost, onSuccess, onCancel }) {
     const isEditing = !!product && !isVariant;
     const firstInputRef = useRef(null);
 
@@ -19,12 +20,7 @@ export default function ProductFormModal({ product, isVariant = false, onSuccess
     const [formData, setFormData] = useState({
         codigo: product?.codigo || '',
         descripcion: product?.descripcion || '',
-        precioCosto: isVariant ? '' : (product?.precioCosto || ''), // Clear cost for variant? Or keep? User prompt said "pre-filled data & new cost". I'll keep it/allow override. Actually, StockEntryModal will likely pass the NEW cost. Let's keep existing logic:
-        // BETTER: If isVariant, we might want to pre-fill from 'product' but maybe clear Cost if we want them to type it?
-        // User said: "Opens ProductForm... with pre-filled data & new cost."
-        // So I should probably allow passing 'initialCost' or just let caller modify 'product' object before passing it?
-        // Let's just use product fields.
-
+        precioCosto: initialCost !== undefined ? initialCost : (isVariant ? '' : (product?.precioCosto || '')),
         precioMayorista: product?.precioMayorista || '',
         precioMinorista: product?.precioMinorista || '',
         ubicacionId: '',
@@ -34,14 +30,14 @@ export default function ProductFormModal({ product, isVariant = false, onSuccess
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
 
-    // Load ubicaciones on mount (only for new products)
+    // Load ubicaciones on mount (only for new products AND if NOT in purchase context)
     useEffect(() => {
-        if (!isEditing) {
+        if (!isEditing && !isPurchaseContext) {
             loadUbicaciones();
         } else {
             setLoadingUbicaciones(false);
         }
-    }, [isEditing]);
+    }, [isEditing, isPurchaseContext]);
 
     // Focus first input on mount
     useEffect(() => {
@@ -111,8 +107,8 @@ export default function ProductFormModal({ product, isVariant = false, onSuccess
             }
         }
 
-        // For new products: ubicacion and cantidad are required
-        if (!isEditing) {
+        // For new products: ubicacion and cantidad are required ONLY if NOT in purchase context
+        if (!isEditing && !isPurchaseContext) {
             if (!formData.ubicacionId) {
                 newErrors.ubicacionId = 'Debe seleccionar una ubicación.';
             }
@@ -146,8 +142,8 @@ export default function ProductFormModal({ product, isVariant = false, onSuccess
                 precioMinorista: parseFloat(formData.precioMinorista)
             };
 
-            // Add stock info for new products
-            if (!isEditing && formData.ubicacionId && formData.cantidad) {
+            // Add stock info for new products ONLY if NOT in purchase context
+            if (!isEditing && !isPurchaseContext && formData.ubicacionId && formData.cantidad) {
                 payload.ubicacionId = parseInt(formData.ubicacionId);
                 payload.cantidad = parseInt(formData.cantidad);
             }
@@ -178,7 +174,11 @@ export default function ProductFormModal({ product, isVariant = false, onSuccess
             <div className="product-form-modal" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
-                        <h2>{isEditing ? 'Editar Producto' : (isVariant ? 'Nueva Variante' : 'Nuevo Producto')}</h2>
+                        <h2>
+                            {isEditing ? 'Editar Producto' :
+                                (isVariant ? 'Nueva Variante' :
+                                    (isPurchaseContext ? 'Nuevo Producto (Para Compra)' : 'Nuevo Producto'))}
+                        </h2>
                     </div>
 
                     <div className="form-body">
@@ -283,8 +283,8 @@ export default function ProductFormModal({ product, isVariant = false, onSuccess
                             </div>
                         </div>
 
-                        {/* Stock Section - Only for new products */}
-                        {!isEditing && (
+                        {/* Stock Section - Only for new products AND NOT in purchase context */}
+                        {!isEditing && !isPurchaseContext && (
                             <div className="stock-section">
                                 <h3>📍 Ubicación del Stock Inicial</h3>
 
@@ -357,7 +357,7 @@ export default function ProductFormModal({ product, isVariant = false, onSuccess
                         <button
                             type="submit"
                             className="primary"
-                            disabled={saving || (loadingUbicaciones && !isEditing)}
+                            disabled={saving || (loadingUbicaciones && !isEditing && !isPurchaseContext)}
                         >
                             {saving ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Crear Producto')}
                         </button>

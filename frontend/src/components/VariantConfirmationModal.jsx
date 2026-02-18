@@ -14,7 +14,7 @@ export default function VariantConfirmationModal({ currentCost, newCost, onConfi
                         ¿Desea crear una <strong>Nueva Variante</strong> con este precio?
                     </p>
                     <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
-                        Si elige "No, corregir", deberá ingresar el costo correcto para continuar.
+                        Si elige "No, corregir", el costo del producto volverá a su valor original.
                     </p>
                 </div>
 

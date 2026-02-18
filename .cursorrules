@@ -17,6 +17,8 @@
 
 ## 1. Core Philosophy & Constraints (Non-Negotiable)
 *   **Target Audience:** Elderly. High-contrast UI. Forgiving logic (e.g., negative stock allowed).
+*   **Mobile Design:** **STRICTLY** use minimal padding (0.25rem - 0.5rem) on mobile layouts to maximize screen real estate. Use `!important` if necessary to override defaults.
+*   **Data Lists/Tables:** **STRICTLY** use alternating background colors (zebra striping) for rows to enhance readability and data navigation.
 *   **Delivery:** "One-and-done". Local Windows execution.
 *   **Future:** Architecture must support migration to online hosting (Stateless REST API).
 *   **Tech Stack:**
@@ -260,6 +262,11 @@
     *   **Issue:** Only `UsuarioRepository` and `ProductRepository` had integration tests.
     *   **Resolution:** ALL repositories (`auditoria`, `compras`, `deudores`, `MetodoPagoRepository`, `ventas`, `stock`, `productos`) now have comprehensive integration tests.
 
+*   **Database Concurrency (Tech Debt):**
+    *   **Issue:** `SQLITE_BUSY` errors under high concurrency.
+    *   **Mitigation:** Add `?busy_timeout=30000` to `spring.datasource.url` in `application.properties`.
+    *   **Status:** Pending for future production hardening.
+
 *   **Authentication Security (Phase 4+):**
     *   **Status:** Critical Security Gap.
     *   **Issue 1: Failed Login Auditing**
@@ -316,3 +323,22 @@
 *   **Verification:** After applying a `replace_file_content` that removes code, you MUST verify that the file is syntactically valid and that no lingering references exist.
 *   **Variable Scope Check:** Before finalizing any React component, you MUST explicitly verify that every variable used in the JSX (e.g., inside `{}`) is defined in the component's scope (props, state, or imports). undefined variables cause immediate white-screen crashes.
 *   **Self-Correction:** If a blank screen is reported, your first priority is to check for `ReferenceError` (undefined variables/functions) in the recently edited files.
+
+---
+
+## 13. UI Behavior Reference (Informational)
+**Safe Buttons (Double-Submit Protected):**
+*   **Stock Entry:** "CONFIRMAR" button (Purchase registration).
+*   **Sales Page:** "FINALIZAR VENTA" button.
+*   **Inventory Page:** "Eliminar" button (Delete Product Modal).
+*   **Admin Page:** "Eliminar" button (Delete User Modal).
+*   **Admin Page:** "Guardar/Crear Usuario" button (User Form Modal).
+*   **Product Form:** "Guardar" button (Product Form Modal).
+*   **Locations:** "Agregar" button (Location Management Modal).
+*   **Stock Adjustment:** "Confirmar" button (Stock Management Modal).
+*   **Login Page:** "Ingresar" button.
+
+**Instant Buttons (Not Safeguarded by Design):**
+*   **Items:** Add (+), Remove (×), Quantity (+/-).
+*   **Variants:** Variant Confirmation Modal buttons (Client-side swap).
+*   **Navigation:** Pagination, Search, Open Modal buttons.

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import './DeleteProductModal.css';
 
-export default function DeleteProductModal({ product, onConfirm, onCancel }) {
+export default function DeleteProductModal({ product, onConfirm, onCancel, loading }) {
     const cancelBtnRef = useRef(null);
 
     useEffect(() => {
@@ -11,26 +11,20 @@ export default function DeleteProductModal({ product, onConfirm, onCancel }) {
     if (!product) return null;
 
     return (
-        <div className="modal-overlay" onClick={onCancel}>
-            <div
-                className="delete-product-modal"
-                onClick={(e) => e.stopPropagation()}
-                role="alertdialog"
-                aria-labelledby="delete-product-title"
-                aria-describedby="delete-product-description"
-            >
-                <h2 id="delete-product-title">⚠️ ¿Eliminar Producto?</h2>
+        <div className="modal-overlay">
+            <div className="modal-content delete-modal">
+                <div className="modal-header delete-header">
+                    <h2>⚠️ Confirmar Eliminación</h2>
+                </div>
 
-                <div id="delete-product-description">
-                    <p>Está a punto de eliminar:</p>
-                    <p className="product-detail">
-                        <strong>{product.descripcion}</strong>
-                    </p>
-                    <p className="product-info">
-                        Código: {product.codigo || 'Sin código'} | Stock actual: {product.cantidadStock} unidades
-                    </p>
-                    <p className="warning">
-                        ⚠️ Esta acción no se puede deshacer.
+                <div className="modal-body">
+                    <p>¿Está seguro de que desea eliminar el producto?</p>
+                    <div className="product-summary">
+                        <p><strong>{product.descripcion}</strong></p>
+                        <p className="code-text">Código: {product.codigo}</p>
+                    </div>
+                    <p className="warning-text">
+                        Esta acción es irreversible y podría afectar el historial de ventas si no se gestiona correctamente.
                     </p>
                 </div>
 
@@ -38,17 +32,17 @@ export default function DeleteProductModal({ product, onConfirm, onCancel }) {
                     <button
                         ref={cancelBtnRef}
                         onClick={onCancel}
-                        className="secondary"
-                        aria-label="Cancelar eliminación"
+                        className="cancel-btn"
+                        disabled={loading}
                     >
                         Cancelar
                     </button>
                     <button
                         onClick={onConfirm}
-                        className="danger"
-                        aria-label="Confirmar eliminación de producto"
+                        className="confirm-delete-btn"
+                        disabled={loading}
                     >
-                        Eliminar
+                        {loading ? 'Eliminando...' : 'Sí, Eliminar'}
                     </button>
                 </div>
             </div>

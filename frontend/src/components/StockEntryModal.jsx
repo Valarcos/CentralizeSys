@@ -14,13 +14,16 @@ export default function StockEntryModal({ onClose, onSuccess }) {
     const [selectedLocationId, setSelectedLocationId] = useState('');
 
     // Draft Items: { product, quantity, cost, error }
+    // Draft Items: { product, quantity, cost, error }
     const [draftItems, setDraftItems] = useState([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Variant Handling State
     const [verifyingIndex, setVerifyingIndex] = useState(null); // Index of item being verified
     const [showVariantModal, setShowVariantModal] = useState(false);
     const [showProductForm, setShowProductForm] = useState(false);
     const [variantSourceProduct, setVariantSourceProduct] = useState(null);
+    const [isNewProductContext, setIsNewProductContext] = useState(false); // Track if creating brand new product
 
     useEffect(() => {
         // Fetch Locations
@@ -28,9 +31,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
             try {
                 const res = await api.get('/api/locations');
                 setLocations(res.data);
-                if (res.data.length > 0) {
-                    setSelectedLocationId(res.data[0].id);
-                }
+                // Default to empty so user must select
             } catch (err) {
                 console.error("Error fetching locations", err);
                 toast.error("Error al cargar ubicaciones");
@@ -70,7 +71,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
             cost: product.precioCosto,
             error: null
         }]);
-        setSearchQuery('');
+        // setSearchQuery(''); // User requested to KEEP search query after adding
     };
 
     const updateItem = (index, field, value) => {
@@ -104,34 +105,50 @@ export default function StockEntryModal({ onClose, onSuccess }) {
         const item = draftItems[verifyingIndex];
         setVariantSourceProduct(item.product);
         setShowVariantModal(false);
+        setIsNewProductContext(false);
         setShowProductForm(true); // Open ProductForm
     };
 
+    // New Handlers for "Create New Product"
+    const handleCreateNewProduct = () => {
+        setVariantSourceProduct(null);
+        setIsNewProductContext(true);
+        setShowProductForm(true);
+    };
+
     const handleCorrectCost = () => {
-        // User wants to correct manual input.
-        // We just close the modal. The input stays "blue" or invalid until they fix it logic-wise?
-        // User requirements: "Input remains Red/Invalid. Button Disabled."
-        // We set error state to something persistent.
+        // User wants to correct/revert manual input.
         const newItems = [...draftItems];
-        newItems[verifyingIndex].error = `Costo difiere (DB: ${draftItems[verifyingIndex].product.precioCosto}). Corrija o cree variante.`;
-        setDraftItems(newItems);
+        if (verifyingIndex !== null && newItems[verifyingIndex]) {
+            // Revert cost to original product cost
+            newItems[verifyingIndex].cost = newItems[verifyingIndex].product.precioCosto;
+            newItems[verifyingIndex].error = null; // Clear error since it matches now
+            setDraftItems(newItems);
+            toast.success("Costo restaurado al valor original");
+        }
         setShowVariantModal(false);
         setVerifyingIndex(null);
     };
 
-    const handleVariantCreated = (newProduct) => {
-        // Replace the item in draft with the new product
-        const newItems = [...draftItems];
-        newItems[verifyingIndex] = {
-            product: newProduct,
-            quantity: newItems[verifyingIndex].quantity,
-            cost: newProduct.precioCosto, // Should match what they just created
-            error: null
-        };
-        setDraftItems(newItems);
+    const handleProductFormSuccess = (newProduct) => {
+        if (isNewProductContext) {
+            // Brand new product created -> Add to draft list
+            addToDraft(newProduct);
+        } else {
+            // Variant created -> Update existing item
+            const newItems = [...draftItems];
+            newItems[verifyingIndex] = {
+                product: newProduct,
+                quantity: newItems[verifyingIndex].quantity,
+                cost: newProduct.precioCosto, // Should match what they just created
+                error: null
+            };
+            setDraftItems(newItems);
+            setVerifyingIndex(null);
+        }
         setShowProductForm(false);
-        setVerifyingIndex(null);
         setVariantSourceProduct(null);
+        setIsNewProductContext(false);
     };
 
     const removeItem = (index) => {
@@ -139,13 +156,15 @@ export default function StockEntryModal({ onClose, onSuccess }) {
     };
 
     const handleSubmit = async () => {
+        if (isSubmitting) return;
+
         if (!provider || !invoiceNo) {
             toast.error("Complete Proveedor y Nro Comprobante");
             return;
         }
 
         if (!selectedLocationId) {
-            toast.error("Seleccione una ubicación de destino");
+            toast.error("Seleccione ubicacion para agregar productos");
             return;
         }
 
@@ -161,6 +180,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
         }
 
         try {
+            setIsSubmitting(true);
             const payload = {
                 proveedor: provider,
                 nroComprobante: invoiceNo,
@@ -179,6 +199,8 @@ export default function StockEntryModal({ onClose, onSuccess }) {
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || "Error al registrar ingreso");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -189,7 +211,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
             <div className="stock-entry-modal">
                 <div className="modal-header">
                     <h2>📥 Registrar Ingreso de Stock</h2>
-                    <button onClick={onClose} className="close-btn">×</button>
+                    <button onClick={onClose} className="close-btn" disabled={isSubmitting}>×</button>
                 </div>
 
                 <div className="modal-body-layout">
@@ -216,19 +238,29 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                                 value={selectedLocationId}
                                 onChange={e => setSelectedLocationId(e.target.value)}
                             >
+                                <option value="">Seleccione ubicación para productos</option>
                                 {locations.map(loc => (
                                     <option key={loc.id} value={loc.id}>{loc.nombre}</option>
                                 ))}
                             </select>
                         </div>
 
-                        <input
-                            className="search-bar-large"
-                            placeholder="🔍 Buscar producto a reponer..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            autoFocus
-                        />
+                        <div className="search-container-row">
+                            <input
+                                className="search-bar-large"
+                                placeholder="🔍 Buscar producto a reponer..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                autoFocus
+                            />
+                            <button
+                                onClick={handleCreateNewProduct}
+                                className="add-product-btn"
+                                title="Crear Nuevo Producto"
+                            >
+                                +
+                            </button>
+                        </div>
 
                         <div className="search-results">
                             {searchResults.map(p => (
@@ -251,33 +283,30 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                                         {item.error && <span className="error-badge">⚠️ Costo Difiere</span>}
                                     </div>
                                     <div className="item-inputs">
-                                        <input
-                                            type="number"
-                                            className="qty-input"
-                                            value={item.quantity}
-                                            onChange={e => updateItem(i, 'quantity', e.target.value)}
-                                            placeholder="Cant."
-                                        />
-                                        <input
-                                            type="number"
-                                            className="cost-input"
-                                            value={item.cost}
-                                            onBlur={e => updateItem(i, 'cost', e.target.value)}
-                                            // Using onBlur for Modal trigger to avoid popup while typing?
-                                            // Or duplicate state for visual vs committed?
-                                            // Let's use onBlur for validation triggering to be less annoying.
-                                            // But we need to update state onChange to typing works.
-                                            // Actually updateItem handles logic.
-                                            // If we trigger modal on every keystroke it's bad.
-                                            // Let's split handle.
-                                            onChange={e => {
-                                                const val = e.target.value;
-                                                const newItems = [...draftItems];
-                                                newItems[i].cost = val; // Just update value
-                                                setDraftItems(newItems);
-                                            }}
-                                            placeholder="Costo"
-                                        />
+                                        <div className="input-group-col">
+                                            <label>Cantidad</label>
+                                            <input
+                                                type="number"
+                                                className="qty-input"
+                                                value={item.quantity}
+                                                onChange={e => updateItem(i, 'quantity', e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="input-group-col">
+                                            <label>Costo</label>
+                                            <input
+                                                type="number"
+                                                className="cost-input"
+                                                value={item.cost}
+                                                onBlur={e => updateItem(i, 'cost', e.target.value)}
+                                                onChange={e => {
+                                                    const val = e.target.value;
+                                                    const newItems = [...draftItems];
+                                                    newItems[i].cost = val;
+                                                    setDraftItems(newItems);
+                                                }}
+                                            />
+                                        </div>
                                         <button onClick={() => removeItem(i)} className="remove-btn">×</button>
                                     </div>
                                 </div>
@@ -286,7 +315,13 @@ export default function StockEntryModal({ onClose, onSuccess }) {
 
                         <div className="footer-actions">
                             <div className="total-display">Total: ${total.toFixed(2)}</div>
-                            <button className="submit-btn" onClick={handleSubmit}>CONFIRMAR</button>
+                            <button
+                                className="submit-btn"
+                                onClick={handleSubmit}
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? "GUARDANDO..." : "CONFIRMAR"}
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -304,11 +339,14 @@ export default function StockEntryModal({ onClose, onSuccess }) {
             {showProductForm && (
                 <ProductFormModal
                     product={variantSourceProduct}
-                    isVariant={true}
-                    onSuccess={handleVariantCreated}
+                    isVariant={!isNewProductContext} // Variant if NOT new product context
+                    isPurchaseContext={true} // Always hide location/stock section (handled by StockEntry)
+                    initialCost={!isNewProductContext ? draftItems[verifyingIndex]?.cost : undefined}
+                    onSuccess={handleProductFormSuccess}
                     onCancel={() => {
                         setShowProductForm(false);
-                        handleCorrectCost(); // Treat cancel as "Correcting" (returning to invalid state)
+                        setIsNewProductContext(false);
+                        if (!isNewProductContext) handleCorrectCost();
                     }}
                 />
             )}

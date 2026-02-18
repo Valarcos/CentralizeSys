@@ -16,12 +16,12 @@ INSERT OR IGNORE INTO metodos_pago (id, acronimo, descripcion) VALUES
 (10, 'TB3', 'Transferencia a Terceros');;
 
 -- 3. PRODUCTOS
-INSERT OR IGNORE INTO productos (id, codigo, descripcion, precio_costo, precio_minorista, cantidad_stock) VALUES
-    (1, 'ART-MUSC-N', 'Musculosa Negra - Básica', 10000.0, 56800.0, 0),
-    (2, 'ART-REM-CUE', 'Remera Cuello Desflecado', 21000.0, 69800.0, 0),
-    (3, 'ART-PANT-GAB', 'Pantalón Gabardina Beige', 15000.0, 45000.0, 0),
-    (4, 'ART-SWEATER', 'Sweater Lana Merino', 25000.0, 75000.0, 0),
-    (5, 'ACC-CINT', 'Cinturón Cuero', 5000.0, 12500.0, 0);;
+INSERT OR IGNORE INTO productos (id, codigo, descripcion, precio_costo, precio_minorista, precio_mayorista, cantidad_stock) VALUES
+(1, 'ART-MUSC-N', 'Musculosa Negra - Básica', 10000.0, 56800.0, 45000.0, 0),
+(2, 'ART-REM-CUE', 'Remera Cuello Desflecado', 21000.0, 69800.0, 55000.0, 0),
+(3, 'ART-PANT-GAB', 'Pantalón Gabardina Beige', 15000.0, 45000.0, 35000.0, 0),
+(4, 'ART-SWEATER', 'Sweater Lana Merino', 25000.0, 75000.0, 60000.0, 0),
+(5, 'ACC-CINT', 'Cinturón Cuero', 5000.0, 12500.0, 10000.0, 0);;
 
 -- 4. STOCK (Assign stock using subqueries to find IDs)
 INSERT OR IGNORE INTO stock_por_ubicacion (id, producto_id, ubicacion_id, cantidad) VALUES
@@ -100,27 +100,27 @@ DELETE FROM stock_por_ubicacion WHERE producto_id >= 100;;
 DELETE FROM productos WHERE id >= 100;;
 
 -- 2. INSERT DUMMY PRODUCTS (IDs 100-119)
-INSERT OR IGNORE INTO productos (id, codigo, descripcion, precio_costo, precio_minorista, cantidad_stock) VALUES
-(100, 'DUMMY-1', 'Smartphone Samsung A1', 150.0, 200.0, 100),
-(101, 'DUMMY-2', 'Smartphone Samsung A2', 160.0, 220.0, 100),
-(102, 'DUMMY-3', 'Auriculares Sony XM', 50.0, 80.0, 100),
-(103, 'DUMMY-4', 'Cargador Rápido USBC', 10.0, 25.0, 100),
-(104, 'DUMMY-5', 'Funda Silicona Roja', 2.0, 10.0, 100),
-(105, 'DUMMY-6', 'Protector Pantalla Glass', 1.0, 5.0, 100),
-(106, 'DUMMY-7', 'Teclado Mecánico RGB', 40.0, 80.0, 100),
-(107, 'DUMMY-8', 'Mouse Gamer Logitech', 20.0, 45.0, 100),
-(108, 'DUMMY-9', 'Monitor LG 24 Pulgadas', 100.0, 150.0, 100),
-(109, 'DUMMY-10', 'Cable HDMI 2m', 3.0, 12.0, 100),
-(110, 'DUMMY-11', 'Soporte Monitor VESA', 15.0, 35.0, 100),
-(111, 'DUMMY-12', 'Notebook Dell Inspiron', 500.0, 750.0, 100),
-(112, 'DUMMY-13', 'Mochila Porta Notebook', 20.0, 50.0, 100),
-(113, 'DUMMY-14', 'Disco SSD 500GB', 30.0, 60.0, 100),
-(114, 'DUMMY-15', 'Memoria RAM 8GB DDR4', 25.0, 45.0, 100),
-(115, 'DUMMY-16', 'Pendrive 64GB Kingston', 5.0, 15.0, 100),
-(116, 'DUMMY-17', 'Webcam FullHD 1080p', 25.0, 55.0, 100),
-(117, 'DUMMY-18', 'Micrófono Condensador', 35.0, 70.0, 100),
-(118, 'DUMMY-19', 'Aro de Luz LED', 10.0, 30.0, 100),
-(119, 'DUMMY-20', 'Silla Gamer Ergonómica', 120.0, 250.0, 100);;
+INSERT OR IGNORE INTO productos (id, codigo, descripcion, precio_costo, precio_minorista, precio_mayorista, cantidad_stock) VALUES
+(100, 'DUMMY-1', 'Smartphone Samsung A1', 150.0, 200.0, 180.0, 100),
+(101, 'DUMMY-2', 'Smartphone Samsung A2', 160.0, 220.0, 190.0, 100),
+(102, 'DUMMY-3', 'Auriculares Sony XM', 50.0, 80.0, 70.0, 100),
+(103, 'DUMMY-4', 'Cargador Rápido USBC', 10.0, 25.0, 20.0, 100),
+(104, 'DUMMY-5', 'Funda Silicona Roja', 2.0, 10.0, 8.0, 100),
+(105, 'DUMMY-6', 'Protector Pantalla Glass', 1.0, 5.0, 4.0, 100),
+(106, 'DUMMY-7', 'Teclado Mecánico RGB', 40.0, 80.0, 65.0, 100),
+(107, 'DUMMY-8', 'Mouse Gamer Logitech', 20.0, 45.0, 35.0, 100),
+(108, 'DUMMY-9', 'Monitor LG 24 Pulgadas', 100.0, 150.0, 130.0, 100),
+(109, 'DUMMY-10', 'Cable HDMI 2m', 3.0, 12.0, 10.0, 100),
+(110, 'DUMMY-11', 'Soporte Monitor VESA', 15.0, 35.0, 28.0, 100),
+(111, 'DUMMY-12', 'Notebook Dell Inspiron', 500.0, 750.0, 650.0, 100),
+(112, 'DUMMY-13', 'Mochila Porta Notebook', 20.0, 50.0, 40.0, 100),
+(113, 'DUMMY-14', 'Disco SSD 500GB', 30.0, 60.0, 50.0, 100),
+(114, 'DUMMY-15', 'Memoria RAM 8GB DDR4', 25.0, 45.0, 38.0, 100),
+(115, 'DUMMY-16', 'Pendrive 64GB Kingston', 5.0, 15.0, 12.0, 100),
+(116, 'DUMMY-17', 'Webcam FullHD 1080p', 25.0, 55.0, 45.0, 100),
+(117, 'DUMMY-18', 'Micrófono Condensador', 35.0, 70.0, 60.0, 100),
+(118, 'DUMMY-19', 'Aro de Luz LED', 10.0, 30.0, 25.0, 100),
+(119, 'DUMMY-20', 'Silla Gamer Ergonómica', 120.0, 250.0, 200.0, 100);;
 
 -- 3. INSERT STOCK FOR DUMMY PRODUCTS (Using Ubicacion ID 1)
 INSERT OR IGNORE INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad)

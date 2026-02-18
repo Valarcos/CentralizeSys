@@ -25,6 +25,7 @@ export default function InventarioPage() {
 
     const [editingProduct, setEditingProduct] = useState(null);
     const [deletingProduct, setDeletingProduct] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [stockProduct, setStockProduct] = useState(null);
 
     const fetchProducts = useCallback(async (currentPage = 0, isBackground = false) => {
@@ -128,8 +129,9 @@ export default function InventarioPage() {
         fetchProducts(page);
     };
     const handleDeleteConfirm = async () => {
-        if (!deletingProduct) return;
+        if (!deletingProduct || isDeleting) return;
         try {
+            setIsDeleting(true);
             await api.delete(`/api/productos/${deletingProduct.id}`);
             toast.success('Producto eliminado correctamente');
             setShowDeleteModal(false);
@@ -139,6 +141,8 @@ export default function InventarioPage() {
             console.error('Error deleting product:', error);
             const message = error.response?.data?.message || 'Error al eliminar producto';
             toast.error(message);
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -280,28 +284,28 @@ export default function InventarioPage() {
 
 
 
-                {/* Bottom Pagination - Aligned Right */}
-                {totalPages > 1 && (
-                    <div className="pagination-controls" style={{ marginTop: '1rem' }}>
-                        <button
-                            onClick={() => handlePageChange(page - 1)}
-                            disabled={page === 0 || loading}
-                            className="secondary"
-                        >
-                            ← Anterior
-                        </button>
-                        <span className="page-indicator">
+                    {/* Bottom Pagination - Aligned Right */}
+                    {totalPages > 1 && (
+                        <div className="pagination-controls" style={{ marginTop: '1rem' }}>
+                            <button
+                                onClick={() => handlePageChange(page - 1)}
+                                disabled={page === 0 || loading}
+                                className="secondary"
+                            >
+                                ← Anterior
+                            </button>
+                            <span className="page-indicator">
                                 {page + 1} / {totalPages}
                             </span>
-                        <button
-                            onClick={() => handlePageChange(page + 1)}
-                            disabled={page >= totalPages - 1 || loading}
-                            className="secondary"
-                        >
-                            Siguiente →
-                        </button>
-                    </div>
-                )}
+                            <button
+                                onClick={() => handlePageChange(page + 1)}
+                                disabled={page >= totalPages - 1 || loading}
+                                className="secondary"
+                            >
+                                Siguiente →
+                            </button>
+                        </div>
+                    )}
                 </>
             )}
             <div className="jump-buttons">
@@ -325,9 +329,12 @@ export default function InventarioPage() {
                 <DeleteProductModal
                     product={deletingProduct}
                     onConfirm={handleDeleteConfirm}
+                    loading={isDeleting}
                     onCancel={() => {
-                        setShowDeleteModal(false);
-                        setDeletingProduct(null);
+                        if (!isDeleting) {
+                            setShowDeleteModal(false);
+                            setDeletingProduct(null);
+                        }
                     }}
                 />
             )}

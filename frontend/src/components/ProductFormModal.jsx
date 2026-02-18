@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste } from '../utils/numericInput';
 import './ProductFormModal.css';
 
 /**
@@ -230,11 +231,12 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                 <input
                                     id="precioCosto"
                                     name="precioCosto"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={formData.precioCosto}
                                     onChange={handleChange}
+                                    onKeyDown={blockNonNumericKeys}
+                                    onPaste={sanitizeNumericPaste}
                                     placeholder="0.00"
                                     aria-invalid={!!errors.precioCosto}
                                 />
@@ -250,11 +252,12 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                 <input
                                     id="precioMayorista"
                                     name="precioMayorista"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={formData.precioMayorista}
                                     onChange={handleChange}
+                                    onKeyDown={blockNonNumericKeys}
+                                    onPaste={sanitizeNumericPaste}
                                     placeholder="Igual al minorista si vacío"
                                 />
                                 {errors.precioMayorista && (
@@ -269,11 +272,12 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                 <input
                                     id="precioMinorista"
                                     name="precioMinorista"
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={formData.precioMinorista}
                                     onChange={handleChange}
+                                    onKeyDown={blockNonNumericKeys}
+                                    onPaste={sanitizeNumericPaste}
                                     placeholder="0.00"
                                     aria-invalid={!!errors.precioMinorista}
                                 />
@@ -328,11 +332,12 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                         <input
                                             id="cantidad"
                                             name="cantidad"
-                                            type="number"
-                                            min="1"
-                                            step="1"
+                                            type="text"
+                                            inputMode="numeric"
                                             value={formData.cantidad}
                                             onChange={handleChange}
+                                            onKeyDown={blockNonIntegerKeys}
+                                            onPaste={sanitizeIntegerPaste}
                                             placeholder="Ingrese cantidad"
                                             aria-invalid={!!errors.cantidad}
                                         />

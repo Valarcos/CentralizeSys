@@ -3,6 +3,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import VariantConfirmationModal from './VariantConfirmationModal';
 import ProductFormModal from './ProductFormModal';
+import { blockNonIntegerKeys, blockNonNumericKeys, sanitizeIntegerPaste, sanitizeNumericPaste } from '../utils/numericInput';
 import './StockEntryModal.css';
 
 export default function StockEntryModal({ onClose, onSuccess }) {
@@ -286,25 +287,31 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                                         <div className="input-group-col">
                                             <label>Cantidad</label>
                                             <input
-                                                type="number"
+                                                type="text"
+                                                inputMode="numeric"
                                                 className="qty-input"
                                                 value={item.quantity}
                                                 onChange={e => updateItem(i, 'quantity', e.target.value)}
+                                                onKeyDown={blockNonIntegerKeys}
+                                                onPaste={sanitizeIntegerPaste}
                                             />
                                         </div>
                                         <div className="input-group-col">
                                             <label>Costo</label>
                                             <input
-                                                type="number"
+                                                type="text"
+                                                inputMode="decimal"
                                                 className="cost-input"
                                                 value={item.cost}
                                                 onBlur={e => updateItem(i, 'cost', e.target.value)}
                                                 onChange={e => {
-                                                    const val = e.target.value;
+                                                    const val = e.target.value.replace(/[^0-9.]/g, '');
                                                     const newItems = [...draftItems];
                                                     newItems[i].cost = val;
                                                     setDraftItems(newItems);
                                                 }}
+                                                onKeyDown={blockNonNumericKeys}
+                                                onPaste={sanitizeNumericPaste}
                                             />
                                         </div>
                                         <button onClick={() => removeItem(i)} className="remove-btn">×</button>

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import StockWarningModal from '../components/StockWarningModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { generateReceipt } from '../utils/pdfGenerator';
+import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste } from '../utils/numericInput';
 import './VentaPage.css';
 
 export default function VentaPage() {
@@ -62,6 +63,17 @@ export default function VentaPage() {
     // Payment Form State
     const [selectedMethodId, setSelectedMethodId] = useState('');
     const [paymentAmount, setPaymentAmount] = useState('');
+
+    // Overpayment Modal State (Issue #8)
+    const [showOverpaidModal, setShowOverpaidModal] = useState(false);
+    const [overpaidMaxAllowed, setOverpaidMaxAllowed] = useState(0);
+
+    // Issue #7 + #9: Warn when payments exceed total (due to discount or sale type change)
+    useEffect(() => {
+        if (totals.isOverpaid) {
+            toast.error("Ajustar montos y métodos de pago", { id: 'overpaid-warning' });
+        }
+    }, [totals.isOverpaid]);
 
     // --- LOGIC: Validate Stock ---
     const checkStockAvailability = () => {
@@ -304,6 +316,15 @@ export default function VentaPage() {
             return;
         }
 
+        // Issue #8: Detect overpayment
+        const currentPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+        const maxAllowed = Math.max(0, totals.total - currentPaid);
+        if (amount > maxAllowed + 0.01) {
+            setOverpaidMaxAllowed(maxAllowed);
+            setShowOverpaidModal(true);
+            return;
+        }
+
         const method = paymentMethods.find(m => m.id === parseInt(selectedMethodId));
         addPaymentMethod({
             methodId: method.id,
@@ -314,6 +335,23 @@ export default function VentaPage() {
         // Reset form
         setSelectedMethodId('');
         setPaymentAmount('');
+    };
+
+    // Issue #8: Auto-correct handler for overpayment modal
+    const handleAutoCorrectPayment = () => {
+        setShowOverpaidModal(false);
+        const method = paymentMethods.find(m => m.id === parseInt(selectedMethodId));
+        if (method && overpaidMaxAllowed > 0) {
+            addPaymentMethod({
+                methodId: method.id,
+                name: method.descripcion,
+                amount: overpaidMaxAllowed
+            });
+            setSelectedMethodId('');
+            setPaymentAmount('');
+        } else {
+            setPaymentAmount(overpaidMaxAllowed.toFixed(2));
+        }
     };
 
     const formatCurrency = (amount) => {
@@ -328,11 +366,13 @@ export default function VentaPage() {
     const availableMethods = paymentMethods.filter(m => !payments.some(p => p.methodId === m.id));
 
 
-    // Auto-fill amount logic: When selecting a method, autofill with remaining?
+    // Auto-fill amount logic: When selecting a method, autofill with remaining
     const handleMethodSelect = (e) => {
         setSelectedMethodId(e.target.value);
-        if (remaining > 0) {
+        if (remaining > 0.01) {
             setPaymentAmount(remaining.toFixed(2));
+        } else {
+            setPaymentAmount('');
         }
     };
 
@@ -435,12 +475,14 @@ export default function VentaPage() {
                                     <label>Descuento</label>
                                     <input
                                         type="text"
-                                        inputMode="numeric"
+                                        inputMode="decimal"
                                         value={item.discount || ''}
                                         onChange={(e) => {
                                             const val = e.target.value.replace(/[^0-9.]/g, '');
                                             updateItemDiscount(item.product.id, val);
                                         }}
+                                        onKeyDown={blockNonNumericKeys}
+                                        onPaste={sanitizeNumericPaste}
                                         placeholder="$0"
                                         className="discount-input"
                                     />
@@ -471,6 +513,8 @@ export default function VentaPage() {
                                                 updateQuantity(item.product.id, 1);
                                             }
                                         }}
+                                        onKeyDown={blockNonIntegerKeys}
+                                        onPaste={sanitizeIntegerPaste}
                                     />
                                     <button className="qty-btn" onClick={() => updateQuantity(item.product.id, item.quantity + 1)}>+</button>
                                 </div>
@@ -507,12 +551,20 @@ export default function VentaPage() {
                                 ))}
                             </select>
                             <input
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 className="payment-amount"
                                 placeholder="$"
                                 value={paymentAmount}
-                                onChange={(e) => setPaymentAmount(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleAddPayment()}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/[^0-9.]/g, '');
+                                    setPaymentAmount(val);
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') { handleAddPayment(); return; }
+                                    blockNonNumericKeys(e);
+                                }}
+                                onPaste={sanitizeNumericPaste}
                             />
                             <button onClick={handleAddPayment} className="add-payment-btn">+</button>
                         </div>
@@ -523,12 +575,14 @@ export default function VentaPage() {
                             <label className="discount-global-label">Desc. Global</label>
                             <input
                                 type="text"
-                                inputMode="numeric"
+                                inputMode="decimal"
                                 value={globalDiscount || ''}
                                 onChange={(e) => {
                                     const val = e.target.value.replace(/[^0-9.]/g, '');
                                     setGlobalDiscount(parseFloat(val) || 0);
                                 }}
+                                onKeyDown={blockNonNumericKeys}
+                                onPaste={sanitizeNumericPaste}
                                 placeholder="$0"
                                 className="discount-global-input"
                             />
@@ -536,16 +590,22 @@ export default function VentaPage() {
                         <div className="totals-numbers-col">
                             <div className="totals-line">Subtotal: {formatCurrency(totals.subtotal)}</div>
                             <div className="totals-line totals-total">Total: {formatCurrency(totals.total)}</div>
-                            <div className={`totals-line ${remaining > 0.01 ? 'totals-falta' : 'totals-cubierto'}`}>
-                                {remaining > 0.01 ? `Falta: ${formatCurrency(remaining)}` : 'Cubierto'}
+                            <div className={`totals-line ${totals.isOverpaid ? 'totals-excedido' :
+                                remaining > 0.01 ? 'totals-falta' : 'totals-cubierto'
+                            }`}>
+                                {totals.isOverpaid
+                                    ? `Excedido: ${formatCurrency(totals.totalPaid - totals.total)}`
+                                    : remaining > 0.01
+                                        ? `Falta: ${formatCurrency(remaining)}`
+                                        : 'Cubierto'}
                             </div>
                         </div>
                     </div>
                     <button
                         className="pay-btn"
-                        disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting}
+                        disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid}
                         onClick={handlePrePaymentCheck}
-                        style={{ opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting) ? 0.5 : 1 }}
+                        style={{ opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid) ? 0.5 : 1 }}
                     >
                         {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
                     </button>
@@ -593,6 +653,19 @@ export default function VentaPage() {
                         isWarning={true}
                         onConfirm={handleFinalizeSale}
                         onCancel={() => setShowDebtModal(false)}
+                    />
+                )}
+
+                {/* Issue #8: Overpayment Modal */}
+                {showOverpaidModal && (
+                    <ConfirmationModal
+                        title="⚠️ Monto Excedido"
+                        message={`El monto ingresado excede el total de la venta. Dinero faltante por pagar: ${formatCurrency(overpaidMaxAllowed)}. Corrija el monto del método de pago.`}
+                        confirmText={`Usar ${formatCurrency(overpaidMaxAllowed)}`}
+                        cancelText="Corregir manualmente"
+                        isWarning={true}
+                        onConfirm={handleAutoCorrectPayment}
+                        onCancel={() => setShowOverpaidModal(false)}
                     />
                 )}
             </div>

@@ -3,6 +3,7 @@ import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/format';
 import toast from 'react-hot-toast';
 import SalesDetailModal from '../components/SalesDetailModal';
+import { blockNonNumericKeys, sanitizeNumericPaste } from '../utils/numericInput';
 import './SalesHistoryPage.css'; // Reusing CSS
 
 export default function DebtorsPage() {
@@ -227,10 +228,16 @@ export default function DebtorsPage() {
                             </select>
 
                             <input
-                                type="number"
+                                type="text"
+                                inputMode="decimal"
                                 placeholder="Monto"
                                 value={paymentAmount}
-                                onChange={(e) => setPaymentAmount(e.target.value)}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/[^0-9.]/g, '');
+                                    setPaymentAmount(val);
+                                }}
+                                onKeyDown={blockNonNumericKeys}
+                                onPaste={sanitizeNumericPaste}
                                 style={{ padding: '8px' }}
                             />
                         </div>

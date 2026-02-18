@@ -429,6 +429,24 @@
     font-weight: 600;
 }
 
+.totals-excedido {
+    color: #dc3545;
+    font-weight: bold;
+    animation: pulse-red 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-red {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+}
+
 .pay-btn {
     width: 100%;
     padding: 1.2rem;

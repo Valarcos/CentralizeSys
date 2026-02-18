@@ -90,12 +90,18 @@ export default function useCart() {
         // Backend Logic: Total = Subtotal - GlobalDiscount
         const total = Math.max(0, subtotal - globalDiscount);
 
+        // 3. Payment validation (Issues #7, #8, #9)
+        const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+        const isOverpaid = totalPaid > total + 0.01; // Floating point safety
+
         return {
             subtotal, // This is actually Total before Global Discount
             total,
-            globalDiscount
+            globalDiscount,
+            totalPaid,
+            isOverpaid
         };
-    }, [cartItems, globalDiscount]);
+    }, [cartItems, globalDiscount, payments]);
 
     const validateSale = useCallback(() => {
         if (cartItems.length === 0) {

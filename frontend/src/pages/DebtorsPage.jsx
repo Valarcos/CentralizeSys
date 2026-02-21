@@ -3,6 +3,7 @@ import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/format';
 import toast from 'react-hot-toast';
 import SalesDetailModal from '../components/SalesDetailModal';
+import { generateDebtorReceipt } from '../utils/pdfGenerator';
 import { blockNonNumericKeys, sanitizeNumericPaste } from '../utils/numericInput';
 import './SalesHistoryPage.css'; // Reusing CSS
 
@@ -13,8 +14,9 @@ export default function DebtorsPage() {
     // Modals
     const [selectedDebtor, setSelectedDebtor] = useState(null);
     const [showPayModal, setShowPayModal] = useState(false);
-    const [viewSale, setViewSale] = useState(null); // Renamed from currentSaleDetails to match JSX
-    const [isLoadingSale, setIsLoadingSale] = useState(false); // Added missing state
+    const [viewSale, setViewSale] = useState(null);
+    const [viewDebtor, setViewDebtor] = useState(null);
+    const [isLoadingSale, setIsLoadingSale] = useState(false);
 
     // Multi-Payment State
     const [paymentMethods, setPaymentMethods] = useState([]);
@@ -124,16 +126,67 @@ export default function DebtorsPage() {
     // Smart Dropdown: Filter out used methods (User req: "dropdown lists must be smart... just the ones not already selected")
     const availableMethods = paymentMethods.filter(m => !payments.some(p => p.methodId === m.id));
 
-    // Handle View Details (Existing)
-    const handleViewDetails = async (ventaId) => {
+    // Handle View Details — stores both sale data and the debtor row
+    const handleViewDetails = async (debtor) => {
         setIsLoadingSale(true);
         try {
-            const response = await api.get(`/api/ventas/${ventaId}`);
+            const response = await api.get(`/api/ventas/${debtor.ventaId}`);
             setViewSale(response.data);
+            setViewDebtor(debtor);
         } catch (error) {
             toast.error("Error al cargar detalles de la venta");
         } finally {
             setIsLoadingSale(false);
+        }
+    };
+
+    // Handle Print Debtor Receipt
+    const handlePrintDebtor = async (debtor) => {
+        try {
+            // Fetch sale details + debtor payment history in parallel
+            const [saleRes, pagosRes, methodsRes] = await Promise.all([
+                api.get(`/api/ventas/${debtor.ventaId}`),
+                api.get(`/api/deudores/${debtor.id}/pagos`),
+                paymentMethods.length > 0 ? Promise.resolve({ data: paymentMethods }) : api.get('/api/ventas/metodos-pago')
+            ]);
+
+            const sale = saleRes.data;
+            const pagos = pagosRes.data;
+            const methods = methodsRes.data;
+
+            // Enrich original sale payment methods with names
+            const enrichedSalePayments = (sale.pagos || []).map(p => {
+                const method = methods.find(m => m.id === p.metodoPagoId);
+                return { name: method ? method.descripcion : 'Desconocido', amount: p.monto };
+            });
+
+            const debtorData = {
+                ventaId: debtor.ventaId,
+                clienteNombre: debtor.clienteNombre,
+                fechaDeuda: debtor.fechaDeuda,
+                estado: debtor.estado,
+                montoOriginal: debtor.montoOriginal,
+                montoDeuda: debtor.montoDeuda,
+                saleDate: sale.fecha,
+                user: sale.vendedorNombre || 'Sistema',
+                saleType: sale.tipoVenta || 'ESTÁNDAR',
+                items: (sale.items || []).map(d => ({
+                    codigo: d.productoCodigo || d.codigoSnapshot,
+                    descripcion: d.productoNombre || d.descripcionSnapshot,
+                    quantity: d.cantidad,
+                    unitPrice: d.precioUnitario,
+                    discount: d.descuentoValor || 0,
+                    subtotal: d.subtotal
+                })),
+                pagosDeuda: pagos,
+                salePayments: enrichedSalePayments,
+                globalDiscount: sale.descuentoGlobal || 0
+            };
+
+            generateDebtorReceipt(debtorData);
+        } catch (error) {
+            console.error('Error generating debtor PDF:', error);
+            toast.error('Error al generar el PDF de deuda');
         }
     };
 
@@ -180,10 +233,16 @@ export default function DebtorsPage() {
                                     <div className="action-buttons">
                                         <button
                                             className="btn-details"
-                                            onClick={() => handleViewDetails(d.ventaId)}
+                                            onClick={() => handleViewDetails(d)}
                                             disabled={isLoadingSale}
                                         >
                                             👁️ Ver Detalle
+                                        </button>
+                                        <button
+                                            className="btn-print"
+                                            onClick={() => handlePrintDebtor(d)}
+                                        >
+                                            🖨️ Imprimir Deuda
                                         </button>
                                         {d.montoDeuda > 0 && (
                                             <button className="btn-pay" onClick={() => handleOpenPayment(d)}>
@@ -291,7 +350,9 @@ export default function DebtorsPage() {
             {viewSale && (
                 <SalesDetailModal
                     sale={viewSale}
-                    onClose={() => setViewSale(null)}
+                    onClose={() => { setViewSale(null); setViewDebtor(null); }}
+                    printMode="debtor"
+                    debtorInfo={viewDebtor}
                 />
             )}
         </div>

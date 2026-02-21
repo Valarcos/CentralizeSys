@@ -227,6 +227,64 @@ class ProductServiceTest {
         verify(repository).save(p);
     }
 
+    // --- Wholesale Price Default Tests (Issue #15) ---
+
+    @Test
+    @DisplayName("Create defaults null wholesale price to retail price")
+    void create_NullWholesale_DefaultsToRetail() {
+        Product p = new Product("CODE", "Desc", 10.0, null, 25.0);
+        when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
+        when(repository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Product created = service.create(p);
+
+        assertNotNull(created.getPrecioMayorista(), "Wholesale price should not be null after create");
+        assertEquals(25.0, created.getPrecioMayorista(), "Wholesale price should default to retail price");
+    }
+
+    @Test
+    @DisplayName("CreateWithStock defaults null wholesale price to retail price")
+    void createWithStock_NullWholesale_DefaultsToRetail() {
+        Product p = new Product("CODE", "Desc", 10.0, null, 30.0);
+        Product saved = new Product(1L, "CODE", "Desc", 10.0, 30.0, 30.0, 0L);
+
+        when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
+        when(repository.save(any(Product.class))).thenReturn(saved);
+        when(repository.findById(1L)).thenReturn(Optional.of(saved));
+
+        Product created = service.createWithStock(p, 5L, 10L);
+
+        assertEquals(30.0, p.getPrecioMayorista(), "Original product object should have wholesale defaulted");
+        assertNotNull(created);
+    }
+
+    @Test
+    @DisplayName("Update defaults null wholesale price to retail price")
+    void update_NullWholesale_DefaultsToRetail() {
+        Product updateReq = new Product("CODE", "Desc", 10.0, null, 40.0);
+        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing));
+
+        service.update(1L, updateReq);
+
+        assertEquals(40.0, updateReq.getPrecioMayorista(), "Wholesale price should default to retail price on update");
+        verify(repository).save(updateReq);
+    }
+
+    @Test
+    @DisplayName("Create preserves explicit wholesale price (no default override)")
+    void create_ExplicitWholesale_PreservedAsIs() {
+        Product p = new Product("CODE", "Desc", 10.0, 15.0, 25.0);
+        when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
+        when(repository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Product created = service.create(p);
+
+        assertEquals(15.0, created.getPrecioMayorista(), "Explicit wholesale price should NOT be overridden");
+    }
+
     // --- Update Tests ---
 
     @Test

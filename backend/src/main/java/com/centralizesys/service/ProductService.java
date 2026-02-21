@@ -127,6 +127,7 @@ public class ProductService {
     // Helper to centralize creation logic and bypass self-invocation issues
     private Product internalCreate(Product product) {
         validate(product);
+        applyWholesalePriceDefault(product);
         checkVariantCollision(product, null);
         return repository.save(product);
     }
@@ -134,6 +135,7 @@ public class ProductService {
     public void update(Long id, Product product) {
         // 1. Basic Validation
         validate(product);
+        applyWholesalePriceDefault(product);
 
         // 2. Fetch Existing Data
         Product existingProduct = repository.findById(id)
@@ -152,6 +154,16 @@ public class ProductService {
         // 4. Attach ID and Persist
         product.setId(id);
         repository.save(product);
+    }
+
+    /**
+     * Issue #15: If wholesale price is not provided, default to retail price.
+     * Applied in both create and update paths.
+     */
+    private void applyWholesalePriceDefault(Product product) {
+        if (product.getPrecioMayorista() == null) {
+            product.setPrecioMayorista(product.getPrecioMinorista());
+        }
     }
 
     // Extracted logic to avoid duplication

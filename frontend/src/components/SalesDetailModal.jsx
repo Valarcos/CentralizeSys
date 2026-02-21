@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import api from '../services/api'; // Import api
+import api from '../services/api';
 import { formatCurrency } from '../utils/format';
-import { generateReceipt } from '../utils/pdfGenerator'; // Import generator
+import { generateReceipt, generateDebtorReceipt } from '../utils/pdfGenerator';
+import toast from 'react-hot-toast';
 import '../pages/SalesHistoryPage.css';
 
-export default function SalesDetailModal({ sale, onClose }) {
+export default function SalesDetailModal({ sale, onClose, printMode = 'ticket', debtorInfo = null }) {
     const [paymentMethods, setPaymentMethods] = useState([]);
 
     useEffect(() => {
@@ -21,10 +22,9 @@ export default function SalesDetailModal({ sale, onClose }) {
 
     if (!sale) return null;
 
-    const handlePrint = () => {
+    const handlePrintTicket = () => {
         if (!sale || !paymentMethods.length) return;
 
-        // Map payments to include names
         const enrichedPayments = (sale.pagos || []).map(p => {
             const method = paymentMethods.find(m => m.id === p.metodoPagoId);
             return {
@@ -37,15 +37,11 @@ export default function SalesDetailModal({ sale, onClose }) {
             id: sale.id,
             date: sale.fecha,
             client: sale.clienteNombre,
-            user: 'Sistema', // Field not strictly in VentaResponse, defaulting
-
-            // VentaResponse from backend now includes tipoVenta (e.g., "MAYORISTA", "MINORISTA")
-            // We pass it to the PDF generator to show correct pricing context.
+            user: 'Sistema',
             saleType: sale.tipoVenta || 'ESTÁNDAR',
-
             items: (sale.items || []).map(d => ({
                 codigo: d.productoCodigo || d.codigoSnapshot,
-                descripcion: d.productoNombre || d.descripcionSnapshot, // Check field names in DetalleVenta
+                descripcion: d.productoNombre || d.descripcionSnapshot,
                 quantity: d.cantidad,
                 unitPrice: d.precioUnitario,
                 discount: d.descuentoValor || 0,
@@ -57,6 +53,49 @@ export default function SalesDetailModal({ sale, onClose }) {
         };
 
         generateReceipt(receiptData);
+    };
+
+    // Lazy-fetch: only called when user clicks the print button in debtor context
+    const handlePrintDeuda = async () => {
+        if (!sale || !debtorInfo) return;
+        try {
+            const pagosRes = await api.get(`/api/deudores/${debtorInfo.id}/pagos`);
+            const pagos = pagosRes.data;
+            const methods = paymentMethods;
+
+            const enrichedSalePayments = (sale.pagos || []).map(p => {
+                const method = methods.find(m => m.id === p.metodoPagoId);
+                return { name: method ? method.descripcion : 'Desconocido', amount: p.monto };
+            });
+
+            const debtorData = {
+                ventaId: debtorInfo.ventaId,
+                clienteNombre: debtorInfo.clienteNombre,
+                fechaDeuda: debtorInfo.fechaDeuda,
+                estado: debtorInfo.estado,
+                montoOriginal: debtorInfo.montoOriginal,
+                montoDeuda: debtorInfo.montoDeuda,
+                saleDate: sale.fecha,
+                user: sale.vendedorNombre || 'Sistema',
+                saleType: sale.tipoVenta || 'ESTÁNDAR',
+                items: (sale.items || []).map(d => ({
+                    codigo: d.productoCodigo || d.codigoSnapshot,
+                    descripcion: d.productoNombre || d.descripcionSnapshot,
+                    quantity: d.cantidad,
+                    unitPrice: d.precioUnitario,
+                    discount: d.descuentoValor || 0,
+                    subtotal: d.subtotal
+                })),
+                pagosDeuda: pagos,
+                salePayments: enrichedSalePayments,
+                globalDiscount: sale.descuentoGlobal || 0
+            };
+
+            generateDebtorReceipt(debtorData);
+        } catch (error) {
+            console.error('Error generating debtor PDF from modal:', error);
+            toast.error('Error al generar el PDF de deuda');
+        }
     };
 
     return (
@@ -105,12 +144,21 @@ export default function SalesDetailModal({ sale, onClose }) {
 
                 <div className="modal-actions">
                     <button onClick={onClose} className="btn-confirm secondary-action">Cerrar</button>
-                    <button
-                        onClick={handlePrint}
-                        className="btn-print primary-action"
-                    >
-                        🖨️ Imprimir Ticket
-                    </button>
+                    {printMode === 'debtor' ? (
+                        <button
+                            onClick={handlePrintDeuda}
+                            className="btn-print primary-action"
+                        >
+                            🖨️ Imprimir Deuda
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handlePrintTicket}
+                            className="btn-print primary-action"
+                        >
+                            🖨️ Imprimir Ticket
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

@@ -1,6 +1,7 @@
 package com.centralizesys.controller;
 
 import com.centralizesys.model.debt.DeudaResponse;
+import com.centralizesys.model.debt.PagoDeuda;
 import com.centralizesys.model.debt.PagoDeudaRequest;
 import com.centralizesys.service.DeudoresService;
 import org.springframework.http.ResponseEntity;
@@ -50,5 +51,10 @@ public class DeudoresController {
     @GetMapping("/expired")
     public ResponseEntity<List<DeudaResponse>> getExpiredDebts() {
         return ResponseEntity.ok(service.getExpiredDebts());
+    }
+
+    @GetMapping("/{id}/pagos")
+    public ResponseEntity<List<PagoDeuda>> getPagos(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getPagos(id));
     }
 }

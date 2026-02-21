@@ -1,19 +1,42 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// --- HELPERS ---
+
+/**
+ * Formats a number as $X,XXX,XXX.XX with thousand separators.
+ */
+const formatMoney = (val) => {
+    const num = (val || 0).toFixed(2);
+    return '$' + num.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+
+/**
+ * Formats a date string as YYYY-MM-DD without timezone shifts.
+ * JavaScript's `new Date("2026-02-18")` treats date-only strings as UTC,
+ * causing off-by-one errors in negative UTC offsets (e.g., UTC-3).
+ * This function extracts the date directly from the string to avoid that.
+ */
+const formatDateYMD = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    // If it contains YYYY-MM-DD anywhere, extract it directly (no Date parsing)
+    const match = String(dateStr).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+    // Fallback: parse with local time forced
+    const safe = String(dateStr).includes('T') ? dateStr : dateStr + 'T12:00:00';
+    const d = new Date(safe);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// --- SALE RECEIPT PDF ---
+
+/**
+ * Generates a sale receipt PDF (Ticket de Venta).
+ * Shows both the sale registration date and the PDF print date clearly.
+ */
 export const generateReceipt = (saleData) => {
     try {
-        // saleData: {
-        //   id: number,
-        //   date: string/Date,
-        //   client: string,
-        //   user: string,
-        //   saleType: string,
-        //   items: [{ codigo, descripcion, quantity, unitPrice, subtotal }],
-        //   payments: [{ name, amount }],
-        //   total: number
-        // }
-
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
 
@@ -23,10 +46,18 @@ export const generateReceipt = (saleData) => {
 
         doc.setFontSize(10);
         doc.text(`Venta ID: #${saleData.id}`, 14, 25);
-        doc.text(`Fecha: ${new Date().toLocaleString()}`, 14, 30);
-        doc.text(`Cliente: ${saleData.client || 'Consumidor Final'}`, 14, 35);
-        doc.text(`Vendedor: ${saleData.user || 'Sistema'}`, 14, 40);
-        doc.text(`Tipo Venta: ${saleData.saleType}`, 14, 45);
+        doc.text(`Fecha de Venta: ${formatDateYMD(saleData.date)}`, 14, 30);
+
+        // PDF print date (smaller, gray)
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(`Fecha de Impresión: ${formatDateYMD(new Date().toISOString())}`, 14, 35);
+        doc.setTextColor(0);
+        doc.setFontSize(10);
+
+        doc.text(`Cliente: ${saleData.client || 'Consumidor Final'}`, 14, 42);
+        doc.text(`Vendedor: ${saleData.user || 'Sistema'}`, 14, 47);
+        doc.text(`Tipo Venta: ${saleData.saleType}`, 14, 52);
 
         // --- TABLE 1: ITEMS ---
         const itemsBody = saleData.items.map(item => {
@@ -39,49 +70,327 @@ export const generateReceipt = (saleData) => {
                 item.codigo || 'N/A',
                 item.descripcion,
                 item.quantity,
-                `$${unitPrice.toFixed(2)}`,
-                discount > 0 ? `-$${discount.toFixed(2)}` : '-',
-                `$${subtotal.toFixed(2)}`
+                formatMoney(unitPrice),
+                discount > 0 ? `-${formatMoney(discount)}` : '-',
+                formatMoney(subtotal)
             ];
         });
 
         autoTable(doc, {
-            startY: 50,
+            startY: 57,
             head: [['Código', 'Descripción', 'Cant.', 'Precio', 'Desc.', 'Subtotal']],
             body: itemsBody,
             theme: 'grid',
-            headStyles: { fillColor: [0, 0, 0], textColor: 255 }, // Black Header
+            headStyles: { fillColor: [0, 0, 0], textColor: 255 },
             columnStyles: {
-                0: { cellWidth: 20 }, // Code
-                1: { cellWidth: 'auto' }, // Desc
-                2: { cellWidth: 12, halign: 'center' }, // Qty
-                3: { cellWidth: 20, halign: 'right' }, // Unit Price
-                4: { cellWidth: 20, halign: 'right', textColor: [200, 0, 0] }, // Discount
-                5: { cellWidth: 25, halign: 'right' }  // Subtotal
+                0: { cellWidth: 20 },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 12, halign: 'center' },
+                3: { cellWidth: 22, halign: 'right' },
+                4: { cellWidth: 22, halign: 'right' },
+                5: { cellWidth: 28, halign: 'right' }
             },
             styles: { fontSize: 9, cellPadding: 2 },
         });
 
-        // --- TABLE 2: PAYMENTS & TOTALS ---
-        let finalY = doc.lastAutoTable.finalY + 10;
+        // --- TABLE 2: DISCOUNTS SUMMARY (before payments, black header) ---
+        const discountRows = [];
+
+        saleData.items.forEach(item => {
+            const discount = item.discount || 0;
+            if (discount > 0) {
+                discountRows.push([
+                    `${item.descripcion} (x${item.quantity})`,
+                    `-${formatMoney(discount * item.quantity)}`
+                ]);
+            }
+        });
+
+        if (saleData.globalDiscount > 0) {
+            discountRows.push([
+                'Descuento Global',
+                `-${formatMoney(saleData.globalDiscount)}`
+            ]);
+        }
+
+        if (discountRows.length > 0) {
+            let discountY = doc.lastAutoTable.finalY + 10;
+
+            autoTable(doc, {
+                startY: discountY,
+                head: [['Descuento', 'Monto']],
+                body: discountRows,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+                columnStyles: {
+                    0: { cellWidth: 'auto' },
+                    1: { cellWidth: 40, halign: 'right' }
+                },
+                styles: { fontSize: 9, cellPadding: 2 },
+            });
+        }
+
+        // --- TABLE 3: PAYMENT METHODS (blue header) ---
+        let payY = doc.lastAutoTable.finalY + 10;
 
         const paymentsBody = saleData.payments.map(p => [
             p.name,
-            `$${p.amount.toFixed(2)}`
+            formatMoney(p.amount)
         ]);
 
-        // Add Global Discount if exists
-        if (saleData.globalDiscount > 0) {
-            paymentsBody.push(['Descuento Global', `-$${saleData.globalDiscount.toFixed(2)}`]);
-        }
+        autoTable(doc, {
+            startY: payY,
+            head: [['Método de Pago', 'Monto']],
+            body: paymentsBody,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 80, 160], textColor: 255 },
+            columnStyles: {
+                0: { cellWidth: 'auto' },
+                1: { cellWidth: 40, halign: 'right' }
+            },
+            styles: { fontSize: 9, cellPadding: 2 },
+        });
 
-        // Add Total Row to Payment Table
-        paymentsBody.push(['TOTAL VENTA', `$${(saleData.total).toFixed(2)}`]);
+        // --- TOTAL ---
+        let finalY = doc.lastAutoTable.finalY + 8;
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text(`TOTAL VENTA: ${formatMoney(saleData.total)}`, pageWidth - 14, finalY, { align: 'right' });
 
         // Save
         doc.save(`Ticket_Venta_${saleData.id}.pdf`);
     } catch (error) {
         console.error("Error generating PDF:", error);
         alert("Error al generar el PDF. Revise la consola.");
+    }
+};
+
+
+// --- DEBTOR RECEIPT PDF ---
+
+/**
+ * Generates a debtor receipt PDF (Comprobante de Deuda).
+ *
+ * @param {Object} debtorData
+ * @param {number} debtorData.ventaId
+ * @param {string} debtorData.clienteNombre
+ * @param {string} debtorData.fechaDeuda
+ * @param {string} debtorData.estado - PENDIENTE | PARCIAL | PAGADO
+ * @param {number} debtorData.montoOriginal
+ * @param {number} debtorData.montoDeuda - Current remaining debt
+ * @param {string} debtorData.saleDate
+ * @param {string} debtorData.user - Vendedor
+ * @param {string} debtorData.saleType - Tipo de Venta
+ * @param {Array}  debtorData.items
+ * @param {Array}  debtorData.pagosDeuda - [{fechaPago, metodoPagoNombre, monto}]
+ * @param {Array}  debtorData.salePayments - [{name, amount}]
+ * @param {number} debtorData.globalDiscount
+ */
+export const generateDebtorReceipt = (debtorData) => {
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+
+        // --- HEADER ---
+        doc.setFontSize(18);
+        doc.setFont(undefined, 'bold');
+        doc.text("COMPROBANTE DE DEUDA", pageWidth / 2, 15, { align: 'center' });
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text(`ID Venta: #${debtorData.ventaId}`, 14, 25);
+        doc.text(`Fecha de Venta: ${formatDateYMD(debtorData.saleDate)}`, 14, 30);
+
+        // Print date (smaller, gray)
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(`Fecha de Impresión: ${formatDateYMD(new Date().toISOString())}`, 14, 35);
+        doc.setTextColor(0);
+        doc.setFontSize(10);
+
+        doc.text(`Cliente: ${debtorData.clienteNombre}`, 14, 42);
+        doc.text(`Vendedor: ${debtorData.user || 'Sistema'}`, 14, 47);
+        doc.text(`Tipo Venta: ${debtorData.saleType || 'ESTÁNDAR'}`, 14, 52);
+
+        // Estado with color coding
+        const estadoText = `Estado: ${debtorData.estado}`;
+        if (debtorData.estado === 'PAGADO') {
+            doc.setTextColor(0, 128, 0);
+        } else if (debtorData.estado === 'PARCIAL') {
+            doc.setTextColor(200, 120, 0);
+        } else {
+            doc.setTextColor(200, 0, 0);
+        }
+        doc.setFont(undefined, 'bold');
+        doc.text(estadoText, 14, 57);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(0);
+
+        // --- TABLE 1: ITEMS ---
+        const itemsBody = debtorData.items.map(item => {
+            const unitPrice = item.unitPrice || 0;
+            const discount = item.discount || 0;
+            const finalUnit = Math.max(0, unitPrice - discount);
+            const subtotal = finalUnit * item.quantity;
+
+            return [
+                item.codigo || 'N/A',
+                item.descripcion,
+                item.quantity,
+                formatMoney(unitPrice),
+                discount > 0 ? `-${formatMoney(discount)}` : '-',
+                formatMoney(subtotal)
+            ];
+        });
+
+        autoTable(doc, {
+            startY: 62,
+            head: [['Código', 'Descripción', 'Cant.', 'Precio', 'Desc.', 'Subtotal']],
+            body: itemsBody,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+            columnStyles: {
+                0: { cellWidth: 20 },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 12, halign: 'center' },
+                3: { cellWidth: 22, halign: 'right' },
+                4: { cellWidth: 22, halign: 'right' },
+                5: { cellWidth: 28, halign: 'right' }
+            },
+            styles: { fontSize: 9, cellPadding: 2 },
+        });
+
+        // --- TABLE 2: DISCOUNTS SUMMARY (black header, black font) ---
+        const discountRows = [];
+
+        debtorData.items.forEach(item => {
+            const discount = item.discount || 0;
+            if (discount > 0) {
+                discountRows.push([
+                    `${item.descripcion} (x${item.quantity})`,
+                    `-${formatMoney(discount * item.quantity)}`
+                ]);
+            }
+        });
+
+        if (debtorData.globalDiscount > 0) {
+            discountRows.push([
+                'Descuento Global',
+                `-${formatMoney(debtorData.globalDiscount)}`
+            ]);
+        }
+
+        if (discountRows.length > 0) {
+            let discountY = doc.lastAutoTable.finalY + 10;
+
+            autoTable(doc, {
+                startY: discountY,
+                head: [['Descuento', 'Monto']],
+                body: discountRows,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+                columnStyles: {
+                    0: { cellWidth: 'auto' },
+                    1: { cellWidth: 40, halign: 'right' }
+                },
+                styles: { fontSize: 9, cellPadding: 2 },
+            });
+        }
+
+        // --- TABLE 3: HISTORIAL DE PAGOS (Sale Payments + Debt Payments unified) ---
+        let pagosY = doc.lastAutoTable.finalY + 10;
+
+        // Merge original sale payments (using sale date) with debt payments (using fechaPago)
+        const salePayments = (debtorData.salePayments || []).map(p => ({
+            date: debtorData.saleDate || debtorData.fechaDeuda,
+            method: p.name,
+            amount: p.amount || 0,
+            type: 'Venta'
+        }));
+
+        const debtPayments = (debtorData.pagosDeuda || []).map(p => ({
+            date: p.fechaPago,
+            method: p.metodoPagoNombre || 'Desconocido',
+            amount: p.monto || 0,
+            type: 'Pago Deuda'
+        }));
+
+        const allPayments = [...salePayments, ...debtPayments].sort((a, b) => {
+            return new Date(a.date || 0) - new Date(b.date || 0);
+        });
+
+        const totalPagado = allPayments.reduce((sum, p) => sum + p.amount, 0);
+
+        if (allPayments.length > 0) {
+            const pagosBody = allPayments.map(p => [
+                formatDateYMD(p.date),
+                p.method,
+                p.type,
+                formatMoney(p.amount)
+            ]);
+
+            autoTable(doc, {
+                startY: pagosY,
+                head: [['Fecha', 'Método de Pago', 'Concepto', 'Monto']],
+                body: pagosBody,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 80, 160], textColor: 255 },
+                columnStyles: {
+                    0: { cellWidth: 30 },
+                    1: { cellWidth: 'auto' },
+                    2: { cellWidth: 30, fontStyle: 'italic' },
+                    3: { cellWidth: 30, halign: 'right' }
+                },
+                styles: { fontSize: 9, cellPadding: 2 },
+                foot: [['', '', 'TOTAL PAGADO', formatMoney(totalPagado)]],
+                footStyles: { fillColor: [220, 235, 250], textColor: [0, 0, 0], fontStyle: 'bold' },
+            });
+        } else {
+            doc.setFontSize(9);
+            doc.setTextColor(120);
+            doc.text("No se han registrado pagos.", 14, pagosY);
+            doc.setTextColor(0);
+        }
+
+        // --- DEBT SUMMARY BOX ---
+        const summaryY = (allPayments.length > 0 ? doc.lastAutoTable.finalY : pagosY) + 12;
+        const montoOriginal = debtorData.montoOriginal || 0;
+        const montoDeuda = debtorData.montoDeuda || 0;
+
+        // Draw a bordered box
+        const boxX = 14;
+        const boxW = pageWidth - 28;
+        const boxH = 32;
+
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.5);
+        doc.rect(boxX, summaryY, boxW, boxH);
+
+        // Box title
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text("RESUMEN DE DEUDA", boxX + 4, summaryY + 7);
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Monto Original de Venta:`, boxX + 4, summaryY + 14);
+        doc.text(formatMoney(montoOriginal), boxX + boxW - 4, summaryY + 14, { align: 'right' });
+
+        doc.setTextColor(0, 128, 0);
+        doc.text(`Total Pagado:`, boxX + 4, summaryY + 21);
+        doc.text(formatMoney(totalPagado), boxX + boxW - 4, summaryY + 21, { align: 'right' });
+
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(200, 0, 0);
+        doc.setFontSize(12);
+        doc.text(`DEUDA PENDIENTE:`, boxX + 4, summaryY + 28);
+        doc.text(formatMoney(montoDeuda), boxX + boxW - 4, summaryY + 28, { align: 'right' });
+        doc.setTextColor(0);
+
+        // Save
+        doc.save(`Comprobante_Deuda_Venta_${debtorData.ventaId}.pdf`);
+    } catch (error) {
+        console.error("Error generating debtor PDF:", error);
+        alert("Error al generar el PDF de deuda. Revise la consola.");
     }
 };

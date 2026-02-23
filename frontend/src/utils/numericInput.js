@@ -47,3 +47,25 @@ export const sanitizeIntegerPaste = (e) => {
     const cleaned = e.clipboardData.getData('text').replace(/[^0-9]/g, '');
     document.execCommand('insertText', false, cleaned);
 };
+
+/**
+ * Enforce max 2 decimal places for MONEY inputs.
+ * Strips non-numeric chars (except '.'), ensures single decimal point,
+ * and limits to 2 digits after the decimal. No rounding — just truncates input.
+ * Use this in onChange handlers for all money-related inputs.
+ */
+export const enforceMoneyFormat = (value) => {
+    // Strip everything except digits and dots
+    let cleaned = value.replace(/[^0-9.]/g, '');
+    // Ensure only one decimal point
+    const dotIndex = cleaned.indexOf('.');
+    if (dotIndex !== -1) {
+        cleaned = cleaned.substring(0, dotIndex + 1) + cleaned.substring(dotIndex + 1).replace(/\./g, '');
+    }
+    // Limit to 2 digits after decimal
+    const parts = cleaned.split('.');
+    if (parts.length === 2 && parts[1].length > 2) {
+        cleaned = parts[0] + '.' + parts[1].substring(0, 2);
+    }
+    return cleaned;
+};

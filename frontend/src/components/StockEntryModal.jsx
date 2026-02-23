@@ -3,7 +3,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import VariantConfirmationModal from './VariantConfirmationModal';
 import ProductFormModal from './ProductFormModal';
-import { blockNonIntegerKeys, blockNonNumericKeys, sanitizeIntegerPaste, sanitizeNumericPaste } from '../utils/numericInput';
+import { blockNonIntegerKeys, blockNonNumericKeys, sanitizeIntegerPaste, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './StockEntryModal.css';
 
 export default function StockEntryModal({ onClose, onSuccess }) {
@@ -25,6 +25,9 @@ export default function StockEntryModal({ onClose, onSuccess }) {
     const [showProductForm, setShowProductForm] = useState(false);
     const [variantSourceProduct, setVariantSourceProduct] = useState(null);
     const [isNewProductContext, setIsNewProductContext] = useState(false); // Track if creating brand new product
+
+    // Mobile Tab State (datos | items)
+    const [activeTab, setActiveTab] = useState('datos');
 
     useEffect(() => {
         // Fetch Locations
@@ -216,8 +219,8 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                 </div>
 
                 <div className="modal-body-layout">
-                    {/* LEFT: Search & Inputs */}
-                    <div className="left-panel">
+                    {/* LEFT: Search & Inputs (Datos Tab on Mobile) */}
+                    <div className={`left-panel ${activeTab === 'datos' ? 'active-tab' : ''}`}>
                         <div className="form-group-row">
                             <input
                                 className="provider-input"
@@ -273,8 +276,8 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                         </div>
                     </div>
 
-                    {/* RIGHT: List */}
-                    <div className="right-panel">
+                    {/* RIGHT: List (Items Tab on Mobile) */}
+                    <div className={`right-panel ${activeTab === 'items' ? 'active-tab' : ''}`}>
                         <h3>Items a Ingresar ({draftItems.length})</h3>
                         <div className="draft-list-scroll">
                             {draftItems.map((item, i) => (
@@ -305,7 +308,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                                                 value={item.cost}
                                                 onBlur={e => updateItem(i, 'cost', e.target.value)}
                                                 onChange={e => {
-                                                    const val = e.target.value.replace(/[^0-9.]/g, '');
+                                                    const val = enforceMoneyFormat(e.target.value);
                                                     const newItems = [...draftItems];
                                                     newItems[i].cost = val;
                                                     setDraftItems(newItems);
@@ -331,6 +334,26 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                             </button>
                         </div>
                     </div>
+                </div>
+
+                {/* Mobile Tabs Navigation (Visible only on mobile) */}
+                <div className="mobile-tabs">
+                    <button
+                        className={`modal-tab-btn ${activeTab === 'datos' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('datos')}
+                        type="button"
+                    >
+                        <span className="icon">📋</span>
+                        <span className="label">Datos</span>
+                    </button>
+                    <button
+                        className={`modal-tab-btn ${activeTab === 'items' ? 'active' : ''}`}
+                        onClick={() => setActiveTab('items')}
+                        type="button"
+                    >
+                        <span className="icon">📦</span>
+                        <span className="label">Items ({draftItems.length})</span>
+                    </button>
                 </div>
             </div>
 

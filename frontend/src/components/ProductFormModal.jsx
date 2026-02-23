@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
-import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste } from '../utils/numericInput';
+import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './ProductFormModal.css';
 
 /**
@@ -63,7 +63,10 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        // Enforce 2-decimal limit on money/price fields
+        const moneyFields = ['precioCosto', 'precioMayorista', 'precioMinorista'];
+        const sanitized = moneyFields.includes(name) ? enforceMoneyFormat(value) : value;
+        setFormData(prev => ({ ...prev, [name]: sanitized }));
 
         // Clear error when field is edited
         if (errors[name]) {

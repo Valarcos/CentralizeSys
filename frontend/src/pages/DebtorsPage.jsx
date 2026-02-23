@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useBlocker } from 'react-router-dom';
 import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/format';
 import toast from 'react-hot-toast';
 import SalesDetailModal from '../components/SalesDetailModal';
 import { generateDebtorReceipt } from '../utils/pdfGenerator';
-import { blockNonNumericKeys, sanitizeNumericPaste } from '../utils/numericInput';
+import { blockNonNumericKeys, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './SalesHistoryPage.css'; // Reusing CSS
 
 export default function DebtorsPage() {
@@ -24,6 +25,19 @@ export default function DebtorsPage() {
     const [selectedMethodId, setSelectedMethodId] = useState('');
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentNote, setPaymentNote] = useState('');
+
+    // Issue #63: Warn user before navigating away with unconfirmed payments
+    const blocker = useBlocker(showPayModal && payments.length > 0);
+    useEffect(() => {
+        if (blocker.state === 'blocked') {
+            const leave = window.confirm('⚠️ ¿Desea salir?\n\nTiene pagos sin confirmar que se perderán si abandona esta página.');
+            if (leave) {
+                blocker.proceed();
+            } else {
+                blocker.reset();
+            }
+        }
+    }, [blocker]);
 
     useEffect(() => {
         fetchDebtors();
@@ -265,7 +279,10 @@ export default function DebtorsPage() {
             {showPayModal && selectedDebtor && (
                 <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '600px' }}>
-                        <h3>Registrar Pago</h3>
+                        {/* Issue #23 1.1: Colored header */}
+                        <div style={{ backgroundColor: 'var(--color-primary)', color: 'white', padding: '0.8rem 1rem', margin: '-1rem -1rem 0.8rem -1rem', borderRadius: '8px 8px 0 0' }}>
+                            <h3 style={{ margin: 0, color: 'white' }}>Registrar Pago</h3>
+                        </div>
                         <p>Cliente: <strong>{selectedDebtor.clienteNombre}</strong></p>
                         <p>Deuda Total: <strong>${selectedDebtor.montoDeuda.toFixed(2)}</strong></p>
                         <p>Restante a Pagar: <strong style={{ color: remainingDebt === 0 ? 'green' : 'red' }}>${remainingDebt.toFixed(2)}</strong></p>
@@ -275,7 +292,6 @@ export default function DebtorsPage() {
                                 value={selectedMethodId}
                                 onChange={(e) => {
                                     setSelectedMethodId(e.target.value);
-                                    // Auto-fill amount if empty?
                                     if (remainingDebt > 0 && !paymentAmount) setPaymentAmount(remainingDebt.toFixed(2));
                                 }}
                                 style={{ padding: '8px' }}
@@ -292,7 +308,7 @@ export default function DebtorsPage() {
                                 placeholder="Monto"
                                 value={paymentAmount}
                                 onChange={(e) => {
-                                    const val = e.target.value.replace(/[^0-9.]/g, '');
+                                    const val = enforceMoneyFormat(e.target.value);
                                     setPaymentAmount(val);
                                 }}
                                 onKeyDown={blockNonNumericKeys}
@@ -307,21 +323,29 @@ export default function DebtorsPage() {
                             onChange={(e) => setPaymentNote(e.target.value)}
                             style={{ width: '100%', marginBottom: '10px', padding: '8px' }}
                         />
+                        {/* Issue #23 1.2: Styled Agregar button */}
                         <button
                             onClick={handleAddPayment}
-                            style={{ width: '100%', marginBottom: '20px', backgroundColor: '#6c757d' }}
+                            style={{ width: '100%', marginBottom: '15px', backgroundColor: '#6c757d', color: 'white', border: '2px solid #5a6268' }}
                             disabled={!selectedMethodId || !paymentAmount}
                         >
                             ➕ Agregar Pago
                         </button>
 
-                        {/* Payment Stack List */}
+                        {/* Payment Stack List with Issue #23 1.4: Row differentiation */}
                         {payments.length > 0 && (
-                            <div style={{ marginBottom: '20px', border: '1px solid #ddd', padding: '10px', borderRadius: '4px' }}>
+                            <div style={{ marginBottom: '15px', border: '1px solid #ddd', padding: '10px', borderRadius: '4px' }}>
                                 <h5>Pagos a Registrar:</h5>
                                 <ul style={{ listStyle: 'none', padding: 0 }}>
                                     {payments.map((p, idx) => (
-                                        <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', padding: '5px 0' }}>
+                                        <li key={idx} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            borderBottom: '1px solid #eee',
+                                            padding: '5px 4px',
+                                            backgroundColor: idx % 2 === 0 ? '#f8f9fa' : 'white'
+                                        }}>
                                             <span>{p.methodName} {p.observaciones ? `(${p.observaciones})` : ''} - <strong>${p.amount.toFixed(2)}</strong></span>
                                             <button
                                                 onClick={() => handleRemovePayment(idx)}
@@ -338,9 +362,10 @@ export default function DebtorsPage() {
                             </div>
                         )}
 
+                        {/* Issue #23 1.2 & 1.3: Styled and disabled buttons */}
                         <div className="modal-actions">
-                            <button onClick={handleRegisterPayment} disabled={payments.length === 0}>Confirmar Pago</button>
-                            <button onClick={() => setShowPayModal(false)}>Cancelar</button>
+                            <button className="primary" onClick={handleRegisterPayment} disabled={payments.length === 0}>Confirmar Pago</button>
+                            <button className="secondary" onClick={() => setShowPayModal(false)}>Cancelar</button>
                         </div>
                     </div>
                 </div>

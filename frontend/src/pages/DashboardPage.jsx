@@ -14,6 +14,33 @@ export default function DashboardPage() {
     const [systemAlerts, setSystemAlerts] = useState([]);
     const navigate = useNavigate();
 
+    // Helper: Is current time within a stock warning window? (7:00-11:00 or 17:00-21:00)
+    const isInWarningWindow = () => {
+        const hour = new Date().getHours();
+        return (hour >= 7 && hour < 11) || (hour >= 17 && hour < 21);
+    };
+
+    // Helper: Should stock alert be shown?
+    // Shows on first load (login clears sessionStorage), and re-shows during warning windows
+    const shouldShowStockAlert = () => {
+        const dismissed = sessionStorage.getItem('stockAlertDismissed');
+        if (!dismissed) return true; // Never dismissed this session → show (login case)
+        // If dismissed, only re-show during warning time windows
+        if (isInWarningWindow()) {
+            const dismissedAt = parseInt(dismissed, 10);
+            const now = Date.now();
+            // Re-show if dismissed more than 30 minutes ago (prevent instant re-pop)
+            return (now - dismissedAt) > 30 * 60 * 1000;
+        }
+        return false;
+    };
+
+    // Handler: Dismiss stock alert and record timestamp
+    const handleDismissStockAlert = () => {
+        sessionStorage.setItem('stockAlertDismissed', Date.now().toString());
+        setShowMorningAlert(false);
+    };
+
     useEffect(() => {
         setUserName(localStorage.getItem('userName') || 'Usuario');
         setUserRole(localStorage.getItem('userRole') || 'EMPLEADO');
@@ -27,10 +54,12 @@ export default function DashboardPage() {
                     api.get('/api/system/alerts').catch(() => ({ data: { alerts: [] } }))
                 ]);
 
-                // Low Stock Alerts
+                // Low Stock Alerts — show based on session + time window rules
                 if (stockRes.data && stockRes.data.length > 0) {
                     setLowStockProducts(stockRes.data);
-                    setShowMorningAlert(true);
+                    if (shouldShowStockAlert()) {
+                        setShowMorningAlert(true);
+                    }
                 }
 
                 // Debtor Logic
@@ -63,7 +92,7 @@ export default function DashboardPage() {
         // Initial Load
         fetchDashboardData();
 
-        // Smart Timer: Check clock every minute, but only trigger API at specific hours
+        // Smart Timer: Check clock every minute, trigger at specific hours
         const targetHours = [8, 10, 12, 14, 16, 18, 20];
         let lastCheckedHour = new Date().getHours();
 
@@ -71,15 +100,11 @@ export default function DashboardPage() {
             const now = new Date();
             const currentHour = now.getHours();
 
-            // Logic:
-            // 1. Is it a target hour?
-            // 2. Have we already checked this hour? (Prevent infinite loops in that hour)
             if (targetHours.includes(currentHour) && currentHour !== lastCheckedHour) {
                 console.log(`⏰ Triggering Scheduled Stock Check at ${currentHour}:00`);
                 fetchDashboardData();
                 lastCheckedHour = currentHour;
             }
-            // Reset tracker if hour changes to a non-target hour (so next target hits)
             else if (currentHour !== lastCheckedHour) {
                 lastCheckedHour = currentHour;
             }
@@ -220,8 +245,8 @@ export default function DashboardPage() {
                 showMorningAlert && (
                     <StockWarningModal
                         affectedProducts={lowStockProducts}
-                        onClose={() => setShowMorningAlert(false)}
-                        onContinue={() => setShowMorningAlert(false)}
+                        onClose={handleDismissStockAlert}
+                        onContinue={handleDismissStockAlert}
                     />
                 )
             }

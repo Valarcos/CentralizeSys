@@ -2,607 +2,229 @@
 
 **Sistema de Punto de Venta e Inventario** diseñado para usuarios de edad avanzada, con interfaz de alto contraste y tipografía grande siguiendo estándares WCAG AAA.
 
+Este documento proporciona todo lo necesario para iniciar y ejecutar el proyecto **desde cero** en una computadora nueva, paso a paso, tanto para entornos **Windows** como **Ubuntu**.
+
 ---
 
-## 🚀 Inicio Rápido
+## 🚀 Instalación desde Cero (De 0 a 100%)
 
-### Requisitos Previos
+Seleccione su Sistema Operativo para ver la guía de instalación paso a paso. Se asume que la computadora está limpia y no tiene herramientas previas instaladas.
 
-Antes de comenzar, asegúrese de tener instalado:
+### 🪟 Guía de Configuración para Windows
 
-1. **Java 21 (LTS)** - [Descargar OpenJDK 21](https://adoptium.net/)
-   ```bash
-   java -version
-   # Debe mostrar: java version "21.x.x"
-   ```
-
-2. **Node.js 20.19+ (LTS)** - [Descargar Node.js](https://nodejs.org/)
-   ```bash
-   node -version
-   # Debe mostrar: v20.19.x o superior (Requerido por Vite 6+)
-   ```
-
-3. **Git** - [Descargar Git](https://git-scm.com/)
-   ```bash
+**Paso 1: Instalar Git**
+Git es la herramienta necesaria para descargar el código fuente.
+1. Descargue el instalador de Git desde: https://git-scm.com/download/win
+2. Ejecute el instalador `.exe` descargado (las opciones por defecto del instalador están bien, simplemente presione "Siguiente" hasta finalizar).
+3. **Verificación:** Abra una nueva ventana de PowerShell (Búsqueda de Windows -> "PowerShell") y escriba:
+   ```powershell
    git --version
+   # Debe mostrar algo como: git version 2.4x.x.windows.1
    ```
 
----
-
-## 📦 Instalación
-
-### 1. Clonar el Repositorio
-
-```bash
-git clone https://github.com/Valarcos/sinpen_thesis.git
-cd sinpen_thesis
-```
-
-### 2. Configurar Backend (Spring Boot + SQLite)
-
-#### A. Verificar Gradle Wrapper
-
-El proyecto incluye Gradle Wrapper - **no es necesario instalar Gradle manualmente**.
-
-```bash
-cd backend
-```
-
-#### B. Crear Directorios Necesarios
-
-El backend requiere estos directorios (se crean automáticamente en el primer arranque, pero puede crearlos manualmente):
-
-```bash
-# PowerShell (Windows)
-New-Item -ItemType Directory -Force -Path ..\data
-New-Item -ItemType Directory -Force -Path ..\logs
-
-# Bash (Linux/Mac)
-mkdir -p ../data ../logs
-```
-
-#### C. Variables de Entorno (Opcional)
-
-El backend funciona con valores por defecto. Para producción, configure:
-
-```properties
-# No es necesario crear archivo .env para desarrollo local
-# El backend usa application.properties con valores predeterminados
-
-# Para PRODUCCIÓN, configure estas variables de entorno:
-# JWT_SECRET=<su-clave-secreta-de-512-bits>
-# JWT_EXPIRATION_MS=604800000  # 7 días en milisegundos
-# CORS_ALLOWED_ORIGINS=http://localhost:5173,https://su-dominio.com
-```
-
-#### D. Compilar y Ejecutar Backend
-
-```bash
-# Compilar el proyecto
-./gradlew build
-
-# Ejecutar servidor (http://localhost:8080)
-./gradlew bootRun
-```
-
-**Verificación**: Abra un navegador en `http://localhost:8080/api/auth/login`
-
-Si ve este mensaje JSON, el servidor está corriendo correctamente:
-```json
-{
-  "status": 500,
-  "message": "An unexpected error occurred: Request method 'GET' is not supported",
-  "timestamp": ...
-}
-```
-
-> **Nota**: Este error es esperado porque `/api/auth/login` solo acepta peticiones POST (el navegador envía GET). El frontend usa POST correctamente.
-
-#### E. Ejecutar Tests
-
-```bash
-# Ejecutar todos los tests
-./gradlew test
-
-# Ver resultados en: backend/build/reports/tests/test/index.html
-```
-
-#### F. Logs y Depuración de Errores
-
-El backend utiliza SLF4J para logging. **Todos los errores técnicos se registran en la consola**, mientras que los usuarios ven mensajes amigables en español.
-
-##### ¿Dónde ver los logs?
-
-1. **Consola de ejecución**: Al ejecutar `./gradlew bootRun` o desde IntelliJ, los logs aparecen en la terminal
-2. **IntelliJ IDEA**: Ventana "Run" → pestaña "Console"
-3. **Nivel de log**: Por defecto es `INFO`. Para más detalle, agregue a `application.properties`:
-   ```properties
-   logging.level.com.centralizesys=DEBUG
+**Paso 2: Instalar Java (OpenJDK 21 - LTS)**
+Java es necesario para compilar y ejecutar el servidor Backend (La lógica y base de datos).
+1. Descargue el instalador `.msi` de OpenJDK 21 desde Adoptium: https://adoptium.net/temurin/releases/?version=21 (Asegúrese de elegir el de Windows x64 .msi).
+2. Ejecute el instalador `.msi`. **Muy Importante:** Durante la instalación, en la pantalla de "Custom Setup" (Configuración Personalizada), haga clic en la "X" roja al lado de **"Set JAVA_HOME variable"** y cámbiela a "Will be installed on local hard drive" (Se instalará en el disco duro local).
+3. **Verificación:** Abra una **NUEVA** ventana de PowerShell (cierre la anterior para que Windows cargue las nuevas variables) y escriba:
+   ```powershell
+   java -version
+   # Debe mostrar: openjdk version "21.0.x"
    ```
 
-##### Formato de logs de error
+**Paso 3: Instalar Node.js (v20 o superior)**
+Node.js es necesario para descargar las librerías, compilar y ejecutar la interfaz visual (Frontend).
+1. Descargue el instalador `.msi` (Versión LTS recomendada) desde: https://nodejs.org/es
+2. Ejecute el instalador y siga las instrucciones (las opciones por defecto son correctas).
+3. **Verificación:** Abra PowerShell y escriba:
+   ```powershell
+   node --version
+   # Debe mostrar: v20.x.x o superior
+   npm --version
+   # Debe mostrar: 10.x.x o superior
+   ```
 
-```
-2026-02-06 17:00:15 ERROR c.c.exception.GlobalExceptionHandler - DATA INTEGRITY VIOLATION: UNIQUE constraint failed: productos.codigo, precio_costo, precio_minorista
-2026-02-06 17:00:16 ERROR c.c.exception.GlobalExceptionHandler - SQL SYNTAX ERROR - SQL: SELECT * FORM productos, Message: ...
-2026-02-06 17:00:17 WARN  c.c.exception.GlobalExceptionHandler - DATABASE LOCK: Database is locked
-```
-
-##### Mapeo de errores SQLite → Excepciones Spring
-
-El archivo `sql-error-codes.xml` traduce errores SQLite a excepciones Spring:
-
-| Código SQLite | Significado | Excepción Spring |
-|--------------|-------------|------------------|
-| 19, 2067, 787, 1555 | Violación de constraints | `DataIntegrityViolationException` |
-| 1 | Error de sintaxis SQL | `BadSqlGrammarException` |
-| 5, 6 | Base de datos bloqueada | `CannotAcquireLockException` |
-| 10, 11, 13, 14 | Error de disco/I/O | `DataAccessResourceFailureException` |
-
----
-
-
-### 3. Configurar Frontend (React + Vite)
-
-#### A. Navegar al Directorio Frontend
-
-```bash
-cd ../frontend
-```
-
-**Nota**: Si el directorio `frontend` no existe, se creará en Sprint 2. Para desarrollo actual, use solo el backend.
-
-#### B. Instalar Dependencias
-
-```bash
-npm install
-```
-
-Esto instalará:
-- React 19 & React Router v7
-- Axios (cliente HTTP)
-- React Hot Toast (notificaciones)
-- **jsPDF & jsPDF-AutoTable** (Generación de Tickets PDF)
-- **Vitest & Happy-DOM** (Testing Unitario)
-- Vite (build tool)
-
-> **Nota**: Si encuentra errores de dependencias faltantes (ej: `jspdf`), elimine `node_modules` y ejecute `npm install` nuevamente.
-
-#### C. Crear Archivo de Variables de Entorno
-
-Cree un archivo `.env` en `frontend/`:
-
-```bash
-# PowerShell
-New-Item -ItemType File -Path .env
-
-# Bash
-touch .env
-```
-
-Contenido de `frontend/.env`:
-
-```env
-# URL del backend (desarrollo local)
-VITE_API_URL=http://localhost:8080
-
-# Para producción con Cloudflare Tunnel:
-# VITE_API_URL=https://your-backend-tunnel.trycloudflare.com
-```
-
-**IMPORTANTE**: Vite requiere el prefijo `VITE_` para exponer variables al cliente.
-
-#### D. Ejecutar Frontend
-
-```bash
-# Iniciar servidor de desarrollo (http://localhost:5173)
-npm run dev
-```
-
-El servidor estará disponible en:
-- Local: `http://localhost:5173`
-- Red (LAN): `http://<su-ip-local>:5173`
+**Paso 4: Descargar el Proyecto y Ejecutar**
+Con las herramientas instaladas, ahora descargaremos y encenderemos el sistema.
+1. Abra PowerShell, navegue a la carpeta donde desea guardar el proyecto (por ejemplo, su carpeta de Documentos) y descargue el código:
+   ```powershell
+   cd ~/Documents
+   git clone https://github.com/Valarcos/sinpen_thesis.git
+   cd sinpen_thesis
+   ```
+2. **Encender el Backend (Base de datos y Servidor):** En esa misma ventana de PowerShell, ejecute:
+   ```powershell
+   cd backend
+   # El primer arranque tardará un poco porque descargará dependencias automáticamente usando Gradle.
+   ./gradlew bootRun
+   ```
+   *Nota: Si Windows Defender le pregunta sobre el firewall de Java, haga clic en "Permitir acceso".* El servidor quedará encendido esperando conexiones en la dirección `http://localhost:8080`.
+3. **Encender el Frontend (Interfaz Visual):** Abra una **NUEVA** y segunda ventana de PowerShell dejando la anterior abierta. Navegue al proyecto y ejecute:
+   ```powershell
+   cd ~/Documents/sinpen_thesis/frontend
+   npm install
+   # Para iniciar la página web:
+   npm run dev
+   ```
+   *¡Listo! La interfaz visual estará disponible y funcionando en su navegador web en la dirección: `http://localhost:5173`*
 
 ---
 
-## 🏃‍♂️ Ejecutar el Sistema Completo
+### 🐧 Guía de Configuración para Ubuntu (Linux)
 
-### Opción 1: Dos Terminales
+Esta guía asume una instalación fresca de Ubuntu Desktop o Ubuntu Server. Estas instrucciones están diseñadas para copiarse y pegarse directamente en la terminal.
 
-**Terminal 1 - Backend**:
+**Paso 1: Actualizar el Sistema**
+Asegúrese de que el sistema operativo tenga las librerías básicas actualizadas.
 ```bash
-cd backend
-./gradlew bootRun
+sudo apt update && sudo apt upgrade -y
 ```
 
-**Terminal 2 - Frontend**:
+**Paso 2: Instalar Git**
+Git es necesario para descargar el código fuente.
 ```bash
-cd frontend
-npm run dev
+sudo apt install git -y
+# Verificación:
+git --version
+# Debe mostrar: git version 2.x.x
 ```
 
-### Opción 2: Script de Inicio (Próximamente)
+**Paso 3: Instalar Java (OpenJDK 21)**
+El backend de Spring Boot requiere explícitamente Java versión 21 (LTS).
+```bash
+# Ubuntu 24.04+ (Noble Numbat) incluye openjdk-21 en sus repositorios nativos. Pruebe primero:
+sudo apt install openjdk-21-jdk -y
 
-Se creará un script `start.bat` (Windows) / `start.sh` (Linux/Mac) para iniciar ambos servicios automáticamente.
+# Si ocurre un error porque su Ubuntu es más antiguo, instálelo desde el repositorio oficial de Adoptium:
+sudo apt install wget apt-transport-https gnupg -y
+wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/adoptium.gpg
+echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | sudo tee /etc/apt/sources.list.d/adoptium.list
+sudo apt update && sudo apt install temurin-21-jdk -y
+
+# Verificación:
+java -version
+# Debe mostrar: openjdk version "21.0.x"
+```
+
+**Paso 4: Instalar Node.js (v20 LTS)**
+La herramienta del frontend (Vite) requiere una versión de Node.js reciente. Usaremos NodeSource para instalar la versión 20.
+```bash
+# Instalar curl si no lo tiene
+sudo apt install curl -y
+
+# Añadir el repositorio oficial de NodeSource para Node.js v20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+
+# Instalar Node.js (Esto incluye 'npm' automáticamente)
+sudo apt install -y nodejs
+
+# Verificación:
+node --version
+# Debe mostrar: v20.x.x
+npm --version
+# Debe mostrar: 10.x.x o superior
+```
+
+**Paso 5: Descargar el Proyecto y Ejecutar**
+Con las herramientas instaladas, encenderemos el sistema.
+1. Clone (descargue) el repositorio en su carpeta principal:
+   ```bash
+   cd ~
+   git clone https://github.com/Valarcos/sinpen_thesis.git
+   cd sinpen_thesis
+   ```
+2. **Encender el Backend (Base de datos y Servidor):**
+   ```bash
+   cd backend
+   # Dar permisos de ejecución al instalador de Gradle
+   chmod +x gradlew
+   # Iniciar el servidor (la primera vez descargará librerías de internet y tardará unos minutos)
+   ./gradlew bootRun
+   ```
+   *El servidor quedará encendido en `http://localhost:8080`.*
+3. **Encender el Frontend (Interfaz Visual):** Abra una **NUEVA** pestaña o ventana de terminal y déjela abierta junto a la del backend.
+   ```bash
+   cd ~/sinpen_thesis/frontend
+   # Instalar dependencias visuales
+   npm install
+   # Para iniciar la página web:
+   npm run dev
+   # ATENCIÓN: Si instaló esto en un Ubuntu Server en la nube (ej. Oracle Cloud) sin monitor, 
+   # debe correrlo exponiendo la red para acceder desde internet así:
+   # npm run dev -- --host 0.0.0.0
+   ```
+   *¡Listo! El frontend estará disponible en `http://localhost:5173` (o http://IP-PUBLICA-DEL-SERVIDOR:5173 si usó Ubuntu en la nube y abrió los puertos 8080 y 5173 en su firewall).*
 
 ---
 
-## 👤 Usuarios de Prueba
+## 🔧 Uso y Configuración del Sistema (Ambos Sistemas)
 
-### Usuario Administrador por Defecto
-
-Al iniciar el backend por primera vez, se crea automáticamente un usuario administrador:
-
+### 👤 Ingresar al Sistema: Usuarios de Prueba
+Al iniciar el backend por primera vez, el sistema creará automáticamente la base de datos `data/centralizesys.db` y un usuario administrador principal por defecto:
 - **Email**: `marcosachavalmbaj@gmail.com`
-- **Contraseña**: Configurada en la base de datos (`data/centralizesys.db`)
+- **Contraseña**: (Ya estará encriptada en la base de datos). Ingrese únicamente con el hash vacío si no recuerda la clave local, o recupere los datos de su entorno local pre-existente.
 - **Rol**: `ADMIN`
 
-**⚠️ IMPORTANTE**: Cambie la contraseña del administrador antes de desplegar en producción.
+Una vez logueado, podrá dirigirse al módulo de "Administración" (El botón con el candado amarillo en el Dashboard) para crear a sus propios cajeros, repositores y nuevos administradores desde la interfaz.
 
-### Crear Nuevos Usuarios
+### 🔌 Conectar el Frontend a un Servidor (Nube o Red Wi-Fi local)
+Si el Backend (La base de datos del paso 2) está corriendo en una computadora distinta a la que abre el navegador (Por ejemplo, en un Ubuntu Cloud, o en otra PC de su local conectada al Wi-Fi):
 
-Actualmente, los usuarios deben crearse directamente en la base de datos SQLite. Próximamente se agregará un endpoint de registro.
-
-```sql
--- Abrir la base de datos con SQLite Browser o CLI
--- data/centralizesys.db
-
-INSERT INTO usuarios (nombre, email, password_hash, rol)
-VALUES ('Juan Pérez', 'juan@tienda.com', '$2a$10$<hash-bcrypt>', 'EMPLEADO');
-```
-
-Para generar un hash BCrypt, use:
-```bash
-# Con Node.js
-npx bcrypt-cli <contraseña-en-texto-plano> 10
-```
-
----
-
-## 📂 Estructura del Proyecto
-
-```
-sinpen_thesis/
-├── backend/                    # Spring Boot Application
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/           # Código fuente Java
-│   │   │   └── resources/
-│   │   │       ├── schema.sql  # Esquema de base de datos
-│   │   │       └── application.properties
-│   │   └── test/               # Tests unitarios e integración
-│   ├── build.gradle.kts        # Configuración Gradle
-│   └── gradlew / gradlew.bat   # Gradle Wrapper
-│
-├── frontend/                   # React Application (Sprint 2+)
-│   ├── src/
-│   │   ├── components/         # Componentes reutilizables
-│   │   ├── pages/              # Páginas principales
-│   │   ├── services/           # Clientes API
-│   │   └── layouts/            # Layouts de navegación
-│   ├── .env                    # Variables de entorno
-│   └── package.json            # Dependencias Node
-│
-├── data/                       # Base de datos SQLite
-│   └── centralizesys.db
-│
-├── logs/                       # Archivos de log
-│   └── app.log
-│
-├── docs/                       # Documentación
-│   ├── architecture.md
-│   ├── data-dictionary.md
-│   └── domain-model.md
-│
-├── .cursorrules                # Reglas del proyecto
-└── README.md                   # Este archivo
-```
-
----
-
-## 🔧 Configuración Avanzada
-
-### Base de Datos (SQLite)
-
-**Ubicación**: `data/centralizesys.db`
-
-**Inicialización**: Se ejecuta automáticamente en el primer arranque del backend usando `schema.sql`.
-
-**Backup Manual**:
-```bash
-# Copiar la base de datos
-cp data/centralizesys.db data/centralizesys_backup_$(date +%Y%m%d).db
-```
-
-### CORS (Cross-Origin Resource Sharing)
-
-El backend ya está configurado para aceptar peticiones de:
-- `http://localhost:3000`
-- `http://localhost:5173` (Vite)
-- `https://*.trycloudflare.com` (Cloudflare Tunnels)
-- `https://*.centralizesys.com`
-
-Para agregar más orígenes, edite `backend/src/main/resources/application.properties`:
-
-```properties
-app.cors.allowed-origins=http://localhost:5173,http://nuevo-origen.com
-```
-
-### JWT (JSON Web Tokens)
-
-**Configuración por defecto**:
-- **Expiración**: 7 días (604800000 ms)
-- **Algoritmo**: HS512
-- **Secret**: Clave predeterminada (⚠️ cambiar en producción)
-
-**Para producción**, configure variables de entorno:
-
-```bash
-# Windows PowerShell
-$env:JWT_SECRET="su-clave-secreta-muy-larga-de-al-menos-512-bits"
-$env:JWT_EXPIRATION_MS="604800000"
-
-# Linux/Mac
-export JWT_SECRET="su-clave-secreta-muy-larga-de-al-menos-512-bits"
-export JWT_EXPIRATION_MS="604800000"
-```
-
----
-
-## 🌐 Despliegue para Clientes (Cloudflare Tunnel)
-
-Para permitir que clientes accedan al sistema sin estar en su red local, necesita crear **dos túneles**: uno para el backend y otro para el frontend.
-
-> **⚠️ IMPORTANTE**: Siga los pasos en el orden indicado. El frontend debe configurarse con la URL del backend **antes** de iniciarse.
-
-### 1. Instalar Cloudflare Tunnel
-
-```bash
-# Windows (requiere winget)
-winget install --id Cloudflare.cloudflared
-
-# Mac
-brew install cloudflare/cloudflare/cloudflared
-
-# Linux
-wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared-linux-amd64.deb
-```
-
-### 2. Iniciar el Backend y su Túnel
-
-**Terminal 1 - Ejecutar Backend**:
-```bash
-cd backend
-./gradlew bootRun
-```
-
-**Terminal 2 - Crear túnel para el Backend**:
-```bash
-cloudflared tunnel --url http://localhost:8080
-```
-
-Espere a que aparezca un mensaje similar a:
-```
-Your quick Tunnel has been created! Visit it at:
-https://random-backend-name.trycloudflare.com
-```
-
-📋 **Copie esta URL del backend** - la necesitará en el siguiente paso.
-
-### 3. Configurar el Frontend con la URL del Backend
-
-Antes de iniciar el frontend, edite el archivo `frontend/.env`:
-
+Cree un archivo llamado `.env` dentro de la carpeta `frontend/`:
 ```env
-# Reemplace con la URL generada en el paso anterior
-VITE_API_URL=https://random-backend-name.trycloudflare.com
+# Reemplace la URL de ejemplo con la IP real donde corrió el paso 2
+VITE_API_URL=http://192.168.1.15:8080
 ```
-
-### 4. Iniciar el Frontend y su Túnel
-
-**Terminal 3 - Ejecutar Frontend**:
-```bash
-cd frontend
-npm run dev
-```
-
-**Terminal 4 - Crear túnel para el Frontend**:
-```bash
-cloudflared tunnel --url http://localhost:5173
-```
-
-Espere a que aparezca un mensaje similar a:
-```
-Your quick Tunnel has been created! Visit it at:
-https://random-frontend-name.trycloudflare.com
-```
-
-### 5. Compartir con Clientes
-
-Envíe a sus clientes la URL del **frontend** (ej: `https://random-frontend-name.trycloudflare.com`).
-
-> **Nota**: Las URLs de Cloudflare Quick Tunnels son temporales y cambian cada vez que reinicia los túneles. Para URLs permanentes, considere usar [Cloudflare Named Tunnels](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/).
+Guarde el archivo y reinicie el comando `npm run dev`. Ahora la interfaz gráfica sabrá dónde buscar su base de datos remota.
 
 ---
 
-## 🧪 Testing
+## 🌐 Despliegue Público sin abrir puertos (Cloudflare Tunnel)
 
-### Backend Tests
+Si usted tiene el sistema corriendo en una PC de su local y quiere acceder a él desde su casa **sin configurar su módem ni pagar VPS**, esta es la mejor solución gratuita.
 
-```bash
-cd backend
+Cree **dos túneles**: uno para el backend y otro para el frontend.
 
-# Ejecutar todos los tests
-./gradlew test
-
-# Ejecutar tests con salida detallada
-./gradlew test --info
-
-# Ver reporte HTML
-# Abrir: backend/build/reports/tests/test/index.html
-```
-
-**Tests incluidos**:
-- ✅ 173 tests (Sprint 1)
-- Integration tests para todos los repositorios
-- Unit tests para servicios críticos
-
-### Frontend Tests (Sprint 4+)
-
-```bash
-cd frontend
-
-# Unit tests (Vitest)
-npm run test
-
-# E2E tests (Playwright)
-npm run test:e2e
-```
+1. **Instalar Cloudflare Tunnel:**
+    - **Windows:** Ejecute en PowerShell: `winget install --id Cloudflare.cloudflared`
+    - **Ubuntu:** `curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb && sudo dpkg -i cloudflared.deb`
+2. Con su Backend Encendido (en el puerto 8080), abra una nueva terminal y escriba:
+   ```bash
+   cloudflared tunnel --url http://localhost:8080
+   ```
+3. La consola le dará una URL como: `https://palabras-random-backend.trycloudflare.com`. Cópiela.
+4. Vaya a su carpeta `frontend/`, abra/cree el archivo `.env` y ponga esa ruta:
+   ```env
+   VITE_API_URL=https://palabras-random-backend.trycloudflare.com
+   ```
+5. Encienda su Frontend (`npm run dev` en el puerto 5173) y abra otra terminal para hacer el segundo túnel:
+   ```bash
+   cloudflared tunnel --url http://localhost:5173
+   ```
+6. **¡Listo!** Envíe el segundo link generado por Cloudflare a su celular o PC remota. Todo el sistema correrá por internet encriptado hacia la base de datos de su negocio.
 
 ---
 
-## 📱 Compilar para Producción
+## 📂 ¿Dónde están mis datos? (Respaldos)
 
-### Backend
+A pesar de instalar muchas cosas, todo lo importante para el negocio (Ventas de años, cuentas, stock de productos, etc) se guarda físicamente en **UN SOLO ARCHIVO**.
 
-```bash
-cd backend
+Ese archivo está ubicado en:
+`sinpen_thesis/data/centralizesys.db`
 
-# Crear JAR ejecutable
-./gradlew bootJar
-
-# El archivo estará en: build/libs/backend-0.0.2-SNAPSHOT.jar
-
-# Ejecutar JAR
-java -jar build/libs/backend-0.0.2-SNAPSHOT.jar
-```
-
-### Frontend
-
-```bash
-cd frontend
-
-# Compilar para producción
-npm run build
-
-# Archivos optimizados en: dist/
-
-# Vista previa del build
-npm run preview
-```
+Puede simplemente copiar y pegar ese archivo `.db` en un pen-drive para hacer su propio backup de toda su empresa. El sistema también cuenta con un módulo de Respaldos donde usted puede exportar este archivo sin salir del navegador.
 
 ---
 
-## 🛠️ Troubleshooting
+## 📝 Stack y Tecnologías
 
-### Backend no inicia
+El repositorio actual (Sprint 7 avanzado) contiene las siguientes tecnologías operando en conjunto:
+*   **Backend:** Java 21 LTS, Spring Boot 3.3.3, Base de Datos SQLite (Embedded), Seguridad Web con Spring Security + Tokens JWT. Compilado con Gradle (Kotlin DSL).
+*   **Frontend:** Interfaz en React 18, empaquetado ultra-rápido con Vite 6, Manejo de URLs con React Router v7, llamadas de red con Axios y alertas flotantes con React Hot Toast. Archivos PDF de tickets generados en el navegador puro usando jsPDF y AutoTable.
+*   **Diseño (UX/UI):** CSS puro Vainilla hecho a medida sin librerías pesadas como Bootstrap/Tailwind. Elementos ultra-espaciados, contraste mejorado, bloqueos de doble click (isSubmitting protections) y adaptabilidad responsiva diseñada para evitar toques fantasmas en tablets móviles.
 
-**Error: "Cannot find Java 21"**
-- Verifique: `java -version`
-- Descargue Java 21 de [Adoptium](https://adoptium.net/)
-
-**Error: "Address already in use: 8080"**
-- Otro proceso está usando el puerto 8080
-- Solución: Detenga el otro proceso o cambie el puerto en `application.properties`:
-  ```properties
-  server.port=8081
-  ```
-
-### Frontend no inicia
-
-**Error: "Cannot find module"**
-- Ejecute: `npm install` nuevamente
-- Verifique que Node.js 18+ esté instalado
-
-  VITE_API_URL=http://localhost:8080
-  ```
-
-**Error: "Vite requires Node.js version X.X.X+"**
-- Su versión de Node.js es antigua.
-- **Solución**: Descargue e instale la última versión LTS desde [nodejs.org](https://nodejs.org/).
-
-**Error: "Failed to resolve import..."**
-- Dependencias corruptas o no instaladas.
-- **Solución**:
-  ```bash
-  rm -rf node_modules package-lock.json
-  npm install
-  ```
-
-### Tests fallan
-
-**Error: "Database locked"**
-- Cierre todas las conexiones a `data/centralizesys.db`
-- Detenga el backend antes de ejecutar tests
-
-**Error: "Constraint violation"**
-- La base de datos tiene datos residuales
-- Solución: Elimine `data/centralizesys.db` y reinicie el backend
-
-### Login no funciona
-
-**Error 401: "Credenciales incorrectas"**
-- Verifique que el usuario existe en la tabla `usuarios`
-- Verifique que la contraseña está hasheada con BCrypt
-
-**Error CORS**
-- Verifique que el frontend está en `http://localhost:5173`
-- Revise la configuración CORS en `application.properties`
-
----
-
-## 📝 Stack Tecnológico
-
-### Backend
-- **Java**: 21 (LTS)
-- **Framework**: Spring Boot 3.3.3
-- **Database**: SQLite (embedded)
-- **Security**: Spring Security + JWT (HS512)
-- **Build Tool**: Gradle 8.x (Kotlin DSL)
-- **Testing**: JUnit 5, Mockito, AssertJ
-
-### Frontend
-- **Framework**: React 18
-- **Build Tool**: Vite 6
-- **Routing**: React Router DOM v6
-- **HTTP Client**: Axios
-- **Notifications**: React Hot Toast
-- **Styling**: Vanilla CSS (WCAG AAA compliant)
-
----
-
-## 🤝 Contribuir
-
-Este proyecto es parte de una tesis de grado. No se aceptan contribuciones externas por el momento.
-
----
-
-## 📄 Licencia
-
-Proyecto privado - Todos los derechos reservados.
-
----
-
-## 📧 Contacto
-
-**Desarrollador**: Marcos Achaval  
-**Email**: marcosachavalmbaj@gmail.com  
+## 📧 Acerca de y Contacto
+Proyecto final de Tesis Universitaria.
+**Desarrollador**: Marcos Achaval
+**Email**: marcosachavalmbaj@gmail.com
 **GitHub**: [Valarcos](https://github.com/Valarcos)
-
----
-
-## 🗺️ Roadmap
-
-- [x] **Sprint 1**: Backend Foundation & Alerts (Complete)
-- [ ] **Sprint 2**: Frontend Core & Authentication (En progreso)
-- [ ] **Sprint 3**: Product Management & Dashboard
-- [ ] **Sprint 4**: POS Transaction Flow
-- [ ] **Sprint 5**: Stock Management & Reports
-- [ ] **Sprint 6**: Debtor Management
-- [ ] **Sprint 7**: Data Export & Backup
-- [ ] **Sprint 8**: TiendaNube Integration
-
----
-
-**Última actualización**: Febrero 2026 - Sprint 2

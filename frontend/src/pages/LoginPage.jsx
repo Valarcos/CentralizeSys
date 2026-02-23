@@ -34,6 +34,9 @@ export default function LoginPage() {
             localStorage.setItem('userName', nombre);
             localStorage.setItem('userRole', rol);
 
+            // Clear stock alert dismissal so warning shows fresh on dashboard
+            sessionStorage.removeItem('stockAlertDismissed');
+
             toast.success(`¡Bienvenido, ${nombre}!`);
             navigate('/dashboard');
         } catch (error) {

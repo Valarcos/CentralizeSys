@@ -165,16 +165,30 @@ public class BackupService {
             headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
+            CellStyle oddRowStyle = workbook.createCellStyle();
+            oddRowStyle.setWrapText(true);
+
+            CellStyle evenRowStyle = workbook.createCellStyle();
+            evenRowStyle.setWrapText(true);
+            evenRowStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            evenRowStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+
             CellStyle currencyStyle = workbook.createCellStyle();
             currencyStyle.setDataFormat(workbook.createDataFormat().getFormat("$#,##0.00"));
+            currencyStyle.setWrapText(true);
+
+            CellStyle currencyEvenStyle = workbook.createCellStyle();
+            currencyEvenStyle.cloneStyleFrom(currencyStyle);
+            currencyEvenStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            currencyEvenStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
 
             // --- SHEETS ---
-            populateProductsSheet(workbook, headerStyle, currencyStyle);
-            populateSalesSheet(workbook, headerStyle, currencyStyle);
-            populatePurchasesSheet(workbook, headerStyle, currencyStyle);
-            populateDebtorsSheet(workbook, headerStyle, currencyStyle);
-            populateStockSheet(workbook, headerStyle);
-            populateAuditSheet(workbook, headerStyle);
+            populateProductsSheet(workbook, headerStyle, oddRowStyle, evenRowStyle, currencyStyle, currencyEvenStyle);
+            populateSalesSheet(workbook, headerStyle, oddRowStyle, evenRowStyle, currencyStyle, currencyEvenStyle);
+            populatePurchasesSheet(workbook, headerStyle, oddRowStyle, evenRowStyle, currencyStyle, currencyEvenStyle);
+            populateDebtorsSheet(workbook, headerStyle, oddRowStyle, evenRowStyle, currencyStyle, currencyEvenStyle);
+            populateStockSheet(workbook, headerStyle, oddRowStyle, evenRowStyle);
+            populateAuditSheet(workbook, headerStyle, oddRowStyle, evenRowStyle);
 
             try (FileOutputStream fos = new FileOutputStream(filePath)) {
                 workbook.write(fos);
@@ -195,6 +209,25 @@ public class BackupService {
         Cell cell = row.createCell(col);
         cell.setCellValue(value != null ? value : 0.0);
         cell.setCellStyle(style);
+    }
+
+    private void createTextCell(Row row, int col, Object value, CellStyle style) {
+        Cell cell = row.createCell(col);
+        if (value != null) {
+            cell.setCellValue(value.toString());
+        }
+        cell.setCellStyle(style);
+    }
+
+    private String formatIsoDateForExcel(String isoDate) {
+        if (isoDate == null || isoDate.isEmpty())
+            return "";
+        try {
+            LocalDateTime dateTime = LocalDateTime.parse(isoDate);
+            return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd -- HH:mm:ss"));
+        } catch (Exception e) {
+            return isoDate; // Fallback to original if parsing fails
+        }
     }
 
     // --- File Management APIs ---
@@ -512,84 +545,136 @@ public class BackupService {
     }
     // --- Helper Methods for Excel Export ---
 
-    private void populateProductsSheet(Workbook workbook, CellStyle headerStyle, CellStyle currencyStyle) {
+    private void populateProductsSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle,
+                                       CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Productos");
         String[] headers = { "ID", "Código", "Descripción", "Costo", "Precio Mayorista", "Precio Minorista", "Stock" };
         createHeader(sheet, headers, headerStyle);
+
+        sheet.setColumnWidth(0, 15 * 256); // ID
+        sheet.setColumnWidth(1, 20 * 256); // Codigo
+        sheet.setColumnWidth(2, 60 * 256); // Descripcion (Wide for wrapping)
+        sheet.setColumnWidth(3, 15 * 256); // Costo
+        sheet.setColumnWidth(4, 15 * 256); // Mayorista
+        sheet.setColumnWidth(5, 15 * 256); // Minorista
+        sheet.setColumnWidth(6, 12 * 256); // Stock
 
         List<Product> products = productRepository.findAll();
         int rowNum = 1;
         for (Product p : products) {
             Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(p.getId());
-            row.createCell(1).setCellValue(p.getCodigo());
-            row.createCell(2).setCellValue(p.getDescripcion());
-            createNumericCell(row, 3, p.getPrecioCosto(), currencyStyle);
-            createNumericCell(row, 4, p.getPrecioMayorista(), currencyStyle);
-            createNumericCell(row, 5, p.getPrecioMinorista(), currencyStyle);
-            row.createCell(6).setCellValue(p.getCantidadStock());
+            boolean isEven = rowNum % 2 != 0; // rowNum was incremented, so odd rowNum variable means even data row
+            CellStyle base = isEven ? evenStyle : oddStyle;
+            CellStyle curr = isEven ? currEven : currOdd;
+
+            createTextCell(row, 0, p.getId(), base);
+            createTextCell(row, 1, p.getCodigo(), base);
+            createTextCell(row, 2, p.getDescripcion(), base);
+            createNumericCell(row, 3, p.getPrecioCosto(), curr);
+            createNumericCell(row, 4, p.getPrecioMayorista(), curr);
+            createNumericCell(row, 5, p.getPrecioMinorista(), curr);
+            createTextCell(row, 6, p.getCantidadStock(), base);
         }
-        for (int i = 0; i < 3; i++)
-            sheet.autoSizeColumn(i);
     }
 
-    private void populateSalesSheet(Workbook workbook, CellStyle headerStyle, CellStyle currencyStyle) {
+    private void populateSalesSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle, CellStyle evenStyle,
+                                    CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Ventas");
-        String[] headers = { "ID", FECHA, "Cliente", "Total" };
+        String[] headers = { "ID", FECHA, "Cliente", "Tipo Venta", "Desc. Global", "Total", "Usuario ID" };
         createHeader(sheet, headers, headerStyle);
+
+        sheet.setColumnWidth(0, 15 * 256); // ID
+        sheet.setColumnWidth(1, 25 * 256); // Fecha
+        sheet.setColumnWidth(2, 40 * 256); // Cliente
+        sheet.setColumnWidth(3, 15 * 256); // Tipo Venta
+        sheet.setColumnWidth(4, 15 * 256); // Desc. Global
+        sheet.setColumnWidth(5, 15 * 256); // Total
+        sheet.setColumnWidth(6, 12 * 256); // Usuario ID
 
         List<Venta> sales = ventaRepository.findAll();
         int rowNum = 1;
         for (Venta v : sales) {
             Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(v.getId());
-            row.createCell(1).setCellValue(v.getFecha());
-            row.createCell(2).setCellValue(v.getClienteNombre());
-            createNumericCell(row, 3, v.getTotalVenta(), currencyStyle);
+            boolean isEven = rowNum % 2 != 0;
+            CellStyle base = isEven ? evenStyle : oddStyle;
+            CellStyle curr = isEven ? currEven : currOdd;
+
+            createTextCell(row, 0, v.getId(), base);
+            createTextCell(row, 1, v.getFecha(), base);
+            createTextCell(row, 2, v.getClienteNombre(), base);
+            createTextCell(row, 3, v.getTipoVenta(), base);
+            createNumericCell(row, 4, v.getDescuentoGlobal(), curr);
+            createNumericCell(row, 5, v.getTotalVenta(), curr);
+            createTextCell(row, 6, v.getUsuarioId(), base);
         }
-        sheet.autoSizeColumn(1);
-        sheet.autoSizeColumn(2);
     }
 
-    private void populatePurchasesSheet(Workbook workbook, CellStyle headerStyle, CellStyle currencyStyle) {
+    private void populatePurchasesSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle,
+                                        CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Compras");
         createHeader(sheet, new String[] { "ID", FECHA, "Proveedor", "Comprobante", "Total" }, headerStyle);
+
+        sheet.setColumnWidth(0, 15 * 256); // ID
+        sheet.setColumnWidth(1, 25 * 256); // Fecha
+        sheet.setColumnWidth(2, 40 * 256); // Proveedor
+        sheet.setColumnWidth(3, 20 * 256); // Comprobante
+        sheet.setColumnWidth(4, 15 * 256); // Total
 
         int rowNum = 1;
         var compras = compraRepository.findAll();
         for (var c : compras) {
             Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(c.getId());
-            row.createCell(1).setCellValue(c.getFecha());
-            row.createCell(2).setCellValue(c.getProveedor());
-            row.createCell(3).setCellValue(c.getNroComprobante());
-            createNumericCell(row, 4, c.getTotalCompra(), currencyStyle);
+            boolean isEven = rowNum % 2 != 0;
+            CellStyle base = isEven ? evenStyle : oddStyle;
+            CellStyle curr = isEven ? currEven : currOdd;
+
+            createTextCell(row, 0, c.getId(), base);
+            createTextCell(row, 1, c.getFecha(), base);
+            createTextCell(row, 2, c.getProveedor(), base);
+            createTextCell(row, 3, c.getNroComprobante(), base);
+            createNumericCell(row, 4, c.getTotalCompra(), curr);
         }
-        sheet.autoSizeColumn(1);
-        sheet.autoSizeColumn(2);
     }
 
-    private void populateDebtorsSheet(Workbook workbook, CellStyle headerStyle, CellStyle currencyStyle) {
+    private void populateDebtorsSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle, CellStyle evenStyle,
+                                      CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Deudores");
-        createHeader(sheet, new String[] { "ID", "Cliente", "Monto Deuda", FECHA, "Estado" }, headerStyle);
+        createHeader(sheet, new String[] { "ID", "Venta ID", "Cliente", "Monto Deuda", FECHA, "Estado" }, headerStyle);
+
+        sheet.setColumnWidth(0, 15 * 256); // ID
+        sheet.setColumnWidth(1, 15 * 256); // Venta ID
+        sheet.setColumnWidth(2, 40 * 256); // Cliente
+        sheet.setColumnWidth(3, 15 * 256); // Monto
+        sheet.setColumnWidth(4, 25 * 256); // Fecha
+        sheet.setColumnWidth(5, 15 * 256); // Estado
 
         int rowNum = 1;
         var deudores = deudoresRepository.findAll();
         for (var d : deudores) {
             Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(d.getId());
-            row.createCell(1).setCellValue(d.getClienteNombre());
-            createNumericCell(row, 2, d.getMontoDeuda(), currencyStyle);
-            row.createCell(3).setCellValue(d.getFechaDeuda());
-            row.createCell(4).setCellValue(d.getEstado());
+            boolean isEven = rowNum % 2 != 0;
+            CellStyle base = isEven ? evenStyle : oddStyle;
+            CellStyle curr = isEven ? currEven : currOdd;
+
+            createTextCell(row, 0, d.getId(), base);
+            createTextCell(row, 1, d.getVentaId(), base);
+            createTextCell(row, 2, d.getClienteNombre(), base);
+            createNumericCell(row, 3, d.getMontoDeuda(), curr);
+            createTextCell(row, 4, d.getFechaDeuda(), base);
+            createTextCell(row, 5, d.getEstado(), base);
         }
-        sheet.autoSizeColumn(1);
     }
 
-    private void populateStockSheet(Workbook workbook, CellStyle headerStyle) {
+    private void populateStockSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle, CellStyle evenStyle) {
         Sheet sheet = workbook.createSheet("Stock_Ubicacion");
         createHeader(sheet, new String[] { "Producto ID", "Código", "Descripción", "Cantidad", "Ubicación" },
                 headerStyle);
+
+        sheet.setColumnWidth(0, 15 * 256); // ID
+        sheet.setColumnWidth(1, 20 * 256); // Codigo
+        sheet.setColumnWidth(2, 60 * 256); // Descripcion
+        sheet.setColumnWidth(3, 15 * 256); // Cantidad
+        sheet.setColumnWidth(4, 30 * 256); // Ubicacion
 
         String sqlStock = """
                     SELECT p.id, p.codigo, p.descripcion, s.cantidad, u.nombre
@@ -601,32 +686,39 @@ public class BackupService {
         var stockRows = jdbcTemplate.queryForList(sqlStock);
         for (var map : stockRows) {
             Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(((Number) map.get("id")).longValue());
-            row.createCell(1).setCellValue((String) map.get("codigo"));
-            row.createCell(2).setCellValue((String) map.get("descripcion"));
-            row.createCell(3).setCellValue(((Number) map.get("cantidad")).intValue());
-            row.createCell(4).setCellValue((String) map.get("nombre"));
+            boolean isEven = rowNum % 2 != 0;
+            CellStyle base = isEven ? evenStyle : oddStyle;
+
+            createTextCell(row, 0, map.get("id"), base);
+            createTextCell(row, 1, map.get("codigo"), base);
+            createTextCell(row, 2, map.get("descripcion"), base);
+            createTextCell(row, 3, map.get("cantidad"), base);
+            createTextCell(row, 4, map.get("nombre"), base);
         }
-        sheet.autoSizeColumn(1);
-        sheet.autoSizeColumn(2);
-        sheet.autoSizeColumn(4);
     }
 
-    private void populateAuditSheet(Workbook workbook, CellStyle headerStyle) {
+    private void populateAuditSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle, CellStyle evenStyle) {
         Sheet sheet = workbook.createSheet("Auditoria");
         createHeader(sheet, new String[] { "ID", FECHA, "Acción", "Detalles", "Usuario ID" }, headerStyle);
+
+        sheet.setColumnWidth(0, 15 * 256); // ID
+        sheet.setColumnWidth(1, 30 * 256); // Fecha (Formatted YYYY-MM-DD -- HH:mm:ss)
+        sheet.setColumnWidth(2, 25 * 256); // Accion
+        sheet.setColumnWidth(3, 80 * 256); // Detalles (Wide for wrapping)
+        sheet.setColumnWidth(4, 15 * 256); // Usuario ID
 
         int rowNum = 1;
         var audits = auditoriaRepository.findAll();
         for (var a : audits) {
             Row row = sheet.createRow(rowNum++);
-            row.createCell(0).setCellValue(a.getId());
-            row.createCell(1).setCellValue(a.getFechaHora());
-            row.createCell(2).setCellValue(a.getAccion());
-            row.createCell(3).setCellValue(a.getDetalles());
-            row.createCell(4).setCellValue(a.getUsuarioId() != null ? a.getUsuarioId() : 0);
+            boolean isEven = rowNum % 2 != 0;
+            CellStyle base = isEven ? evenStyle : oddStyle;
+
+            createTextCell(row, 0, a.getId(), base);
+            createTextCell(row, 1, formatIsoDateForExcel(a.getFechaHora()), base);
+            createTextCell(row, 2, a.getAccion(), base);
+            createTextCell(row, 3, a.getDetalles(), base);
+            createTextCell(row, 4, a.getUsuarioId() != null ? a.getUsuarioId() : 0, base);
         }
-        sheet.autoSizeColumn(1);
-        sheet.autoSizeColumn(2);
     }
 }

@@ -59,13 +59,13 @@ public class BackupService {
     private final BackupPathStrategy pathStrategy;
 
     public BackupService(JdbcTemplate jdbcTemplate,
-                         AuditoriaService auditoriaService,
-                         ProductRepository productRepository,
-                         VentaRepository ventaRepository,
-                         CompraRepository compraRepository,
-                         DeudoresRepository deudoresRepository,
-                         AuditoriaRepository auditoriaRepository,
-                         BackupPathStrategy pathStrategy) {
+            AuditoriaService auditoriaService,
+            ProductRepository productRepository,
+            VentaRepository ventaRepository,
+            CompraRepository compraRepository,
+            DeudoresRepository deudoresRepository,
+            AuditoriaRepository auditoriaRepository,
+            BackupPathStrategy pathStrategy) {
         this.jdbcTemplate = jdbcTemplate;
         this.auditoriaService = auditoriaService;
         this.productRepository = productRepository;
@@ -546,7 +546,7 @@ public class BackupService {
     // --- Helper Methods for Excel Export ---
 
     private void populateProductsSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle,
-                                       CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
+            CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Productos");
         String[] headers = { "ID", "Código", "Descripción", "Costo", "Precio Mayorista", "Precio Minorista", "Stock" };
         createHeader(sheet, headers, headerStyle);
@@ -578,7 +578,7 @@ public class BackupService {
     }
 
     private void populateSalesSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle, CellStyle evenStyle,
-                                    CellStyle currOdd, CellStyle currEven) {
+            CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Ventas");
         String[] headers = { "ID", FECHA, "Cliente", "Tipo Venta", "Desc. Global", "Total", "Usuario ID" };
         createHeader(sheet, headers, headerStyle);
@@ -610,7 +610,7 @@ public class BackupService {
     }
 
     private void populatePurchasesSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle,
-                                        CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
+            CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Compras");
         createHeader(sheet, new String[] { "ID", FECHA, "Proveedor", "Comprobante", "Total" }, headerStyle);
 
@@ -637,7 +637,7 @@ public class BackupService {
     }
 
     private void populateDebtorsSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle, CellStyle evenStyle,
-                                      CellStyle currOdd, CellStyle currEven) {
+            CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Deudores");
         createHeader(sheet, new String[] { "ID", "Venta ID", "Cliente", "Monto Deuda", FECHA, "Estado" }, headerStyle);
 

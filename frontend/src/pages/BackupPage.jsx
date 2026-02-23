@@ -228,76 +228,76 @@ export default function BackupPage() {
                 ) : (
                     <table className="backups-table">
                         <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Descargas Disponibles</th>
-                            {userRole === 'ADMIN' && <th>Admin</th>}
-                        </tr>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Descargas Disponibles</th>
+                                {userRole === 'ADMIN' && <th>Admin</th>}
+                            </tr>
                         </thead>
                         <tbody>
-                        {groupedBackups.map((group) => (
-                            <tr key={group.id}>
-                                <td data-label="Fecha">
-                                    <strong>{group.dateFormatted}</strong>
-                                    <div style={{ fontSize: '0.9em', color: '#666' }}>
-                                        {group.timeFormatted}
-                                    </div>
-                                </td>
-                                <td data-label="Tipo">
-                                    {group.typeDisplay}
-                                </td>
-                                <td data-label="Descargas">
-                                    <div className="download-buttons-group">
-                                        {/* Download Both */}
-                                        {group.dbFile && group.excelFile && (
-                                            <button
-                                                onClick={() => handleDownloadBoth(group.dbFile, group.excelFile)}
-                                                className="btn-large btn-download-all"
-                                                title="Descargar ambos archivos"
-                                            >
-                                                ⬇️ DESCARGAR TODO
-                                            </button>
-                                        )}
-
-                                        {/* Excel Button */}
-                                        {group.excelFile && (
-                                            <button
-                                                onClick={() => handleDownload(group.excelFile)}
-                                                className="btn-large btn-excel"
-                                                title="Descargar Excel"
-                                            >
-                                                📊 EXCEL
-                                            </button>
-                                        )}
-
-                                        {/* DB Button */}
-                                        {group.dbFile && (
-                                            <button
-                                                onClick={() => handleDownload(group.dbFile)}
-                                                className="btn-large btn-db"
-                                                title="Descargar Base de Datos"
-                                            >
-                                                🗄️ BD
-                                            </button>
-                                        )}
-                                    </div>
-                                </td>
-                                {userRole === 'ADMIN' && (
-                                    <td data-label="Admin">
-                                        {group.dbFile && (
-                                            <button
-                                                onClick={() => initiateRestore(group.dbFile)}
-                                                className="btn-large btn-restore"
-                                                title="Restaurar sistema a este punto"
-                                            >
-                                                🔄 Restaurar
-                                            </button>
-                                        )}
+                            {groupedBackups.map((group) => (
+                                <tr key={group.id}>
+                                    <td data-label="Fecha">
+                                        <strong>{group.dateFormatted}</strong>
+                                        <div style={{ fontSize: '0.9em', color: '#666' }}>
+                                            {group.timeFormatted}
+                                        </div>
                                     </td>
-                                )}
-                            </tr>
-                        ))}
+                                    <td data-label="Tipo">
+                                        {group.typeDisplay}
+                                    </td>
+                                    <td data-label="Descargas">
+                                        <div className="download-buttons-group">
+                                            {/* Download Both */}
+                                            {group.dbFile && group.excelFile && (
+                                                <button
+                                                    onClick={() => handleDownloadBoth(group.dbFile, group.excelFile)}
+                                                    className="btn-large btn-download-all"
+                                                    title="Descargar ambos archivos"
+                                                >
+                                                    ⬇️ DESCARGAR TODO
+                                                </button>
+                                            )}
+
+                                            {/* Excel Button */}
+                                            {group.excelFile && (
+                                                <button
+                                                    onClick={() => handleDownload(group.excelFile)}
+                                                    className="btn-large btn-excel"
+                                                    title="Descargar Excel"
+                                                >
+                                                    📊 EXCEL
+                                                </button>
+                                            )}
+
+                                            {/* DB Button */}
+                                            {group.dbFile && (
+                                                <button
+                                                    onClick={() => handleDownload(group.dbFile)}
+                                                    className="btn-large btn-db"
+                                                    title="Descargar Base de Datos"
+                                                >
+                                                    🗄️ BD
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                    {userRole === 'ADMIN' && (
+                                        <td data-label="Admin">
+                                            {group.dbFile && (
+                                                <button
+                                                    onClick={() => initiateRestore(group.dbFile)}
+                                                    className="btn-large btn-restore"
+                                                    title="Restaurar sistema a este punto"
+                                                >
+                                                    🔄 Restaurar
+                                                </button>
+                                            )}
+                                        </td>
+                                    )}
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 )}

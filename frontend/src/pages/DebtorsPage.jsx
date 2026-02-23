@@ -216,60 +216,60 @@ export default function DebtorsPage() {
                 <div className="table-responsive">
                     <table className="history-table">
                         <thead>
-                        <tr>
-                            <th>Cliente</th>
-                            <th>ID Venta</th>
-                            <th>Fecha Deuda</th>
-                            <th>Monto Original</th>
-                            <th>Deuda Actual</th>
-                            <th>Último Pago</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>ID Venta</th>
+                                <th>Fecha Deuda</th>
+                                <th>Monto Original</th>
+                                <th>Deuda Actual</th>
+                                <th>Último Pago</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
                         </thead>
                         <tbody>
-                        {debtors.map(d => (
-                            <tr key={d.id}>
-                                <td data-label="Cliente">{d.clienteNombre}</td>
-                                <td data-label="ID Venta">#{d.ventaId}</td>
-                                <td data-label="Fecha Deuda">{formatDate(d.fechaDeuda)}</td>
-                                <td data-label="Monto Original" className="amount-cell">{formatCurrency(d.montoOriginal)}</td>
-                                <td data-label="Deuda Actual" className="amount-cell" style={{ fontWeight: 'bold', color: '#dc2626' }}>
-                                    {formatCurrency(d.montoDeuda)}
-                                </td>
-                                <td data-label="Último Pago">{d.fechaUltimoPago ? formatDate(d.fechaUltimoPago) : '-'}</td>
-                                <td data-label="Estado">
+                            {debtors.map(d => (
+                                <tr key={d.id}>
+                                    <td data-label="Cliente">{d.clienteNombre}</td>
+                                    <td data-label="ID Venta">#{d.ventaId}</td>
+                                    <td data-label="Fecha Deuda">{formatDate(d.fechaDeuda)}</td>
+                                    <td data-label="Monto Original" className="amount-cell">{formatCurrency(d.montoOriginal)}</td>
+                                    <td data-label="Deuda Actual" className="amount-cell" style={{ fontWeight: 'bold', color: '#dc2626' }}>
+                                        {formatCurrency(d.montoDeuda)}
+                                    </td>
+                                    <td data-label="Último Pago">{d.fechaUltimoPago ? formatDate(d.fechaUltimoPago) : '-'}</td>
+                                    <td data-label="Estado">
                                         <span className={`status-pill status-${d.estado?.toLowerCase()}`}>
                                             {d.estado}
                                         </span>
-                                </td>
-                                <td data-label="Acciones">
-                                    <div className="action-buttons">
-                                        <button
-                                            className="btn-details"
-                                            onClick={() => handleViewDetails(d)}
-                                            disabled={isLoadingSale}
-                                        >
-                                            👁️ Ver Detalle
-                                        </button>
-                                        <button
-                                            className="btn-print"
-                                            onClick={() => handlePrintDebtor(d)}
-                                        >
-                                            🖨️ Imprimir Deuda
-                                        </button>
-                                        {d.montoDeuda > 0 && (
-                                            <button className="btn-pay" onClick={() => handleOpenPayment(d)}>
-                                                💰 Registrar Pago
+                                    </td>
+                                    <td data-label="Acciones">
+                                        <div className="action-buttons">
+                                            <button
+                                                className="btn-details"
+                                                onClick={() => handleViewDetails(d)}
+                                                disabled={isLoadingSale}
+                                            >
+                                                👁️ Ver Detalle
                                             </button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        {debtors.length === 0 && (
-                            <tr><td colSpan="8" style={{ textAlign: 'center' }}>No hay deudores registrados.</td></tr>
-                        )}
+                                            <button
+                                                className="btn-print"
+                                                onClick={() => handlePrintDebtor(d)}
+                                            >
+                                                🖨️ Imprimir Deuda
+                                            </button>
+                                            {d.montoDeuda > 0 && (
+                                                <button className="btn-pay" onClick={() => handleOpenPayment(d)}>
+                                                    💰 Registrar Pago
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {debtors.length === 0 && (
+                                <tr><td colSpan="8" style={{ textAlign: 'center' }}>No hay deudores registrados.</td></tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

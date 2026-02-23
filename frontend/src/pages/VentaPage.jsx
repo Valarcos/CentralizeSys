@@ -605,7 +605,7 @@ export default function VentaPage() {
                             <div className="totals-line totals-total">Total: {formatCurrency(totals.total)}</div>
                             <div className={`totals-line ${totals.isOverpaid ? 'totals-excedido' :
                                 remaining > 0.01 ? 'totals-falta' : 'totals-cubierto'
-                            }`}>
+                                }`}>
                                 {totals.isOverpaid
                                     ? `Excedido: ${formatCurrency(totals.totalPaid - totals.total)}`
                                     : remaining > 0.01

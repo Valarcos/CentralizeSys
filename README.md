@@ -173,7 +173,7 @@ Si el Backend (La base de datos del paso 2) está corriendo en una computadora d
 Cree un archivo llamado `.env` dentro de la carpeta `frontend/`:
 ```env
 # Reemplace la URL de ejemplo con la IP real donde corrió el paso 2
-VITE_API_URL=http://192.168.1.15:8080
+VITE_BACKEND_URL=http://192.168.1.15:8080
 ```
 Guarde el archivo y reinicie el comando `npm run dev`. Ahora la interfaz gráfica sabrá dónde buscar su base de datos remota.
 
@@ -186,8 +186,8 @@ Si usted tiene el sistema corriendo en una PC de su local y quiere acceder a él
 Cree **dos túneles**: uno para el backend y otro para el frontend.
 
 1. **Instalar Cloudflare Tunnel:**
-    - **Windows:** Ejecute en PowerShell: `winget install --id Cloudflare.cloudflared`
-    - **Ubuntu:** `curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb && sudo dpkg -i cloudflared.deb`
+   - **Windows:** Ejecute en PowerShell: `winget install --id Cloudflare.cloudflared`
+   - **Ubuntu:** `curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb && sudo dpkg -i cloudflared.deb`
 2. Con su Backend Encendido (en el puerto 8080), abra una nueva terminal y escriba:
    ```bash
    cloudflared tunnel --url http://localhost:8080
@@ -195,7 +195,7 @@ Cree **dos túneles**: uno para el backend y otro para el frontend.
 3. La consola le dará una URL como: `https://palabras-random-backend.trycloudflare.com`. Cópiela.
 4. Vaya a su carpeta `frontend/`, abra/cree el archivo `.env` y ponga esa ruta:
    ```env
-   VITE_API_URL=https://palabras-random-backend.trycloudflare.com
+   VITE_BACKEND_URL=https://palabras-random-backend.trycloudflare.com
    ```
 5. Encienda su Frontend (`npm run dev` en el puerto 5173) y abra otra terminal para hacer el segundo túnel:
    ```bash

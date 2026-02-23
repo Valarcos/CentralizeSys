@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useBlocker } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import ProductFormModal from '../components/ProductFormModal';
@@ -27,6 +28,20 @@ export default function InventarioPage() {
     const [deletingProduct, setDeletingProduct] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [stockProduct, setStockProduct] = useState(null);
+
+    // Issue #63: Warn user before navigating away with open data-entry modals
+    const hasOpenModal = showProductForm || showStockModal || showLocationModal || showPurchaseModal;
+    const blocker = useBlocker(hasOpenModal);
+    useEffect(() => {
+        if (blocker.state === 'blocked') {
+            const leave = window.confirm('⚠️ ¿Desea salir?\n\nTiene cambios sin guardar que se perderán si abandona esta página.');
+            if (leave) {
+                blocker.proceed();
+            } else {
+                blocker.reset();
+            }
+        }
+    }, [blocker]);
 
     const fetchProducts = useCallback(async (currentPage = 0, isBackground = false) => {
         try {

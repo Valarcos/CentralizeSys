@@ -211,11 +211,9 @@ export default function BackupPage() {
                             </label>
                         </>
                     )}
-                    {userRole === 'ADMIN' && (
-                        <button onClick={handleCreateBackup} className="button primary">
-                            + Nuevo Respaldo
-                        </button>
-                    )}
+                    <button onClick={handleCreateBackup} className="button primary">
+                        + Nuevo Respaldo
+                    </button>
                     <button onClick={() => navigate('/')} className="button tertiary">
                         Volver
                     </button>

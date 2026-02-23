@@ -558,4 +558,11 @@
         width: auto !important;
         justify-content: center;
     }
+
+    /* Issue #24: Contain modal children on mobile — no extra padding */
+    .modal-content {
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
 }

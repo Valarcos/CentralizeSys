@@ -90,7 +90,7 @@ export default function AppLayout() {
 
             {/* Main Content */}
             <main className="main-content">
-                <Outlet context={{ salesActiveTab, setSalesActiveTab }} />
+                <Outlet key={location.pathname} context={{ salesActiveTab, setSalesActiveTab }} />
             </main>
 
             {/* Mobile Bottom Navigation — Contextual for Sales page */}

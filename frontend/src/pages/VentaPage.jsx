@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useBlocker } from 'react-router-dom';
 import useCart from '../hooks/useCart';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import StockWarningModal from '../components/StockWarningModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { generateReceipt } from '../utils/pdfGenerator';
-import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste } from '../utils/numericInput';
+import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './VentaPage.css';
 
 export default function VentaPage() {
@@ -27,6 +27,19 @@ export default function VentaPage() {
         removePaymentMethod,
         totals
     } = useCart();
+
+    // Issue #63: Warn user before navigating away with unsaved cart data
+    const blocker = useBlocker(cartItems.length > 0);
+    useEffect(() => {
+        if (blocker.state === 'blocked') {
+            const leave = window.confirm('⚠️ ¿Desea salir?\n\nTiene productos en el carrito que se perderán si abandona esta página.');
+            if (leave) {
+                blocker.proceed();
+            } else {
+                blocker.reset();
+            }
+        }
+    }, [blocker]);
 
     // ... existing state ...
     const [lastSale, setLastSale] = useState(null); // Stores successful sale data for receipt
@@ -478,7 +491,7 @@ export default function VentaPage() {
                                         inputMode="decimal"
                                         value={item.discount || ''}
                                         onChange={(e) => {
-                                            const val = e.target.value.replace(/[^0-9.]/g, '');
+                                            const val = enforceMoneyFormat(e.target.value);
                                             updateItemDiscount(item.product.id, val);
                                         }}
                                         onKeyDown={blockNonNumericKeys}
@@ -537,37 +550,37 @@ export default function VentaPage() {
                                 <button className="remove-btn" onClick={() => removePaymentMethod(i)}>×</button>
                             </div>
                         ))}
+                    </div>
 
-                        {/* New Payment Input Row */}
-                        <div className="payment-row payment-row-new">
-                            <select
-                                className="payment-select"
-                                value={selectedMethodId}
-                                onChange={handleMethodSelect}
-                            >
-                                <option value="">Agregar Pago...</option>
-                                {availableMethods.map(m => (
-                                    <option key={m.id} value={m.id}>{m.descripcion}</option>
-                                ))}
-                            </select>
-                            <input
-                                type="text"
-                                inputMode="decimal"
-                                className="payment-amount"
-                                placeholder="$"
-                                value={paymentAmount}
-                                onChange={(e) => {
-                                    const val = e.target.value.replace(/[^0-9.]/g, '');
-                                    setPaymentAmount(val);
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') { handleAddPayment(); return; }
-                                    blockNonNumericKeys(e);
-                                }}
-                                onPaste={sanitizeNumericPaste}
-                            />
-                            <button onClick={handleAddPayment} className="add-payment-btn">+</button>
-                        </div>
+                    {/* New Payment Input Row — FIXED outside scroll area (Issue #26) */}
+                    <div className="payment-row payment-row-new">
+                        <select
+                            className="payment-select"
+                            value={selectedMethodId}
+                            onChange={handleMethodSelect}
+                        >
+                            <option value="">Agregar Pago...</option>
+                            {availableMethods.map(m => (
+                                <option key={m.id} value={m.id}>{m.descripcion}</option>
+                            ))}
+                        </select>
+                        <input
+                            type="text"
+                            inputMode="decimal"
+                            className="payment-amount"
+                            placeholder="$"
+                            value={paymentAmount}
+                            onChange={(e) => {
+                                const val = enforceMoneyFormat(e.target.value);
+                                setPaymentAmount(val);
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') { handleAddPayment(); return; }
+                                blockNonNumericKeys(e);
+                            }}
+                            onPaste={sanitizeNumericPaste}
+                        />
+                        <button onClick={handleAddPayment} className="add-payment-btn">+</button>
                     </div>
 
                     <div className="totals-area">
@@ -578,7 +591,7 @@ export default function VentaPage() {
                                 inputMode="decimal"
                                 value={globalDiscount || ''}
                                 onChange={(e) => {
-                                    const val = e.target.value.replace(/[^0-9.]/g, '');
+                                    const val = enforceMoneyFormat(e.target.value);
                                     setGlobalDiscount(parseFloat(val) || 0);
                                 }}
                                 onKeyDown={blockNonNumericKeys}

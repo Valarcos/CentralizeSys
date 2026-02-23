@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -49,9 +49,46 @@ function PlaceholderPage({ title, sprint = 3 }) {
     );
 }
 
+// Data Router — required for useBlocker support
+const router = createBrowserRouter([
+    {
+        path: '/login',
+        element: <LoginPage />,
+    },
+    {
+        path: '/',
+        element: (
+            <ProtectedRoute>
+                <AppLayout />
+            </ProtectedRoute>
+        ),
+        children: [
+            { index: true, element: <Navigate to="/dashboard" replace /> },
+            { path: 'dashboard', element: <DashboardPage /> },
+            { path: 'backups', element: <BackupPage /> },
+            { path: 'ventas', element: <VentaPage /> },
+            { path: 'inventario', element: <InventarioPage /> },
+            { path: 'deudores', element: <DebtorsPage /> },
+            { path: 'reportes', element: <SalesHistoryPage /> },
+            {
+                path: 'admin',
+                element: (
+                    <AdminRoute>
+                        <AdminPage />
+                    </AdminRoute>
+                ),
+            },
+        ],
+    },
+    {
+        path: '*',
+        element: <Navigate to="/" replace />,
+    },
+]);
+
 function App() {
     return (
-        <BrowserRouter>
+        <>
             <Toaster
                 position="top-center"
                 toastOptions={{
@@ -77,39 +114,10 @@ function App() {
                 }}
             />
 
-            <Routes>
-                <Route path="/login" element={<LoginPage />} />
-
-                <Route
-                    path="/"
-                    element={
-                        <ProtectedRoute>
-                            <AppLayout />
-                        </ProtectedRoute>
-                    }
-                >
-                    <Route index element={<Navigate to="/dashboard" replace />} />
-                    <Route path="dashboard" element={<DashboardPage />} />
-                    <Route path="backups" element={<BackupPage />} />
-                    <Route path="ventas" element={<VentaPage />} />
-
-                    <Route path="inventario" element={<InventarioPage />} />
-                    <Route path="deudores" element={<DebtorsPage />} />
-                    <Route path="reportes" element={<SalesHistoryPage />} />
-                    <Route
-                        path="admin"
-                        element={
-                            <AdminRoute>
-                                <AdminPage />
-                            </AdminRoute>
-                        }
-                    />
-                </Route>
-
-                <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-        </BrowserRouter>
+            <RouterProvider router={router} />
+        </>
     );
 }
 
 export default App;
+

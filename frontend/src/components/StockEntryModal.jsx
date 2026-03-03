@@ -188,7 +188,6 @@ export default function StockEntryModal({ onClose, onSuccess }) {
             const payload = {
                 proveedor: provider,
                 nroComprobante: invoiceNo,
-                usuarioId: 1, // ToDo: Auth
                 items: draftItems.map(i => ({
                     productoId: i.product.id,
                     cantidad: i.quantity,

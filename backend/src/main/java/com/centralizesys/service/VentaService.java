@@ -83,14 +83,18 @@ public class VentaService {
         // 3. Fetch Payments
         List<PagoVenta> pagos = ventaRepository.findPagosByVentaId(id);
 
-        // 4. Construct Response (Re-using the DTO)
+        // 4. Fetch Seller Name by resolving usuario_id -> nombre
+        String vendedorNombre = ventaRepository.findVendedorNombre(venta.getUsuarioId());
+
+        // 5. Construct Response
         return new VentaResponse(
                 venta.getId(),
                 venta.getFecha(),
                 venta.getClienteNombre(),
+                vendedorNombre,
                 venta.getTotalVenta(),
-                venta.getDescuentoGlobal(), // NEW
-                venta.getTipoVenta(), // NEW
+                venta.getDescuentoGlobal(),
+                venta.getTipoVenta(),
                 detalles,
                 pagos,
                 null // No alerts for historical view
@@ -156,13 +160,16 @@ public class VentaService {
                         + processedData.getTotalVenta() + " (Desc: " + descuentoGlobal + ")");
 
         // 7. Build Response
+        // Resolve the seller name from the user who made the sale
+        String vendedorNombre = ventaRepository.findVendedorNombre(request.getUsuarioId());
         return new VentaResponse(
                 txInfo.getVentaId(),
                 LocalDate.now().toString(),
                 request.getClienteNombre(),
+                vendedorNombre,
                 processedData.getTotalVenta(),
-                descuentoGlobal, // NEW
-                request.getTipoVenta() != null ? request.getTipoVenta().name() : "MINORISTA", // NEW
+                descuentoGlobal,
+                request.getTipoVenta() != null ? request.getTipoVenta().name() : "MINORISTA",
                 processedData.getDetalles(),
                 txInfo.getPagosPersistidos(),
                 stockAlerts);
@@ -229,6 +236,8 @@ public class VentaService {
         detalle.setProductoId(producto.getId());
         detalle.setCodigoSnapshot(producto.getCodigo());
         detalle.setDescripcionSnapshot(producto.getDescripcion());
+        // Snapshot of cost at time of sale for profit/loss calculations and Excel backups
+        detalle.setCostoSnapshot(producto.getPrecioCosto() != null ? producto.getPrecioCosto() : 0.0);
         detalle.setCantidad(itemReq.getCantidad());
 
         // CALCULATE PRICES

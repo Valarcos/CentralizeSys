@@ -5,6 +5,7 @@ import com.centralizesys.model.sales.MetodoPago;
 import com.centralizesys.model.sales.VentaRequest;
 import com.centralizesys.model.sales.VentaResponse;
 import com.centralizesys.repository.MetodoPagoRepository;
+import com.centralizesys.security.SecurityUtils;
 import com.centralizesys.service.VentaService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +31,9 @@ public class VentaController {
 
     @PostMapping
     public ResponseEntity<VentaResponse> registrarVenta(@RequestBody VentaRequest request) {
+        // Security: Always override the usuarioId from the validated JWT.
+        // The value sent by the client in the request body is discarded.
+        request.setUsuarioId(SecurityUtils.getAuthenticatedUserId());
         VentaResponse response = ventaService.registrarVenta(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }

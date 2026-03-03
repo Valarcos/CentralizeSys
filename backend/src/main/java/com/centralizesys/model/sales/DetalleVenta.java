@@ -14,12 +14,13 @@ public class DetalleVenta {
 
     private String codigoSnapshot;
     private String descripcionSnapshot;
+    private Double costoSnapshot; // Cost at time of sale (for profit calculations)
 
     private Long cantidad;
 
-    private Double precioLista;         // Original Price
-    private Double descuentoValor;      // The input value
+    private Double precioLista; // Original Price
+    private Double descuentoValor; // The input value
 
-    private Double precioUnitario;      // Final Price
+    private Double precioUnitario; // Final Price
     private Double subtotal;
 }

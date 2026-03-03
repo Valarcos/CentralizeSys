@@ -37,7 +37,7 @@ export default function SalesDetailModal({ sale, onClose, printMode = 'ticket', 
             id: sale.id,
             date: sale.fecha,
             client: sale.clienteNombre,
-            user: 'Sistema',
+            user: sale.vendedorNombre || 'Sistema',
             saleType: sale.tipoVenta || 'ESTÁNDAR',
             items: (sale.items || []).map(d => ({
                 codigo: d.productoCodigo || d.codigoSnapshot,

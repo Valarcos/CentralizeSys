@@ -313,8 +313,12 @@
 
     *   **Issue 5: Edit User Details**
         *   **Requirement:** Ability to edit existing user details (e.g., password, email, role).
-        *   **Current Limitation:** No endpoint exists to update user information; only Create and Delete are supported.
-        *   **Plan:** Implement `PUT /api/usuarios/{id}` endpoint and corresponding service logic in Phase 2.5/3.
+        *   **Status:** RESOLVED. The `PUT /api/usuarios/{id}` endpoint and UI (`UserFormModal`) are implemented.
+
+    *   **Issue 8: Venta Detail Vendedor and Costo Snapshot**
+        *   **Description:** Sales history PDFs always showed "Sistema" for auto-generated or poorly joined sales records. Additionally, `costo_snapshot` of products was not being registered at the time of sale.
+        *   **Resolution:** Implemented a robust `findVendedorNombre` LEFT JOIN in `VentaRepository` safely handling IDs and nulls. Added `costoSnapshot` to `DetalleVenta` model, `VentaRepository` INSERT statement, and extracted it correctly during `processItems` (`producto.getPrecioCosto()`).
+        *   **Status:** RESOLVED. PDFs now accurately show the seller, and cost is snapshotted for future margin reports.
 
 ---
 

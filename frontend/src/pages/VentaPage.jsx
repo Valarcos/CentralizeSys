@@ -171,7 +171,6 @@ export default function VentaPage() {
         try {
             setIsSubmitting(true);
             const saleData = {
-                usuarioId: 1, // TODO: Get from Auth Context
                 clienteNombre: clientName,
                 tipoVenta: saleType,
                 descuentoGlobal: globalDiscount, // NEW
@@ -199,7 +198,7 @@ export default function VentaPage() {
                 id: response.data.id,
                 date: new Date(),
                 client: clientName,
-                user: 'Sistema', // Todo
+                user: localStorage.getItem('userName') || 'Sistema',
                 saleType: saleType,
                 items: cartItems.map(i => ({
                     ...i.product,
@@ -605,7 +604,7 @@ export default function VentaPage() {
                             <div className="totals-line totals-total">Total: {formatCurrency(totals.total)}</div>
                             <div className={`totals-line ${totals.isOverpaid ? 'totals-excedido' :
                                 remaining > 0.01 ? 'totals-falta' : 'totals-cubierto'
-                                }`}>
+                            }`}>
                                 {totals.isOverpaid
                                     ? `Excedido: ${formatCurrency(totals.totalPaid - totals.total)}`
                                     : remaining > 0.01

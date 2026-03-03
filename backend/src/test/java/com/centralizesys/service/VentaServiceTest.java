@@ -230,6 +230,7 @@ class VentaServiceTest {
         // Mock stock logic to avoid NPE
         when(stockRepository.findByProductId(anyLong())).thenReturn(List.of());
         when(ventaRepository.saveVenta(any())).thenReturn(1L);
+        when(ventaRepository.findVendedorNombre(any())).thenReturn("Vendedora Test");
 
         VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
         item.setProductoId(1L);
@@ -248,6 +249,7 @@ class VentaServiceTest {
         // Assert
         assertEquals(150.0, response.getTotalVenta());
         assertEquals(50.0, response.getDescuentoGlobal());
+        assertEquals("Vendedora Test", response.getVendedorNombre());
     }
 
     @Test
@@ -468,6 +470,7 @@ class VentaServiceTest {
         p.setId(1L);
         when(productRepository.findById(1L)).thenReturn(Optional.of(p));
         when(ventaRepository.saveVenta(any())).thenReturn(500L);
+        when(ventaRepository.findVendedorNombre(any())).thenReturn("Admin Test");
 
         // Stock Location mock to avoid NPE in loop
         when(stockRepository.findByProductId(1L)).thenReturn(
@@ -493,6 +496,7 @@ class VentaServiceTest {
         // Assert
         assertEquals(500L, response.getId());
         assertEquals(200.0, response.getTotalVenta());
+        assertEquals("Admin Test", response.getVendedorNombre());
 
         // Verify Interactions
         verify(ventaRepository).saveVenta(any(Venta.class));

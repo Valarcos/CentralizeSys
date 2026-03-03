@@ -13,6 +13,7 @@ public class VentaResponse {
     private Long id;
     private String fecha;
     private String clienteNombre;
+    private String vendedorNombre; // Name of the user who made the sale
     private Double totalVenta;
     private Double descuentoGlobal;
     private String tipoVenta;

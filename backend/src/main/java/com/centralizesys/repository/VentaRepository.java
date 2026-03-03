@@ -53,6 +53,7 @@ public class VentaRepository {
             rs.getLong("producto_id"),
             rs.getString("codigo_snapshot"),
             rs.getString("descripcion_snapshot"),
+            rs.getDouble("costo_snapshot"),
             rs.getLong("cantidad"),
             rs.getDouble("precio_lista"),
             rs.getDouble("descuento_valor"),
@@ -96,12 +97,13 @@ public class VentaRepository {
     public void saveDetalles(List<DetalleVenta> detalles) {
         String sql = """
                     INSERT INTO detalles_venta
-                    (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad,
+                    (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, costo_snapshot, cantidad,
                      precio_lista, descuento_valor, precio_unitario, subtotal)
                     VALUES (:ventaId,
                             :productoId,
                             :codigoSnapshot,
                             :descripcionSnapshot,
+                            :costoSnapshot,
                             :cantidad,
                             :precioLista,
                             :descuentoValor,
@@ -115,6 +117,7 @@ public class VentaRepository {
                         .addValue("productoId", d.getProductoId())
                         .addValue("codigoSnapshot", d.getCodigoSnapshot())
                         .addValue("descripcionSnapshot", d.getDescripcionSnapshot())
+                        .addValue("costoSnapshot", d.getCostoSnapshot())
                         .addValue("cantidad", d.getCantidad())
                         .addValue("precioLista", d.getPrecioLista())
                         .addValue("descuentoValor", d.getDescuentoValor())
@@ -146,6 +149,20 @@ public class VentaRepository {
         String sql = "SELECT * FROM ventas WHERE id = :id";
         List<Venta> list = namedJdbcTemplate.query(sql, new MapSqlParameterSource("id", id), ventaMapper);
         return list.stream().findFirst();
+    }
+
+    /**
+     * Resolves the seller display name.
+     * Returns the user's nombre from usuarios table, or "Sistema" for
+     * auto-operations (ID 0) or if the user no longer exists.
+     */
+    public String findVendedorNombre(Long usuarioId) {
+        if (usuarioId == null || usuarioId == 0L)
+            return "Sistema";
+        String sql = "SELECT nombre FROM usuarios WHERE id = :id";
+        List<String> result = namedJdbcTemplate.queryForList(sql, new MapSqlParameterSource("id", usuarioId),
+                String.class);
+        return result.isEmpty() ? "Sistema" : result.getFirst();
     }
 
     public List<DetalleVenta> findDetallesByVentaId(Long ventaId) {

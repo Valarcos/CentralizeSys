@@ -11,7 +11,11 @@ public class VentaRequest {
     private String clienteNombre;
     private Double descuentoGlobal = 0.0; // NEW
 
-    private Long usuarioId; // Enables traceability of who made the sale
+    // NOTE: This field is ALWAYS overridden by VentaController using
+    // SecurityUtils.getAuthenticatedUserId().
+    // Any value sent from the client in the request body is discarded. Do NOT trust
+    // client-supplied identity.
+    private Long usuarioId;
     private TipoVenta tipoVenta = TipoVenta.MINORISTA; // Default to Retail
 
     // The list of products being bought

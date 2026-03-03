@@ -74,6 +74,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         det.setProductoId(productId);
         det.setCodigoSnapshot("VENTA-001");
         det.setDescripcionSnapshot("Test Product Description");
+        det.setCostoSnapshot(100.0);
         det.setCantidad(2L);
         det.setPrecioLista(150.0);
         det.setDescuentoValor(0.0);
@@ -88,6 +89,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         assertThat(detalles).hasSize(1);
         assertThat(detalles.getFirst().getCodigoSnapshot()).isEqualTo("VENTA-001");
         assertThat(detalles.getFirst().getDescripcionSnapshot()).isEqualTo("Test Product Description");
+        assertThat(detalles.getFirst().getCostoSnapshot()).isEqualTo(100.0);
     }
 
     @Test
@@ -209,6 +211,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         det.setProductoId(productId);
         det.setCodigoSnapshot("MAP-001");
         det.setDescripcionSnapshot("Mapping Test");
+        det.setCostoSnapshot(30.0);
         det.setCantidad(1L);
         det.setPrecioLista(50.0);
         det.setDescuentoValor(5.0);
@@ -225,6 +228,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         assertThat(found.getVentaId()).isEqualTo(ventaId);
         assertThat(found.getProductoId()).isEqualTo(productId);
         assertThat(found.getCantidad()).isEqualTo(1L);
+        assertThat(found.getCostoSnapshot()).isEqualTo(30.0);
         assertThat(found.getPrecioLista()).isEqualTo(50.0);
         assertThat(found.getDescuentoValor()).isEqualTo(5.0);
         assertThat(found.getPrecioUnitario()).isEqualTo(45.0);

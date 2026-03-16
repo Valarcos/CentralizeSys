@@ -102,7 +102,7 @@
 **Business Rules:**
 *   **Mandatory:** Strictly forbids empty list of items.
 *   **Snapshot Logic:** `detalles_venta` must store historical snapshot.
-    *   **Required Columns:** `codigo_snapshot`, `descripcion_snapshot`.
+    *   **Required Columns:** `codigo_snapshot`, `descripcion_snapshot`, `costo_snapshot`.
 *   **Phantom Stock:** Sales allowed at 0 stock (Negative result).
     *   **Warning:** Response must include `alertas`.
     *   **Reminder:** Login/Startup Check -> Modal Warning ("5 items negative"). Dashboard -> Persistent Red Icon.
@@ -165,7 +165,7 @@
 *   **Failsafe:** Wrapped in `try-catch` (Log to SLF4J if DB fails).
 
 ### G. Authentication (Usuarios)
-*   **Method:** Stateless REST. Client holds ID.
+*   **Method:** Stateless REST. Client holds JWT. **SECURITY RULE:** The backend MUST extract identity (`usuarioId`) from the `SecurityContext` (JWT) for attribution. NEVER trust a `usuarioId` sent in the request body from the client.
 *   **Security:** `BCrypt` (Strength 10). `csrf.disable()`.
 *   **UX:** Explicit messages ("Email not found", "Wrong Password").
 *   **Privacy:** `UsuarioResponse` excludes hash.

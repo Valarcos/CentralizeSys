@@ -116,14 +116,16 @@
     color: #000;
 }
 
+/* Zero stock: same red as negative stock — both mean "cannot sell" */
 .stock-badge.out-of-stock {
-    background-color: var(--color-secondary);
-    color: white;
+    background-color: #e53935;
+    color: #000;
 }
 
+/* Issue #8: Negative stock must show red background with BLACK text (not white) */
 .stock-badge.negative-stock {
-    background-color: var(--color-danger);
-    color: white;
+    background-color: #e53935;
+    color: #000;
     animation: pulse 1.5s infinite;
 }
 

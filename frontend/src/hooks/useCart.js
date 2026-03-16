@@ -45,6 +45,32 @@ export default function useCart() {
         return 'ok';
     }, []);
 
+    const updateProductData = useCallback((updatedProduct) => {
+        setCartItems(prev => prev.map(item => {
+            if (item.product.id === updatedProduct.id) {
+                // Return a completely new object reference to ensure React triggers a re-render
+                return {
+                    ...item,
+                    product: { ...updatedProduct }
+                };
+            }
+            return item;
+        }));
+    }, []);
+
+    const updateMultipleProductsData = useCallback((updatedProductsList) => {
+        setCartItems(prev => prev.map(item => {
+            const freshProduct = updatedProductsList.find(p => p.id === item.product.id);
+            if (freshProduct) {
+                return {
+                    ...item,
+                    product: { ...freshProduct }
+                };
+            }
+            return item;
+        }));
+    }, []);
+
     const updateItemDiscount = useCallback((productId, discountValue) => {
         setCartItems(prev => prev.map(item =>
             item.product.id === productId ? { ...item, discount: parseFloat(discountValue) || 0 } : item
@@ -119,6 +145,8 @@ export default function useCart() {
         setSaleType,
         addToCart,
         updateQuantity,
+        updateProductData,
+        updateMultipleProductsData,
         updateItemDiscount, // New
         globalDiscount, // New
         setGlobalDiscount, // New

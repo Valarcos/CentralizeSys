@@ -1,6 +1,8 @@
 .dashboard {
     max-width: 1200px;
     margin: 0 auto;
+    /* #1: Pull content up by 2/5 of the container's 2rem top padding (2rem × 2/5 = 0.8rem) */
+    margin-top: -0.8rem;
 }
 
 .dashboard h1 {
@@ -11,7 +13,8 @@
 .dashboard-subtitle {
     color: var(--color-secondary);
     font-size: 1.2rem;
-    margin-bottom: var(--spacing-xl);
+    /* #2: was 3rem → 1.5rem (÷2 prev step) → 1.125rem (−1/4 this step) */
+    margin-bottom: 1.125rem;
 }
 
 /* --- Alert Cards (Dashboard Notifications) --- */
@@ -21,10 +24,12 @@
     gap: var(--spacing-md);
     border-radius: var(--border-radius);
     padding: var(--spacing-md) var(--spacing-lg);
-    margin-bottom: var(--spacing-md);
+    /* #4: Reduce gap between alerts by 2/5 (1.5rem → 0.9rem) */
+    margin-bottom: 0.9rem;
     transition: all 0.3s ease;
     position: relative;
 }
+
 
 .alert-card.clickable {
     cursor: pointer;
@@ -87,6 +92,20 @@
     color: #721c24;
 }
 
+/* Danger variant (red — negative stock banner, Issues #1 & #2) */
+.alert-card.danger {
+    background: linear-gradient(135deg, #fdecea 0%, #f5c6cb 100%);
+    border: 2px solid #c0392b;
+    color: #721c24;
+    align-items: center;
+}
+
+.alert-card.danger:hover {
+    box-shadow: 0 4px 12px rgba(192, 57, 43, 0.25);
+}
+
+
+
 /* Close/dismiss button for persistent alerts */
 .alert-close-btn {
     background: none;
@@ -115,7 +134,8 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--spacing-lg);
-    margin-top: var(--spacing-xl);
+    /* #3 bottom: reduce gap between last alert and module grid by 1/2 (3rem → 1.5rem) */
+    margin-top: 1.5rem;
 }
 
 .dashboard-card {
@@ -219,6 +239,21 @@
 
     .reminder-arrow {
         display: none;
+    }
+
+    /* Alert cards: allow the action link to wrap onto its own line */
+    .alert-card {
+        flex-wrap: wrap;
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    /* Action drops to a full-width line, right-aligned so the "→" stays at the far right */
+    .alert-card .alert-action {
+        white-space: normal;
+        width: 100%;
+        text-align: right;
+        margin-top: 0.3rem;
+        font-size: 0.95rem;
     }
 }
 

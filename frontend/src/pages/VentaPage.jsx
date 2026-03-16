@@ -19,6 +19,8 @@ export default function VentaPage() {
         setSaleType,
         addToCart,
         updateQuantity,
+        updateProductData, // Adding just in case existing code relies on it
+        updateMultipleProductsData,
         updateItemDiscount, // New
         globalDiscount, // New
         setGlobalDiscount, // New
@@ -28,8 +30,11 @@ export default function VentaPage() {
         totals
     } = useCart();
 
-    // Issue #63: Warn user before navigating away with unsaved cart data
-    const blocker = useBlocker(cartItems.length > 0);
+    // ... existing state ...
+    const [lastSale, setLastSale] = useState(null); // Stores successful sale data for receipt
+
+    // Issue #11 fix: only block navigation if cart has items AND sale is NOT yet completed
+    const blocker = useBlocker(cartItems.length > 0 && !lastSale);
     useEffect(() => {
         if (blocker.state === 'blocked') {
             const leave = window.confirm('⚠️ ¿Desea salir?\n\nTiene productos en el carrito que se perderán si abandona esta página.');
@@ -40,10 +45,6 @@ export default function VentaPage() {
             }
         }
     }, [blocker]);
-
-    // ... existing state ...
-    const [lastSale, setLastSale] = useState(null); // Stores successful sale data for receipt
-
 
     const [products, setProducts] = useState([]);
     const [paymentMethods, setPaymentMethods] = useState([]);
@@ -93,7 +94,7 @@ export default function VentaPage() {
         const issues = [];
         cartItems.forEach(item => {
             if (item.quantity > item.product.cantidadStock) {
-                issues.push(item.product);
+                issues.push({ ...item.product, cartQuantity: item.quantity });
             }
         });
         return issues;
@@ -120,6 +121,46 @@ export default function VentaPage() {
         }
     };
 
+    const handleStockCorrected = async () => {
+        try {
+            // Re-fetch all products
+            // Issue #14 Fix: Correct endpoint is /api/productos, which returns a paginated response
+            const res = await api.get('/api/productos');
+            const productsList = res.data.content || [];
+            if (productsList.length > 0) {
+                setProducts(productsList);
+            }
+
+            const updatedIssues = [];
+            // We use the current cartItems array to figure out which ones still have issues,
+            // but we compare against the FRESH productsList data we just got from the DB.
+            cartItems.forEach(item => {
+                const refreshedProduct = productsList.find(p => p.id === item.product.id);
+                if (refreshedProduct) {
+                    if (item.quantity > refreshedProduct.cantidadStock) {
+                        updatedIssues.push({ ...refreshedProduct, cartQuantity: item.quantity });
+                    }
+                } else if (item.quantity > item.product.cantidadStock) {
+                    // Fallback if product not found in the fresh list for some reason
+                    updatedIssues.push({ ...item.product, cartQuantity: item.quantity });
+                }
+            });
+
+            // Update all cart items in a single batch so React doesn't drop any states
+            updateMultipleProductsData(productsList);
+
+            // Update the affected products list for the modal
+            setAffectedProducts(updatedIssues);
+
+            if (updatedIssues.length === 0) {
+                // Issue 2: Auto-close both nested and root modal if 0 issues remain
+                setShowStockModal(false);
+            }
+        } catch (error) {
+            console.error("Error refreshing after stock correction", error);
+        }
+    };
+
     const handleFinalizeSale = async () => {
         if (isSubmitting) return;
 
@@ -129,20 +170,8 @@ export default function VentaPage() {
             return;
         }
 
-        // 1. Stock Validation
-        const insufficientStockItems = cartItems.filter(item => {
-            const currentStock = item.product.cantidadStock || 0;
-            return (currentStock - item.quantity) < 0;
-        });
-
-        if (insufficientStockItems.length > 0) {
-            const confirm = window.confirm(
-                `⚠️ STOCK NEGATIVO\n\nLos siguientes productos quedarán con stock negativo:\n` +
-                insufficientStockItems.map(i => `- ${i.product.descripcion} (Stock: ${i.product.cantidadStock}, Venta: ${i.quantity})`).join('\n') +
-                `\n\n¿Desea continuar de todas formas?`
-            );
-            if (!confirm) return;
-        }
+        // 1. Stock Validation is now entirely handled by handlePrePaymentCheck
+        // If we reach here, either stock is sufficient or the user chose to bypass it.
 
         // 2. Debt Validation (This logic needs to be adapted to the current `payments` and `saleType` state)
         // The original `handleFinalizeSale` already handles `saleType` and `clientName` for 'FIADO'.
@@ -652,7 +681,20 @@ export default function VentaPage() {
                     <StockWarningModal
                         affectedProducts={affectedProducts}
                         onClose={() => setShowStockModal(false)}
-                        onContinue={handleFinalizeSale}
+                        onContinue={() => {
+                            setShowStockModal(false);
+                            // Set a small timeout to allow state to settle before debt verification starts, avoiding race conditions.
+                            setTimeout(() => {
+                                const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+                                const remaining = totals.total - totalPaid;
+                                if (remaining > 0.01) {
+                                    setShowDebtModal(true);
+                                } else {
+                                    handleFinalizeSale();
+                                }
+                            }, 50);
+                        }}
+                        onStockCorrected={handleStockCorrected}
                     />
                 )}
 
@@ -680,9 +722,9 @@ export default function VentaPage() {
                         onCancel={() => setShowOverpaidModal(false)}
                     />
                 )}
+                {/* Tab switching is now handled by the contextual bottom-nav in AppLayout */}
             </div>
 
-            {/* Tab switching is now handled by the contextual bottom-nav in AppLayout */}
         </div>
     );
 }

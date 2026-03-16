@@ -38,10 +38,16 @@ CREATE TABLE IF NOT EXISTS usuarios (
     fecha_creacion TEXT DEFAULT (datetime('now', 'localtime'))
 );;
 
--- Usuario Admin por defecto
--- TODO: Delete this insertion before production deployment (Sprint 8)
-INSERT OR IGNORE INTO usuarios (nombre, email, password_hash)
-VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu');;
+-- Usuario Sistema reservado (ID convencional = 1, primer AUTOINCREMENT)
+-- IMPORTANTE: Este usuario nunca debe ser eliminado. Representa al actor "Sistema" en la tabla auditoria.
+-- Se usa userId=0L en el código Java para acciones automatizadas (backups, tareas programadas).
+-- El campo usuario_id en auditoria es nullable para compatibilidad, pero la convención vigente es ID=0.
+INSERT OR IGNORE INTO usuarios (id, nombre, email, password_hash, rol)
+VALUES (0, 'Sistema', 'sistema@centralizesys.internal', 'NO_LOGIN', 'EMPLEADO');;
+
+-- Usuario Administrador
+INSERT OR IGNORE INTO usuarios (nombre, email, password_hash, rol)
+VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu', 'ADMIN');;
 
 -- 4. Métodos de Pago (MOVED UP FOR FK DEPENDENCY)
 CREATE TABLE IF NOT EXISTS metodos_pago (
@@ -243,4 +249,19 @@ BEGIN
          --ELSE NULL this line is redundant because it returns NULL automatically. Normal SQLite behavior.
         END
     WHERE id = NEW.id;
+END;;
+
+-- 5. Inmutabilidad de la tabla auditoria
+-- La tabla auditoria es de solo insercion (append-only).
+-- Ningun registro puede ser modificado ni eliminado una vez registrado.
+CREATE TRIGGER IF NOT EXISTS trg_audit_no_update
+    BEFORE UPDATE ON auditoria
+BEGIN
+    SELECT RAISE(ABORT, 'La tabla auditoria es inmutable: no se permiten modificaciones.');
+END;;
+
+CREATE TRIGGER IF NOT EXISTS trg_audit_no_delete
+    BEFORE DELETE ON auditoria
+BEGIN
+    SELECT RAISE(ABORT, 'La tabla auditoria es inmutable: no se permiten eliminaciones.');
 END;;

@@ -1,44 +1,30 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import StockWarningModal from '../components/StockWarningModal';
+import NegativeStockCorrectionModal from '../components/NegativeStockCorrectionModal';
 import './DashboardPage.css';
 
 export default function DashboardPage() {
     const [userName, setUserName] = useState('');
     const [userRole, setUserRole] = useState('');
-    const [lowStockProducts, setLowStockProducts] = useState([]);
-    const [showMorningAlert, setShowMorningAlert] = useState(false);
+    const [negativeStockProducts, setNegativeStockProducts] = useState([]);
+    const [showCorrectionModal, setShowCorrectionModal] = useState(false);
     const [hasActiveDebts, setHasActiveDebts] = useState(false);
     const [backupWarning, setBackupWarning] = useState(false);
     const [systemAlerts, setSystemAlerts] = useState([]);
     const navigate = useNavigate();
 
-    // Helper: Is current time within a stock warning window? (7:00-11:00 or 17:00-21:00)
-    const isInWarningWindow = () => {
-        const hour = new Date().getHours();
-        return (hour >= 7 && hour < 11) || (hour >= 17 && hour < 21);
-    };
-
-    // Helper: Should stock alert be shown?
-    // Shows on first load (login clears sessionStorage), and re-shows during warning windows
-    const shouldShowStockAlert = () => {
-        const dismissed = sessionStorage.getItem('stockAlertDismissed');
-        if (!dismissed) return true; // Never dismissed this session → show (login case)
-        // If dismissed, only re-show during warning time windows
-        if (isInWarningWindow()) {
-            const dismissedAt = parseInt(dismissed, 10);
-            const now = Date.now();
-            // Re-show if dismissed more than 30 minutes ago (prevent instant re-pop)
-            return (now - dismissedAt) > 30 * 60 * 1000;
+    const refreshNegativeStock = async () => {
+        try {
+            const stockRes = await api.get('/api/productos/alerts');
+            const data = stockRes.data && stockRes.data.length > 0 ? stockRes.data : [];
+            setNegativeStockProducts(data);
+            if (data.length === 0) {
+                setShowCorrectionModal(false);
+            }
+        } catch (error) {
+            console.error('Error refreshing stock alerts:', error);
         }
-        return false;
-    };
-
-    // Handler: Dismiss stock alert and record timestamp
-    const handleDismissStockAlert = () => {
-        sessionStorage.setItem('stockAlertDismissed', Date.now().toString());
-        setShowMorningAlert(false);
     };
 
     useEffect(() => {
@@ -54,13 +40,8 @@ export default function DashboardPage() {
                     api.get('/api/system/alerts').catch(() => ({ data: { alerts: [] } }))
                 ]);
 
-                // Low Stock Alerts — show based on session + time window rules
-                if (stockRes.data && stockRes.data.length > 0) {
-                    setLowStockProducts(stockRes.data);
-                    if (shouldShowStockAlert()) {
-                        setShowMorningAlert(true);
-                    }
-                }
+                // Negative Stock Alerts — banner shows whenever there are negative products
+                setNegativeStockProducts(stockRes.data && stockRes.data.length > 0 ? stockRes.data : []);
 
                 // Debtor Logic
                 if (reminderRes.data === true) {
@@ -138,6 +119,22 @@ export default function DashboardPage() {
                     </button>
                 </div>
             ))}
+
+            {/* Negative Stock Inline Banner — persists until all negative stock is corrected */}
+            {negativeStockProducts.length > 0 && (
+                <div className="alert-card danger clickable" onClick={() => setShowCorrectionModal(true)}>
+                    <span className="alert-icon">🔴</span>
+                    <div className="alert-content">
+                        <strong>Stock Negativo Detectado</strong>
+                        <p>
+                            {negativeStockProducts.length === 1
+                                ? `1 producto tiene stock negativo.`
+                                : `${negativeStockProducts.length} productos tienen stock negativo.`}
+                        </p>
+                    </div>
+                    <span className="alert-action">Corregir Inventario →</span>
+                </div>
+            )}
 
             {/* Debtor Reminder Badge */}
             {hasActiveDebts && (
@@ -240,16 +237,14 @@ export default function DashboardPage() {
                 )}
             </div>
 
-            {/* Morning Alert Modal */}
-            {
-                showMorningAlert && (
-                    <StockWarningModal
-                        affectedProducts={lowStockProducts}
-                        onClose={handleDismissStockAlert}
-                        onContinue={handleDismissStockAlert}
-                    />
-                )
-            }
-        </div >
+            {/* Negative Stock Correction Modal (Issue #3.1) */}
+            {showCorrectionModal && (
+                <NegativeStockCorrectionModal
+                    products={negativeStockProducts}
+                    onClose={() => setShowCorrectionModal(false)}
+                    onCorrectionComplete={refreshNegativeStock}
+                />
+            )}
+        </div>
     );
 }

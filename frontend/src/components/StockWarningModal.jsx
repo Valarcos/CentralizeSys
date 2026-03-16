@@ -3,7 +3,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import './StockWarningModal.css';
 
-export default function StockWarningModal({ affectedProducts, onClose, onContinue }) {
+export default function StockWarningModal({ affectedProducts, onClose, onContinue, onStockCorrected }) {
     const [editingProduct, setEditingProduct] = useState(null);
     const [locations, setLocations] = useState([]);
     const [selectedLocation, setSelectedLocation] = useState('');
@@ -16,7 +16,8 @@ export default function StockWarningModal({ affectedProducts, onClose, onContinu
             api.get(`/api/stock/producto/${editingProduct.id}`)
                 .then(res => {
                     setLocations(res.data);
-                    if (res.data.length > 0) setSelectedLocation(res.data[0].id);
+                    // Issue #9 fix: use ubicacionId (FK to ubicaciones), NOT id (the stock_por_ubicacion row PK)
+                    if (res.data.length > 0) setSelectedLocation(res.data[0].ubicacionId);
                 })
                 .catch(err => {
                     console.error("Error fetching locations", err);
@@ -40,8 +41,8 @@ export default function StockWarningModal({ affectedProducts, onClose, onContinu
             });
             toast.success("Stock corregido exitosamente");
             setEditingProduct(null);
-            // In a real app, we should refresh the product in parent or update local state
-            // For now, we rely on the user to re-check or the parent to re-validate
+            // Issue #3: Refresh the product in parent so it can re-evaluate and close if needed
+            if (onStockCorrected) onStockCorrected();
         } catch (error) {
             console.error("Error adjusting stock", error);
             toast.error("Error al corregir stock");
@@ -65,7 +66,7 @@ export default function StockWarningModal({ affectedProducts, onClose, onContinu
                                 <li key={p.id} className="warning-item">
                                     <div className="warning-info">
                                         <span className="warning-name">{p.descripcion}</span>
-                                        <span className="warning-stock">Stock Actual: {p.cantidadStock}</span>
+                                        <span className="warning-stock">Stock Actual: {p.cantidadStock} | Productos a vender: {p.cartQuantity}</span>
                                     </div>
                                     <button
                                         className="correct-btn"
@@ -95,8 +96,8 @@ export default function StockWarningModal({ affectedProducts, onClose, onContinu
                                     style={{ width: '100%', padding: '0.5rem', marginBottom: '1rem' }}
                                 >
                                     {locations.map(loc => (
-                                        <option key={loc.id} value={loc.id}>
-                                            {loc.nombreUbicacion || `Ubicación ${loc.id}`} (Actual: {loc.cantidad})
+                                        <option key={loc.id} value={loc.ubicacionId}>
+                                            {loc.nombreUbicacion || `Ubicación ${loc.ubicacionId}`} (Actual: {loc.cantidad})
                                         </option>
                                     ))}
                                 </select>

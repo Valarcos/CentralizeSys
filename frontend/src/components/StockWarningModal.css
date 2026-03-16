@@ -51,13 +51,15 @@
     font-size: 0.9rem;
 }
 
+/* Issue 1 fix: match .cancel-btn exactly — white bg, black text, black border, bold */
 .correct-btn {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
+    background: white;
+    color: #000;
+    border: 2px solid #000;
     padding: 0.5rem 0.8rem;
     border-radius: 4px;
     cursor: pointer;
+    font-weight: 700;
 }
 
 .modal-actions {
@@ -67,12 +69,16 @@
     margin-top: 1rem;
 }
 
+/* Issues #5 & #6: Cancel/Back buttons must be fully visible */
 .cancel-btn {
-    background: transparent;
-    border: 1px solid #ccc;
+    background: white;
+    color: #000;
+    border: 2px solid #000;
     padding: 0.8rem 1.2rem;
     border-radius: 4px;
     cursor: pointer;
+    font-weight: 600;
+    min-height: 40px;
 }
 
 .continue-btn {

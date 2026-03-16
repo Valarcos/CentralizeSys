@@ -119,16 +119,57 @@
     background-color: #5a32a3;
 }
 
-/* Admin Restore Button */
+/* Admin Restore Button — Issue #7: prevent text overflow */
 .btn-restore {
     background-color: var(--color-warning);
     color: #212529;
     font-size: 0.9rem;
-    padding: 8px 12px;
+    padding: 8px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+/* Mobile: give full width to avoid clipping */
+@media (max-width: 768px) {
+    .btn-restore {
+        width: 100%;
+        text-align: center;
+        padding: 10px 8px;
+    }
 }
 
 .btn-restore:hover {
     background-color: #e0a800;
+}
+
+/* Issue #5 fix: Ensure modal actions fit the text inside smaller screens */
+.modal-content.danger .modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: flex-end;
+}
+
+.modal-content.danger .modal-actions button {
+    white-space: normal;
+    text-align: center;
+    padding: 0.6rem 1rem;
+    height: auto;
+    line-height: 1.2;
+}
+
+/* Red danger button for EJECUTAR RESTAURACION */
+.modal-content.danger .modal-actions button.danger {
+    background-color: #c0392b;
+    color: white;
+    border: none;
+    font-size: 0.9rem;
+}
+
+.modal-content.danger .modal-actions button.danger:hover:not(:disabled) {
+    background-color: #a93226;
 }
 
 /* Responsive */

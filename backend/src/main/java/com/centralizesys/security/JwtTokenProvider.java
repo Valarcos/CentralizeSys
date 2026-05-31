@@ -11,11 +11,21 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${app.jwtSecret}")
-    private String jwtSecret;
+    private final String jwtSecret;
 
-    @Value("${app.jwtExpirationInMs}")
-    private int jwtExpirationInMs;
+    private final int jwtExpirationInMs;
+
+    public JwtTokenProvider(@Value("${app.jwtSecret}") String jwtSecret,
+                            @Value("${app.jwtExpirationInMs}") int jwtExpirationInMs) {
+        if (jwtSecret == null || jwtSecret.isBlank() || "UNSET".equals(jwtSecret)) {
+            throw new IllegalArgumentException("JWT_SECRET must be configured securely in the environment!");
+        }
+        if (jwtSecret.length() < 32) {
+            throw new IllegalArgumentException("JWT_SECRET must be at least 32 characters long for HS512!");
+        }
+        this.jwtSecret = jwtSecret;
+        this.jwtExpirationInMs = jwtExpirationInMs;
+    }
 
     public String generateToken(Authentication authentication) {
         String username = authentication.getName();

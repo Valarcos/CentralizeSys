@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -33,7 +33,7 @@ class DeudoresServiceIntegrationTest extends BaseIntegrationTest {
         Long userId = createTestUser();
 
         Venta venta = new Venta();
-        venta.setFecha(LocalDate.now().toString());
+        venta.setFecha(LocalDateTime.now());
         venta.setClienteNombre("Test Debtor");
         venta.setTotalVenta(100.0);
         venta.setUsuarioId(userId);
@@ -77,7 +77,7 @@ class DeudoresServiceIntegrationTest extends BaseIntegrationTest {
     void shouldHandleRounding() {
         // Scenario: 10.00 debt. Payment of 3.33 repeated 3 times.
         Long userId = createTestUser();
-        Venta venta = new Venta(null, LocalDate.now().toString(), "Math User", 10.0, 0.0, "MINORISTA", userId);
+        Venta venta = new Venta(null, LocalDateTime.now(), "Math User", 10.0, 0.0, "MINORISTA", userId);
         Long ventaId = ventaRepository.saveVenta(venta);
 
         deudoresRepository.save(ventaId, "Math User", 10.00);
@@ -115,7 +115,7 @@ class DeudoresServiceIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Should record payment in pagos_deuda history")
     void shouldRecordPaymentInHistory() {
         Long userId = createTestUser();
-        Venta venta = new Venta(null, LocalDate.now().toString(), "History User", 100.0, 0.0, "MINORISTA", userId);
+        Venta venta = new Venta(null, LocalDateTime.now(), "History User", 100.0, 0.0, "MINORISTA", userId);
         Long ventaId = ventaRepository.saveVenta(venta);
 
         deudoresRepository.save(ventaId, "History User", 100.0);

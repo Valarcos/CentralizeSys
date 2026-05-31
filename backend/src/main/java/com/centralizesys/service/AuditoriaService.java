@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -36,8 +37,7 @@ public class AuditoriaService {
     }
 
     // Needed for the Controller to display logs
-    public List<Auditoria> getLogsByDateRange(String startDateTime, String endDateTime) {
-        // Simple passthrough to repository
+    public List<Auditoria> findByDateRange(java.time.LocalDateTime startDateTime, LocalDateTime endDateTime) {
         return repository.findByDateRange(startDateTime, endDateTime);
     }
 }

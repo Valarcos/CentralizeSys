@@ -132,7 +132,7 @@ public class ProductRepository {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         SqlParameterSource params = new BeanPropertySqlParameterSource(p);
 
-        namedJdbcTemplate.update(sql, params, keyHolder);
+        namedJdbcTemplate.update(sql, params, keyHolder, new String[]{"id"});
 
         Number key = keyHolder.getKey();
         if (key != null) {

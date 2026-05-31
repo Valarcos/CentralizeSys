@@ -18,7 +18,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalDate;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +37,7 @@ class CompraControllerTest {
 
     @MockBean
     private CompraService compraService;
-
+    //TODO: Check unused service mockbeans for utility
     @MockBean
     private com.centralizesys.service.AuditoriaService auditoriaService;
 
@@ -74,7 +73,7 @@ class CompraControllerTest {
             // request.setUsuarioId(null); // Explicitly null/ignoring
 
             // Mock Service Response
-            CompraResponse response = new CompraResponse(10L, LocalDate.now().toString(), "Prov 1", "A-001", 100.0,
+            CompraResponse response = new CompraResponse(10L, java.time.LocalDateTime.now(), "Prov 1", "A-001", 100.0,
                     Collections.emptyList());
             when(compraService.registrarCompra(any(CompraRequest.class))).thenReturn(response);
 

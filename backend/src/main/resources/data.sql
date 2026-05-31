@@ -1,22 +1,22 @@
 -- 1. UBICACIONES
-INSERT OR IGNORE INTO ubicaciones (id, nombre) VALUES
-    (1, 'Salón Principal'), (2, 'Depósito'), (3, 'Vidriera');;
+INSERT INTO ubicaciones (id, nombre) VALUES
+(1, 'Salón Principal'), (2, 'Depósito'), (3, 'Vidriera');;
 
 -- 2. METODOS DE PAGO
-INSERT OR IGNORE INTO metodos_pago (id, acronimo, descripcion) VALUES
-    (1, 'E', 'Efectivo'),
-    (2, 'TCM', 'Tarjeta Crédito Macro'),
-    (3, 'TCS', 'Tarjeta Crédito Santander'),
-    (4, 'TCG', 'Tarjeta Crédito Galicia'),
-    (5, 'TBC', 'Transferencia Claudia'),
-    (6, 'TBS', 'Transferencia Silvia'),
-    (7, 'TBF', 'Transferencia Fico'),
-    (8, 'TBMP', 'MercadoPago'),
-    (9, 'TBH', 'Transferencia Habitualitá'),
+INSERT INTO metodos_pago (id, acronimo, descripcion) VALUES
+(1, 'E', 'Efectivo'),
+(2, 'TCM', 'Tarjeta Crédito Macro'),
+(3, 'TCS', 'Tarjeta Crédito Santander'),
+(4, 'TCG', 'Tarjeta Crédito Galicia'),
+(5, 'TBC', 'Transferencia Claudia'),
+(6, 'TBS', 'Transferencia Silvia'),
+(7, 'TBF', 'Transferencia Fico'),
+(8, 'TBMP', 'MercadoPago'),
+(9, 'TBH', 'Transferencia Habitualitá'),
 (10, 'TB3', 'Transferencia a Terceros');;
 
 -- 3. PRODUCTOS
-INSERT OR IGNORE INTO productos (id, codigo, descripcion, precio_costo, precio_minorista, precio_mayorista, cantidad_stock) VALUES
+INSERT INTO productos (id, codigo, descripcion, precio_costo, precio_minorista, precio_mayorista, cantidad_stock) VALUES
 (1, 'ART-MUSC-N', 'Musculosa Negra - Básica', 10000.0, 56800.0, 45000.0, 0),
 (2, 'ART-REM-CUE', 'Remera Cuello Desflecado', 21000.0, 69800.0, 55000.0, 0),
 (3, 'ART-PANT-GAB', 'Pantalón Gabardina Beige', 15000.0, 45000.0, 35000.0, 0),
@@ -24,36 +24,33 @@ INSERT OR IGNORE INTO productos (id, codigo, descripcion, precio_costo, precio_m
 (5, 'ACC-CINT', 'Cinturón Cuero', 5000.0, 12500.0, 10000.0, 0);;
 
 -- 4. STOCK (Assign stock using subqueries to find IDs)
-INSERT OR IGNORE INTO stock_por_ubicacion (id, producto_id, ubicacion_id, cantidad) VALUES
-    (1, (SELECT id FROM productos WHERE codigo='ART-MUSC-N'), (SELECT id FROM ubicaciones WHERE nombre='Salón Principal'), 10),
-    (2, (SELECT id FROM productos WHERE codigo='ART-REM-CUE'), (SELECT id FROM ubicaciones WHERE nombre='Salón Principal'), 8),
-    (3, (SELECT id FROM productos WHERE codigo='ART-PANT-GAB'), (SELECT id FROM ubicaciones WHERE nombre='Depósito'), 5),
-    (4, (SELECT id FROM productos WHERE codigo='ART-SWEATER'), (SELECT id FROM ubicaciones WHERE nombre='Salón Principal'), 3),
-    (5, (SELECT id FROM productos WHERE codigo='ACC-CINT'), (SELECT id FROM ubicaciones WHERE nombre='Vidriera'), 2);;
+INSERT INTO stock_por_ubicacion (id, producto_id, ubicacion_id, cantidad) VALUES
+(1, (SELECT id FROM productos WHERE codigo='ART-MUSC-N'), (SELECT id FROM ubicaciones WHERE nombre='Salón Principal'), 10),
+(2, (SELECT id FROM productos WHERE codigo='ART-REM-CUE'), (SELECT id FROM ubicaciones WHERE nombre='Salón Principal'), 8),
+(3, (SELECT id FROM productos WHERE codigo='ART-PANT-GAB'), (SELECT id FROM ubicaciones WHERE nombre='Depósito'), 5),
+(4, (SELECT id FROM productos WHERE codigo='ART-SWEATER'), (SELECT id FROM ubicaciones WHERE nombre='Salón Principal'), 3),
+(5, (SELECT id FROM productos WHERE codigo='ACC-CINT'), (SELECT id FROM ubicaciones WHERE nombre='Vidriera'), 2);;
 
 -- 5. SYSTEM USER & ROLES (Must exist BEFORE ventas - FK dependency)
 -- REMOVE BEFORE PRODUCTION
 -- Password: YakuNeveVala97
-INSERT OR IGNORE INTO usuarios (id, nombre, email, password_hash, rol) VALUES (0, 'SYSTEM', 'system@localhost', 'DISABLED', 'ADMIN');;
--- TODO: Remove test password before production deployment (Sprint 8)
--- pragma: allowlist secret
--- sonar.issue.ignore.multicriteria squid:S8215
-UPDATE usuarios SET rol = 'ADMIN', password_hash = '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu' WHERE email = 'marcosachavalmbaj@gmail.com';;
+INSERT INTO usuarios (id, nombre, email, password_hash, rol) VALUES (0, 'SYSTEM', 'system@localhost', 'DISABLED', 'ADMIN');;
 
--- 6. TEST USER (Must exist BEFORE ventas - FK dependency)
--- REMOVE BEFORE PRODUCTION
--- Email: empleado@test.com
--- Password: password1234
--- TODO: Delete this test user before production deployment (Sprint 8)
+-- 6. EXPORTED USERS FROM SQLITE (Preserving IDs and relationships)
+-- ID 1: admin@centralizesys.com (Exported)
+-- ID 2: empleado@test.com (Test User preserved)
+-- ID 7: marcosachavalmbaj@gmail.com (Exported with updated Hash/Role)
 -- pragma: allowlist secret
 -- sonar.issue.ignore.multicriteria squid:S8215
-INSERT OR IGNORE INTO usuarios (id, nombre, email, password_hash, rol) VALUES
-    (2, 'Empleado Prueba', 'empleado@test.com', '$2a$10$1Hbj4W.yzq4r5JjdmAfviO3lPFP8L.P86zoWvMM5bZpCBtMrt7ECy', 'EMPLEADO');;
+INSERT INTO usuarios (id, nombre, email, password_hash, rol) VALUES
+(1, 'Administrador', 'admin@centralizesys.com', '$2a$10$placeholderHash', 'EMPLEADO'),
+(2, 'Empleado Prueba', 'empleado@test.com', '$2a$10$1Hbj4W.yzq4r5JjdmAfviO3lPFP8L.P86zoWvMM5bZpCBtMrt7ECy', 'EMPLEADO'),
+(7, 'Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu', 'ADMIN');;
 
 -- 7. HISTORIAL DE VENTA (Now safe: usuarios exist)
-INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, usuario_id) VALUES
-    (1, '2023-10-01', 'Ingrid Peña', 56800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com')),
-    (2, '2023-10-02', 'Maria Gonzalez', 69800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com'));;
+INSERT INTO ventas (id, fecha, cliente_nombre, total_venta, usuario_id) VALUES
+(1, '2023-10-01', 'Ingrid Peña', 56800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com')),
+(2, '2023-10-02', 'Maria Gonzalez', 69800.0, (SELECT id FROM usuarios WHERE email='admin@centralizesys.com'));;
 
 -- ALTER TABLE ventas ADD COLUMN descuento_global REAL DEFAULT 0;
 -- ALTER TABLE ventas ADD COLUMN tipo_venta TEXT NOT NULL DEFAULT 'MINORISTA';
@@ -100,7 +97,7 @@ DELETE FROM stock_por_ubicacion WHERE producto_id >= 100;;
 DELETE FROM productos WHERE id >= 100;;
 
 -- 2. INSERT DUMMY PRODUCTS (IDs 100-119)
-INSERT OR IGNORE INTO productos (id, codigo, descripcion, precio_costo, precio_minorista, precio_mayorista, cantidad_stock) VALUES
+INSERT INTO productos (id, codigo, descripcion, precio_costo, precio_minorista, precio_mayorista, cantidad_stock) VALUES
 (100, 'DUMMY-1', 'Smartphone Samsung A1', 150.0, 200.0, 180.0, 100),
 (101, 'DUMMY-2', 'Smartphone Samsung A2', 160.0, 220.0, 190.0, 100),
 (102, 'DUMMY-3', 'Auriculares Sony XM', 50.0, 80.0, 70.0, 100),
@@ -123,7 +120,7 @@ INSERT OR IGNORE INTO productos (id, codigo, descripcion, precio_costo, precio_m
 (119, 'DUMMY-20', 'Silla Gamer Ergonómica', 120.0, 250.0, 200.0, 100);;
 
 -- 3. INSERT STOCK FOR DUMMY PRODUCTS (Using Ubicacion ID 1)
-INSERT OR IGNORE INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad)
+INSERT INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad)
 SELECT id, 1, 50 FROM productos WHERE id >= 100 AND id <= 119;;
 
 -- 4. INSERT HISTORIC SALES (IDs 1000+)
@@ -134,69 +131,69 @@ SELECT id, 1, 50 FROM productos WHERE id >= 100 AND id <= 119;;
 -- Group D: Very Old (>70 days)
 
 -- A. SALES - TODAY (5 Sales)
-INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
-(1000, date('now'), 'Juan Perez', 250.0, 0, 'MINORISTA', 1),
-(1001, date('now'), 'Maria Gomez', 45.0, 0, 'MINORISTA', 1),
-(1002, date('now'), 'Consumidor Final', 200.0, 0, 'MINORISTA', 1),
-(1003, date('now'), 'Empresa ABC', 1500.0, 10.0, 'MAYORISTA', 1),
-(1004, date('now'), 'Lucas Rodriguez', 25.0, 0, 'MINORISTA', 1);;
+INSERT INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1000, CURRENT_DATE, 'Juan Perez', 250.0, 0, 'MINORISTA', 1),
+(1001, CURRENT_DATE, 'Maria Gomez', 45.0, 0, 'MINORISTA', 1),
+(1002, CURRENT_DATE, 'Consumidor Final', 200.0, 0, 'MINORISTA', 1),
+(1003, CURRENT_DATE, 'Empresa ABC', 1500.0, 10.0, 'MAYORISTA', 1),
+(1004, CURRENT_DATE, 'Lucas Rodriguez', 25.0, 0, 'MINORISTA', 1);;
 
 -- B. SALES - LAST 15 DAYS (5 Sales)
-INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
-(1005, date('now', '-5 days'), 'Ana Martinez', 80.0, 0, 'MINORISTA', 1),
-(1006, date('now', '-10 days'), 'Carlos Lopez', 90.0, 0, 'MINORISTA', 1),
-(1007, date('now', '-12 days'), 'Sofia Silva', 220.0, 0, 'MINORISTA', 1),
-(1008, date('now', '-15 days'), 'Consumidor Final', 12.0, 0, 'MINORISTA', 1),
-(1009, date('now', '-18 days'), 'Miguel Torres', 750.0, 0, 'MINORISTA', 1);;
+INSERT INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1005, CURRENT_DATE - INTERVAL '5 days', 'Ana Martinez', 80.0, 0, 'MINORISTA', 1),
+(1006, CURRENT_DATE - INTERVAL '10 days', 'Carlos Lopez', 90.0, 0, 'MINORISTA', 1),
+(1007, CURRENT_DATE - INTERVAL '12 days', 'Sofia Silva', 220.0, 0, 'MINORISTA', 1),
+(1008, CURRENT_DATE - INTERVAL '15 days', 'Consumidor Final', 12.0, 0, 'MINORISTA', 1),
+(1009, CURRENT_DATE - INTERVAL '18 days', 'Miguel Torres', 750.0, 0, 'MINORISTA', 1);;
 
 -- C. SALES - 30 to 60 DAYS AGO (5 Sales)
-INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
-(1010, date('now', '-35 days'), 'Valentina Ruiz', 60.0, 0, 'MINORISTA', 1),
-(1011, date('now', '-40 days'), 'Mateo Fernandez', 45.0, 0, 'MINORISTA', 1),
-(1012, date('now', '-45 days'), 'Consumidor Final', 215.0, 0, 'MINORISTA', 1),
-(1013, date('now', '-50 days'), 'Isabella Diaz', 15.0, 0, 'MINORISTA', 1),
-(1014, date('now', '-55 days'), 'Benjamin Costa', 55.0, 0, 'MINORISTA', 1);;
+INSERT INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1010, CURRENT_DATE - INTERVAL '35 days', 'Valentina Ruiz', 60.0, 0, 'MINORISTA', 1),
+(1011, CURRENT_DATE - INTERVAL '40 days', 'Mateo Fernandez', 45.0, 0, 'MINORISTA', 1),
+(1012, CURRENT_DATE - INTERVAL '45 days', 'Consumidor Final', 215.0, 0, 'MINORISTA', 1),
+(1013, CURRENT_DATE - INTERVAL '50 days', 'Isabella Diaz', 15.0, 0, 'MINORISTA', 1),
+(1014, CURRENT_DATE - INTERVAL '55 days', 'Benjamin Costa', 55.0, 0, 'MINORISTA', 1);;
 
 -- D. SALES - 70+ DAYS AGO (5 Sales)
-INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
-(1015, date('now', '-70 days'), 'Viejo Cliente 1', 200.0, 0, 'MINORISTA', 1),
-(1016, date('now', '-75 days'), 'Viejo Cliente 2', 200.0, 0, 'MINORISTA', 1),
-(1017, date('now', '-80 days'), 'Viejo Cliente 3', 200.0, 0, 'MINORISTA', 1),
-(1018, date('now', '-85 days'), 'Viejo Cliente 4', 200.0, 0, 'MINORISTA', 1),
-(1019, date('now', '-90 days'), 'Viejo Cliente 5', 200.0, 0, 'MINORISTA', 1);;
+INSERT INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1015, CURRENT_DATE - INTERVAL '70 days', 'Viejo Cliente 1', 200.0, 0, 'MINORISTA', 1),
+(1016, CURRENT_DATE - INTERVAL '75 days', 'Viejo Cliente 2', 200.0, 0, 'MINORISTA', 1),
+(1017, CURRENT_DATE - INTERVAL '80 days', 'Viejo Cliente 3', 200.0, 0, 'MINORISTA', 1),
+(1018, CURRENT_DATE - INTERVAL '85 days', 'Viejo Cliente 4', 200.0, 0, 'MINORISTA', 1),
+(1019, CURRENT_DATE - INTERVAL '90 days', 'Viejo Cliente 5', 200.0, 0, 'MINORISTA', 1);;
 
 -- E. BULK SALES - RECENT (25 Sales) - Ensure pagination triggers (Total > 20)
 -- IDs 1020-1044
-INSERT OR IGNORE INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
-(1020, date('now', '-1 day'), 'Cliente Bulk 1', 50.0, 0, 'MINORISTA', 1),
-(1021, date('now', '-1 day'), 'Cliente Bulk 2', 50.0, 0, 'MINORISTA', 1),
-(1022, date('now', '-2 days'), 'Cliente Bulk 3', 50.0, 0, 'MINORISTA', 1),
-(1023, date('now', '-2 days'), 'Cliente Bulk 4', 50.0, 0, 'MINORISTA', 1),
-(1024, date('now', '-2 days'), 'Cliente Bulk 5', 50.0, 0, 'MINORISTA', 1),
-(1025, date('now', '-3 days'), 'Cliente Bulk 6', 50.0, 0, 'MINORISTA', 1),
-(1026, date('now', '-3 days'), 'Cliente Bulk 7', 50.0, 0, 'MINORISTA', 1),
-(1027, date('now', '-3 days'), 'Cliente Bulk 8', 50.0, 0, 'MINORISTA', 1),
-(1028, date('now', '-4 days'), 'Cliente Bulk 9', 50.0, 0, 'MINORISTA', 1),
-(1029, date('now', '-4 days'), 'Cliente Bulk 10', 50.0, 0, 'MINORISTA', 1),
-(1030, date('now', '-5 days'), 'Cliente Bulk 11', 50.0, 0, 'MINORISTA', 1),
-(1031, date('now', '-5 days'), 'Cliente Bulk 12', 50.0, 0, 'MINORISTA', 1),
-(1032, date('now', '-6 days'), 'Cliente Bulk 13', 50.0, 0, 'MINORISTA', 1),
-(1033, date('now', '-6 days'), 'Cliente Bulk 14', 50.0, 0, 'MINORISTA', 1),
-(1034, date('now', '-7 days'), 'Cliente Bulk 15', 50.0, 0, 'MINORISTA', 1),
-(1035, date('now', '-7 days'), 'Cliente Bulk 16', 50.0, 0, 'MINORISTA', 1),
-(1036, date('now', '-8 days'), 'Cliente Bulk 17', 50.0, 0, 'MINORISTA', 1),
-(1037, date('now', '-8 days'), 'Cliente Bulk 18', 50.0, 0, 'MINORISTA', 1),
-(1038, date('now', '-9 days'), 'Cliente Bulk 19', 50.0, 0, 'MINORISTA', 1),
-(1039, date('now', '-9 days'), 'Cliente Bulk 20', 50.0, 0, 'MINORISTA', 1),
-(1040, date('now', '-10 days'), 'Cliente Bulk 21', 50.0, 0, 'MINORISTA', 1),
-(1041, date('now', '-10 days'), 'Cliente Bulk 22', 50.0, 0, 'MINORISTA', 1),
-(1042, date('now', '-11 days'), 'Cliente Bulk 23', 50.0, 0, 'MINORISTA', 1),
-(1043, date('now', '-11 days'), 'Cliente Bulk 24', 50.0, 0, 'MINORISTA', 1),
-(1044, date('now', '-12 days'), 'Cliente Bulk 25', 50.0, 0, 'MINORISTA', 1);;
+INSERT INTO ventas (id, fecha, cliente_nombre, total_venta, descuento_global, tipo_venta, usuario_id) VALUES
+(1020, CURRENT_DATE - INTERVAL '1 day', 'Cliente Bulk 1', 50.0, 0, 'MINORISTA', 1),
+(1021, CURRENT_DATE - INTERVAL '1 day', 'Cliente Bulk 2', 50.0, 0, 'MINORISTA', 1),
+(1022, CURRENT_DATE - INTERVAL '2 days', 'Cliente Bulk 3', 50.0, 0, 'MINORISTA', 1),
+(1023, CURRENT_DATE - INTERVAL '2 days', 'Cliente Bulk 4', 50.0, 0, 'MINORISTA', 1),
+(1024, CURRENT_DATE - INTERVAL '2 days', 'Cliente Bulk 5', 50.0, 0, 'MINORISTA', 1),
+(1025, CURRENT_DATE - INTERVAL '3 days', 'Cliente Bulk 6', 50.0, 0, 'MINORISTA', 1),
+(1026, CURRENT_DATE - INTERVAL '3 days', 'Cliente Bulk 7', 50.0, 0, 'MINORISTA', 1),
+(1027, CURRENT_DATE - INTERVAL '3 days', 'Cliente Bulk 8', 50.0, 0, 'MINORISTA', 1),
+(1028, CURRENT_DATE - INTERVAL '4 days', 'Cliente Bulk 9', 50.0, 0, 'MINORISTA', 1),
+(1029, CURRENT_DATE - INTERVAL '4 days', 'Cliente Bulk 10', 50.0, 0, 'MINORISTA', 1),
+(1030, CURRENT_DATE - INTERVAL '5 days', 'Cliente Bulk 11', 50.0, 0, 'MINORISTA', 1),
+(1031, CURRENT_DATE - INTERVAL '5 days', 'Cliente Bulk 12', 50.0, 0, 'MINORISTA', 1),
+(1032, CURRENT_DATE - INTERVAL '6 days', 'Cliente Bulk 13', 50.0, 0, 'MINORISTA', 1),
+(1033, CURRENT_DATE - INTERVAL '6 days', 'Cliente Bulk 14', 50.0, 0, 'MINORISTA', 1),
+(1034, CURRENT_DATE - INTERVAL '7 days', 'Cliente Bulk 15', 50.0, 0, 'MINORISTA', 1),
+(1035, CURRENT_DATE - INTERVAL '7 days', 'Cliente Bulk 16', 50.0, 0, 'MINORISTA', 1),
+(1036, CURRENT_DATE - INTERVAL '8 days', 'Cliente Bulk 17', 50.0, 0, 'MINORISTA', 1),
+(1037, CURRENT_DATE - INTERVAL '8 days', 'Cliente Bulk 18', 50.0, 0, 'MINORISTA', 1),
+(1038, CURRENT_DATE - INTERVAL '9 days', 'Cliente Bulk 19', 50.0, 0, 'MINORISTA', 1),
+(1039, CURRENT_DATE - INTERVAL '9 days', 'Cliente Bulk 20', 50.0, 0, 'MINORISTA', 1),
+(1040, CURRENT_DATE - INTERVAL '10 days', 'Cliente Bulk 21', 50.0, 0, 'MINORISTA', 1),
+(1041, CURRENT_DATE - INTERVAL '10 days', 'Cliente Bulk 22', 50.0, 0, 'MINORISTA', 1),
+(1042, CURRENT_DATE - INTERVAL '11 days', 'Cliente Bulk 23', 50.0, 0, 'MINORISTA', 1),
+(1043, CURRENT_DATE - INTERVAL '11 days', 'Cliente Bulk 24', 50.0, 0, 'MINORISTA', 1),
+(1044, CURRENT_DATE - INTERVAL '12 days', 'Cliente Bulk 25', 50.0, 0, 'MINORISTA', 1);;
 
 
 -- 5. INSERT SALE DETAILS (One detail per sale for simplicity, covering ALL sales 1000-1019)
-INSERT OR IGNORE INTO detalles_venta (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad, precio_lista, descuento_valor, precio_unitario, subtotal) VALUES
+INSERT INTO detalles_venta (venta_id, producto_id, codigo_snapshot, descripcion_snapshot, cantidad, precio_lista, descuento_valor, precio_unitario, subtotal) VALUES
 -- Sale 1000 ($250)
 (1000, 119, 'DUMMY-20', 'Silla Gamer Ergonómica', 1, 250.0, 0, 250.0, 250.0),
 -- Sale 1001 ($45)
@@ -268,7 +265,7 @@ INSERT OR IGNORE INTO detalles_venta (venta_id, producto_id, codigo_snapshot, de
 
 -- 6. INSERT PAYMENTS (Mapping payments to ALL sales 1000-1044)
 -- Assumes Metodo Pago ID 1 = Efectivo
-INSERT OR IGNORE INTO pagos_venta (venta_id, metodo_pago_id, monto) VALUES
+INSERT INTO pagos_venta (venta_id, metodo_pago_id, monto) VALUES
 (1000, 1, 250.0),
 (1001, 1, 45.0),
 (1002, 1, 200.0),

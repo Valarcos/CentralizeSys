@@ -15,6 +15,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,7 +39,7 @@ public class VentaRepository {
         Long usuarioId = rs.wasNull() ? null : usuarioIdVal;
         return new Venta(
                 rs.getLong("id"),
-                rs.getString("fecha"),
+                rs.getObject("fecha", LocalDateTime.class),
                 rs.getString("cliente_nombre"),
                 rs.getDouble("total_venta"),
                 rs.getDouble("descuento_global"), // NEW
@@ -81,8 +82,7 @@ public class VentaRepository {
 
         SqlParameterSource params = new BeanPropertySqlParameterSource(venta);
         KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        namedJdbcTemplate.update(sql, params, keyHolder);
+        namedJdbcTemplate.update(sql, params, keyHolder, new String[]{"id"});
 
         Number key = keyHolder.getKey();
         if (key == null) {
@@ -175,7 +175,7 @@ public class VentaRepository {
         return namedJdbcTemplate.query(sql, new MapSqlParameterSource(VENTA_ID_PARAM, ventaId), pagoMapper);
     }
 
-    public List<Venta> findVentasByFechaBetween(String startDate, String endDate, int limit, int offset) {
+    public List<Venta> findVentasByFechaBetween(java.time.LocalDateTime startDate, LocalDateTime endDate, int limit, int offset) {
         String sql = """
                     SELECT * FROM ventas
                     WHERE fecha BETWEEN :startDate AND :endDate
@@ -192,7 +192,7 @@ public class VentaRepository {
         return namedJdbcTemplate.query(sql, params, ventaMapper);
     }
 
-    public long countVentasByFechaBetween(String startDate, String endDate) {
+    public long countVentasByFechaBetween(java.time.LocalDateTime startDate, LocalDateTime endDate) {
         String sql = "SELECT COUNT(*) FROM ventas WHERE fecha BETWEEN :startDate AND :endDate";
 
         MapSqlParameterSource params = new MapSqlParameterSource()

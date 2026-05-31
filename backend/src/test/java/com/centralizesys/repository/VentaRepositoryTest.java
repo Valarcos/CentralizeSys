@@ -8,7 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,7 +25,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         Venta venta = new Venta();
-        venta.setFecha(LocalDate.now().toString());
+        venta.setFecha(LocalDateTime.now());
         venta.setClienteNombre("Test Client");
         venta.setTotalVenta(500.00);
         venta.setUsuarioId(userId);
@@ -43,7 +43,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         Venta venta = new Venta();
-        venta.setFecha(LocalDate.now().toString());
+        venta.setFecha(LocalDateTime.now());
         venta.setClienteNombre(null);
         venta.setTotalVenta(100.00);
         venta.setUsuarioId(userId);
@@ -63,7 +63,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         Long productId = createTestProduct("VENTA-001", 150.0, 10L);
 
         Venta venta = new Venta();
-        venta.setFecha(LocalDate.now().toString());
+        venta.setFecha(LocalDateTime.now());
         venta.setClienteNombre("Snapshot Test");
         venta.setTotalVenta(300.00);
         venta.setUsuarioId(userId);
@@ -98,7 +98,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         Venta venta = new Venta();
-        venta.setFecha(LocalDate.now().toString());
+        venta.setFecha(LocalDateTime.now());
         venta.setClienteNombre("Payment Test");
         venta.setTotalVenta(1000.00);
         venta.setUsuarioId(userId);
@@ -139,7 +139,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         Venta venta = new Venta();
-        venta.setFecha(LocalDate.now().toString());
+        venta.setFecha(LocalDateTime.now());
         venta.setClienteNombre("Find Test");
         venta.setTotalVenta(250.00);
         venta.setUsuarioId(userId);
@@ -171,14 +171,14 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         Long userId = createTestUser();
 
         Venta v1 = new Venta();
-        v1.setFecha(LocalDate.now().toString());
+        v1.setFecha(LocalDateTime.now());
         v1.setClienteNombre("First");
         v1.setTotalVenta(100.00);
         v1.setUsuarioId(userId);
         ventaRepository.saveVenta(v1);
 
         Venta v2 = new Venta();
-        v2.setFecha(LocalDate.now().toString());
+        v2.setFecha(LocalDateTime.now());
         v2.setClienteNombre("Second");
         v2.setTotalVenta(200.00);
         v2.setUsuarioId(userId);
@@ -200,7 +200,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         Long productId = createTestProduct("MAP-001", 50.0, 5L);
 
         Venta venta = new Venta();
-        venta.setFecha(LocalDate.now().toString());
+        venta.setFecha(LocalDateTime.now());
         venta.setClienteNombre("Map Test");
         venta.setTotalVenta(45.00);
         venta.setUsuarioId(userId);
@@ -241,15 +241,15 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         // Insert 5 sales on different dates
-        createVenta(userId, "2023-01-01", "C1", 150.0);
-        createVenta(userId, "2023-01-02", "C2", 200.0);
-        createVenta(userId, "2023-01-03", "C3", 250.0); // Target
-        createVenta(userId, "2023-01-04", "C4", 300.0); // Target
-        createVenta(userId, "2023-01-05", "C5", 350.0);
+        createVenta(userId, LocalDateTime.parse("2023-01-01T00:00:00"), "C1", 150.0);
+        createVenta(userId, LocalDateTime.parse("2023-01-02T00:00:00"), "C2", 200.0);
+        createVenta(userId, LocalDateTime.parse("2023-01-03T00:00:00"), "C3", 250.0); // Target
+        createVenta(userId, LocalDateTime.parse("2023-01-04T00:00:00"), "C4", 300.0); // Target
+        createVenta(userId, LocalDateTime.parse("2023-01-05T00:00:00"), "C5", 350.0);
 
         // Act - Request page 0, size 1, range 2023-01-03 to 2023-01-04
         // Should order by date DESC, so C4 then C3
-        List<Venta> results = ventaRepository.findVentasByFechaBetween("2023-01-03", "2023-01-04", 1, 0);
+        List<Venta> results = ventaRepository.findVentasByFechaBetween(LocalDateTime.parse("2023-01-03T00:00:00"), LocalDateTime.parse("2023-01-04T00:00:00"), 1, 0);
 
         // Assert
         assertThat(results).hasSize(1);
@@ -261,19 +261,19 @@ class VentaRepositoryTest extends BaseIntegrationTest {
     void countVentasByFechaBetween_returnsCount() {
         // Arrange
         Long userId = createTestUser();
-        createVenta(userId, "2023-01-01", "C1", 100.0);
-        createVenta(userId, "2023-01-02", "C2", 200.0); // Target
-        createVenta(userId, "2023-01-03", "C3", 300.0); // Target
-        createVenta(userId, "2023-01-04", "C4", 400.0);
+        createVenta(userId, LocalDateTime.parse("2023-01-01T00:00:00"), "C1", 100.0);
+        createVenta(userId, LocalDateTime.parse("2023-01-02T00:00:00"), "C2", 200.0); // Target
+        createVenta(userId, LocalDateTime.parse("2023-01-03T00:00:00"), "C3", 300.0); // Target
+        createVenta(userId, LocalDateTime.parse("2023-01-04T00:00:00"), "C4", 400.0);
 
         // Act
-        long count = ventaRepository.countVentasByFechaBetween("2023-01-02", "2023-01-03");
+        long count = ventaRepository.countVentasByFechaBetween(LocalDateTime.parse("2023-01-02T00:00:00"), LocalDateTime.parse("2023-01-03T00:00:00"));
 
         // Assert
         assertThat(count).isEqualTo(2);
     }
 
-    private void createVenta(Long userId, String date, String client, Double total) {
+    private void createVenta(Long userId, LocalDateTime date, String client, Double total) {
         Venta v = new Venta();
         v.setFecha(date);
         v.setClienteNombre(client);

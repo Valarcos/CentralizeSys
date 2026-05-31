@@ -59,7 +59,7 @@ class LegacyFinancialImportServiceTest {
             }
             return 1;
         }).when(namedJdbcTemplate).update(contains("INSERT INTO ventas"), any(MapSqlParameterSource.class),
-                any(KeyHolder.class));
+                any(KeyHolder.class), any(String[].class));
 
         // Create temporary Excel file
         File tempFile = File.createTempFile("test_import", ".xlsx");
@@ -115,7 +115,7 @@ class LegacyFinancialImportServiceTest {
 
         // Verify DB calls
         verify(namedJdbcTemplate, atLeastOnce()).update(contains("INSERT INTO ventas"),
-                any(MapSqlParameterSource.class), any(KeyHolder.class));
+                any(MapSqlParameterSource.class), any(KeyHolder.class), any(String[].class));
         verify(namedJdbcTemplate, atLeastOnce()).batchUpdate(contains("INSERT INTO detalles_venta"),
                 any(MapSqlParameterSource[].class));
     }
@@ -168,7 +168,7 @@ class LegacyFinancialImportServiceTest {
         // Verify DB calls (sales SHOULD be inserted)
         verify(namedJdbcTemplate, atLeastOnce()).update(contains("INSERT INTO ventas"),
                 any(MapSqlParameterSource.class),
-                any(KeyHolder.class));
+                any(KeyHolder.class), any(String[].class));
     }
 
     @Test
@@ -194,7 +194,7 @@ class LegacyFinancialImportServiceTest {
 
         // Verify NO DB calls (nothing imported)
         verify(namedJdbcTemplate, never()).update(contains("INSERT INTO ventas"), any(MapSqlParameterSource.class),
-                any(KeyHolder.class));
+                any(KeyHolder.class), any(String[].class));
     }
 
     @Test
@@ -226,7 +226,7 @@ class LegacyFinancialImportServiceTest {
 
         // Verify NO DB calls
         verify(namedJdbcTemplate, never()).update(contains("INSERT INTO ventas"), any(MapSqlParameterSource.class),
-                any(KeyHolder.class));
+                any(KeyHolder.class), any(String[].class));
     }
 
     @Test
@@ -274,7 +274,7 @@ class LegacyFinancialImportServiceTest {
         // Since ALL items were invalid, the sale has 0 items and thus should NOT be
         // persisted.
         verify(namedJdbcTemplate, never()).update(contains("INSERT INTO ventas"), any(MapSqlParameterSource.class),
-                any(KeyHolder.class));
+                any(KeyHolder.class), any(String[].class));
 
         // Ensure batchUpdate for details was NOT called or called with empty list?
         // Service logic: persistSale returns early if items.isEmpty() -> insertDetails
@@ -297,7 +297,7 @@ class LegacyFinancialImportServiceTest {
                     .add(java.util.Map.of("id", 999L));
             return 1;
         }).when(namedJdbcTemplate).update(contains("INSERT INTO ventas"), any(MapSqlParameterSource.class),
-                any(KeyHolder.class));
+                any(KeyHolder.class), any(String[].class));
 
         try (Workbook wb = new XSSFWorkbook()) {
             Sheet sheet = wb.createSheet("ENERO");
@@ -399,7 +399,7 @@ class LegacyFinancialImportServiceTest {
         // Verify correct Date parsing (Year 2026)
         ArgumentCaptor<MapSqlParameterSource> captor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
         verify(namedJdbcTemplate, atLeastOnce()).update(contains("INSERT INTO ventas"), captor.capture(),
-                any(KeyHolder.class));
+                any(KeyHolder.class), any(String[].class));
 
         MapSqlParameterSource params = captor.getValue();
         String dateStr = (String) params.getValue("fecha");

@@ -105,7 +105,7 @@ class GlobalExceptionHandlerTest {
     @DisplayName("Handle DataIntegrityViolation: Returns 400 with user-friendly message, logs technical detail and Audits Failure")
     void handleDataIntegrityViolation() {
         // Compose a wrapped exception (Spring style)
-        Exception rootCause = new Exception("UNIQUE constraint failed: usuarios.email");
+        Exception rootCause = new Exception("violates unique constraint: usuarios.email");
         DataIntegrityViolationException ex = new DataIntegrityViolationException("Spring Wrapper", rootCause);
 
         ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = handler.handleDataIntegrityViolation(ex,
@@ -121,12 +121,12 @@ class GlobalExceptionHandlerTest {
         List<ILoggingEvent> logs = listAppender.list;
         assertEquals(1, logs.size());
         assertEquals(Level.ERROR, logs.getFirst().getLevel());
-        assertTrue(logs.getFirst().getFormattedMessage().contains("UNIQUE constraint failed"),
-                "Technical detail should be logged for debugging");
+        assertTrue(logs.getFirst().getFormattedMessage().contains("violates unique constraint"),
+                "Audit log should contain the specific constraint error message");
 
-        // Verify Audit Service was called
+        // Verify that the exact log message was passed
         verify(auditoriaService).registrarAccion(any(), eq("FALLO_INTEGRIDAD_DATOS"),
-                contains("UNIQUE constraint failed"));
+                contains("violates unique constraint"));
     }
 
     @Test

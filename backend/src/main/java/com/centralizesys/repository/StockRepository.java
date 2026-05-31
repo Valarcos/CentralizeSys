@@ -82,7 +82,7 @@ public class StockRepository {
             INSERT INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad)
             VALUES (:productoId, :ubicacionId, :cantidad)
             ON CONFLICT(producto_id, ubicacion_id)
-            DO UPDATE SET cantidad = cantidad + excluded.cantidad
+            DO UPDATE SET cantidad = stock_por_ubicacion.cantidad + excluded.cantidad
         """;
         // 'excluded.cantidad' refers to the value we tried to insert (quantityToAdd)
         // This effectively does: new_total = current_total + quantityToAdd
@@ -131,7 +131,7 @@ public class StockRepository {
 
         String sql = "INSERT INTO ubicaciones (nombre) VALUES (:nombre)";
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        namedJdbcTemplate.update(sql, new MapSqlParameterSource(NOMBRE, name), keyHolder);
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource(NOMBRE, name), keyHolder, new String[]{"id"});
 
         Number key = keyHolder.getKey();
         if (key == null) {
@@ -140,6 +140,7 @@ public class StockRepository {
 
         return key.longValue();
     }
+    //TODO: Method is never used, analyze the possible places where it could have been originally intended to be used and verify if it serves any purpose or not.
 
     // Kept for backward compatibility if used elsewhere, but findAllLocations is preferred
     public List<String> getAllLocationNames() {

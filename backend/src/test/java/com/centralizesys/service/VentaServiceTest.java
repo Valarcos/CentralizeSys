@@ -511,9 +511,9 @@ class VentaServiceTest {
     @DisplayName("UT-20: getVentasPage uses default 30-day range when dates are null")
     void getVentasPage_UsesDefaultRange_WhenNull() {
         // Arrange
-        when(ventaRepository.findVentasByFechaBetween(anyString(), anyString(), anyInt(), anyInt()))
+        when(ventaRepository.findVentasByFechaBetween(any(java.time.LocalDateTime.class), any(java.time.LocalDateTime.class), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
-        when(ventaRepository.countVentasByFechaBetween(anyString(), anyString())).thenReturn(0L);
+        when(ventaRepository.countVentasByFechaBetween(any(java.time.LocalDateTime.class), any(java.time.LocalDateTime.class))).thenReturn(0L);
 
         // Act
         ventaService.getVentasPage(null, null, 0, 20);
@@ -521,7 +521,7 @@ class VentaServiceTest {
         // Assert
         // Verify we called repo with dates. Since we can't easily predict "now",
         // we capture arguments or just verify it was called.
-        verify(ventaRepository).findVentasByFechaBetween(anyString(), anyString(), eq(20), eq(0));
+        verify(ventaRepository).findVentasByFechaBetween(any(java.time.LocalDateTime.class), any(java.time.LocalDateTime.class), eq(20), eq(0));
     }
 
     @Test
@@ -541,7 +541,7 @@ class VentaServiceTest {
     void getVentasPage_Throws_WhenStartAfterEnd() {
         // Arrange
         String start = java.time.LocalDate.now().toString();
-        String end = java.time.LocalDate.now().minusDays(1).toString();
+        String end = java.time.LocalDate.now().minusDays(2).toString();
 
         // Act & Assert
         assertThrows(BusinessRuleException.class,

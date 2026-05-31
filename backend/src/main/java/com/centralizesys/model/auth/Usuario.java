@@ -3,6 +3,8 @@ package com.centralizesys.model.auth;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Data
 @NoArgsConstructor
@@ -13,5 +15,6 @@ public class Usuario {
     private String email;
     private String passwordHash; // Stores BCrypt hash, NOT plain text
     private UsuarioRole rol;
-    private String fechaCreacion;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime fechaCreacion;
 }

@@ -3,13 +3,16 @@ package com.centralizesys.model.sales;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Venta {
     private Long id;
-    private String fecha; // YYYY-MM-DD
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime fecha; // YYYY-MM-DD HH:mm:ss
     private String clienteNombre;
     private Double totalVenta;
     private Double descuentoGlobal;

@@ -59,13 +59,13 @@ public class BackupService {
     private final BackupPathStrategy pathStrategy;
 
     public BackupService(JdbcTemplate jdbcTemplate,
-            AuditoriaService auditoriaService,
-            ProductRepository productRepository,
-            VentaRepository ventaRepository,
-            CompraRepository compraRepository,
-            DeudoresRepository deudoresRepository,
-            AuditoriaRepository auditoriaRepository,
-            BackupPathStrategy pathStrategy) {
+                         AuditoriaService auditoriaService,
+                         ProductRepository productRepository,
+                         VentaRepository ventaRepository,
+                         CompraRepository compraRepository,
+                         DeudoresRepository deudoresRepository,
+                         AuditoriaRepository auditoriaRepository,
+                         BackupPathStrategy pathStrategy) {
         this.jdbcTemplate = jdbcTemplate;
         this.auditoriaService = auditoriaService;
         this.productRepository = productRepository;
@@ -76,6 +76,7 @@ public class BackupService {
         this.pathStrategy = pathStrategy;
     }
 
+    //TODO: Fix sonar issues on this file as well as unused variables and methods
     public enum BackupType {
         DAILY,
         MANUAL;
@@ -114,8 +115,9 @@ public class BackupService {
             Path fullDbPath = dirPath.resolve(dbFileName).toAbsolutePath();
             Path fullExcelPath = dirPath.resolve(excelFileName).toAbsolutePath();
 
-            // 1. Binary Backup (SQLite specific)
-            executeVacuumInto(fullDbPath);
+            // 1. PostgreSQL DB Backup (Deferred)
+            // Database backup using pg_dump is deferred to the cloud migration phase.
+            log.warn("Database binary backup is temporarily disabled pending full cloud PostgreSQL pg_dump migration.");
 
             // 2. Excel Export
             exportToExcel(fullExcelPath.toString());
@@ -130,27 +132,8 @@ public class BackupService {
         }
     }
 
-    // Extract dynamic SQL execution to isolated method and validate path
     private void executeVacuumInto(Path fullDbPath) {
-        String pathStr = fullDbPath.toAbsolutePath().toString();
-
-        // STRICT SECURITY: Whitelist allowed characters to prevent SQL Injection via
-        // filename
-        // Allow: Alphanumeric, underscore, hyphen, dot, forward/back slash, colon,
-        // space, brackets, parens, tilde, plus
-        if (!pathStr.matches("^[a-zA-Z0-9_\\-./\\\\: ()+\\[\\]~]+$")) {
-            throw new IllegalArgumentException(
-                    "Invalid path for backup: Path contains prohibited characters. Path: " + pathStr);
-        }
-
-        // Additional sanity check for single quotes which are dangerous in SQL string
-        // literals
-        if (pathStr.contains("'")) {
-            throw new IllegalArgumentException("Invalid path for backup: Single quotes not allowed");
-        }
-
-        String sql = "VACUUM INTO '" + pathStr + "'";
-        jdbcTemplate.execute(sql);
+        throw new UnsupportedOperationException("SQLite VACUUM INTO is not supported in PostgreSQL. Database backup is deferred to the cloud migration phase.");
     }
 
     private void exportToExcel(String filePath) throws IOException {
@@ -219,14 +202,13 @@ public class BackupService {
         cell.setCellStyle(style);
     }
 
-    private String formatIsoDateForExcel(String isoDate) {
-        if (isoDate == null || isoDate.isEmpty())
+    private String formatIsoDateForExcel(LocalDateTime dateTime) {
+        if (dateTime == null)
             return "";
         try {
-            LocalDateTime dateTime = LocalDateTime.parse(isoDate);
             return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd -- HH:mm:ss"));
         } catch (Exception e) {
-            return isoDate; // Fallback to original if parsing fails
+            return dateTime.toString(); // Fallback
         }
     }
 
@@ -407,45 +389,13 @@ public class BackupService {
 
     // --- System Restore ---
     public void scheduleRestore(String filename, Long userId) throws IOException {
-        File backupFile = getBackupFile(filename);
-
-        if (!backupFile.getName().endsWith(EXT_DB)) {
-            throw new IllegalArgumentException("Only .db files can be restored.");
-        }
-
-        // Use Strategy for robust resolution
-        Path restoreTrigger = pathStrategy.getRestoreTriggerPath();
-
-        // Ensure parent dir exists (should be 'data', which usually exists, but safe to
-        // check)
-        Path parent = restoreTrigger.getParent();
-        if (parent != null && !Files.exists(parent)) {
-            Files.createDirectories(parent);
-        }
-
-        Files.copy(backupFile.toPath(), restoreTrigger, StandardCopyOption.REPLACE_EXISTING);
-        auditoriaService.registrarAccion(userId, "RESTORE_SCHEDULED", "Restore pending for: " + filename);
+        throw new UnsupportedOperationException("Database restoration is temporarily disabled pending full cloud PostgreSQL psql migration.");
     }
 
     // --- Checkpoints ---
     public String createCheckpoint(String reason, Long userId) {
-        LocalDateTime now = LocalDateTime.now();
-        String timestamp = now.format(FMT_FILE);
-        String filename = "checkpoint_" + reason + "_" + timestamp + EXT_DB;
-
-        Path dir = Paths.get(pathStrategy.getCheckpointsDir());
-
-        try {
-            if (!Files.exists(dir))
-                Files.createDirectories(dir);
-            Path fullPath = dir.resolve(filename).toAbsolutePath();
-
-            executeVacuumInto(fullPath);
-            auditoriaService.registrarAccion(userId, "CHECKPOINT_CREATED", "Reason: " + reason);
-            return filename;
-        } catch (IOException | DataAccessException e) {
-            throw new InfrastructureException("Failed to create checkpoint: " + e.getMessage(), e);
-        }
+        log.warn("Database checkpoint creation is temporarily disabled pending PostgreSQL pg_dump migration. Reason: " + reason);
+        return "checkpoint_deferred.db";
     }
 
     public void cleanupCheckpoints() {
@@ -546,7 +496,7 @@ public class BackupService {
     // --- Helper Methods for Excel Export ---
 
     private void populateProductsSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle,
-            CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
+                                       CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Productos");
         String[] headers = { "ID", "Código", "Descripción", "Costo", "Precio Mayorista", "Precio Minorista", "Stock" };
         createHeader(sheet, headers, headerStyle);
@@ -578,7 +528,7 @@ public class BackupService {
     }
 
     private void populateSalesSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle, CellStyle evenStyle,
-            CellStyle currOdd, CellStyle currEven) {
+                                    CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Ventas");
         String[] headers = { "ID", FECHA, "Cliente", "Tipo Venta", "Desc. Global", "Total", "Usuario ID" };
         createHeader(sheet, headers, headerStyle);
@@ -600,7 +550,7 @@ public class BackupService {
             CellStyle curr = isEven ? currEven : currOdd;
 
             createTextCell(row, 0, v.getId(), base);
-            createTextCell(row, 1, v.getFecha(), base);
+            createTextCell(row, 1, formatIsoDateForExcel(v.getFecha()), base);
             createTextCell(row, 2, v.getClienteNombre(), base);
             createTextCell(row, 3, v.getTipoVenta(), base);
             createNumericCell(row, 4, v.getDescuentoGlobal(), curr);
@@ -610,7 +560,7 @@ public class BackupService {
     }
 
     private void populatePurchasesSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle,
-            CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
+                                        CellStyle evenStyle, CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Compras");
         createHeader(sheet, new String[] { "ID", FECHA, "Proveedor", "Comprobante", "Total" }, headerStyle);
 
@@ -629,7 +579,7 @@ public class BackupService {
             CellStyle curr = isEven ? currEven : currOdd;
 
             createTextCell(row, 0, c.getId(), base);
-            createTextCell(row, 1, c.getFecha(), base);
+            createTextCell(row, 1, formatIsoDateForExcel(c.getFecha()), base);
             createTextCell(row, 2, c.getProveedor(), base);
             createTextCell(row, 3, c.getNroComprobante(), base);
             createNumericCell(row, 4, c.getTotalCompra(), curr);
@@ -637,7 +587,7 @@ public class BackupService {
     }
 
     private void populateDebtorsSheet(Workbook workbook, CellStyle headerStyle, CellStyle oddStyle, CellStyle evenStyle,
-            CellStyle currOdd, CellStyle currEven) {
+                                      CellStyle currOdd, CellStyle currEven) {
         Sheet sheet = workbook.createSheet("Deudores");
         createHeader(sheet, new String[] { "ID", "Venta ID", "Cliente", "Monto Deuda", FECHA, "Estado" }, headerStyle);
 
@@ -660,7 +610,7 @@ public class BackupService {
             createTextCell(row, 1, d.getVentaId(), base);
             createTextCell(row, 2, d.getClienteNombre(), base);
             createNumericCell(row, 3, d.getMontoDeuda(), curr);
-            createTextCell(row, 4, d.getFechaDeuda(), base);
+            createTextCell(row, 4, formatIsoDateForExcel(d.getFechaDeuda()), base);
             createTextCell(row, 5, d.getEstado(), base);
         }
     }

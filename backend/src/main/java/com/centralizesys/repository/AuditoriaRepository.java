@@ -24,7 +24,7 @@ public class AuditoriaRepository {
         Long usuarioId = rs.wasNull() ? null : usuarioIdVal;
         return new Auditoria(
                 rs.getLong("id"),
-                rs.getString("fecha_hora"),
+                rs.getObject("fecha_hora", LocalDateTime.class),
                 usuarioId, // Handle nullable via wasNull() check
                 rs.getString("accion"),
                 rs.getString("detalles"));
@@ -40,13 +40,13 @@ public class AuditoriaRepository {
                 .addValue("usuarioId", usuarioId)
                 .addValue("accion", accion)
                 .addValue("detalles", detalles)
-                .addValue("fechaHora", LocalDateTime.now().toString());
+                .addValue("fechaHora", LocalDateTime.now());
 
         namedJdbcTemplate.update(sql, params);
     }
 
     // Find logs within a range
-    public List<Auditoria> findByDateRange(String startDateTime, String endDateTime) {
+    public List<Auditoria> findByDateRange(LocalDateTime startDateTime, LocalDateTime endDateTime) {
         String sql = """
                     SELECT * FROM auditoria
                     WHERE fecha_hora BETWEEN :start AND :end

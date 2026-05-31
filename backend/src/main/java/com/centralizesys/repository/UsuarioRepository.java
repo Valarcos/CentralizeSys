@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,7 +30,7 @@ public class UsuarioRepository {
             rs.getString(EMAIL),
             rs.getString("password_hash"),
             UsuarioRole.valueOf(rs.getString("rol")),
-            rs.getString("fecha_creacion"));
+            rs.getObject("fecha_creacion", LocalDateTime.class));
 
     public Optional<Usuario> findByEmail(String email) {
         String sql = "SELECT * FROM usuarios WHERE email = :email";

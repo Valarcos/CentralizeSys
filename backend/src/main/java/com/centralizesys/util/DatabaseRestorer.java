@@ -7,8 +7,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
@@ -18,6 +16,7 @@ import java.time.format.DateTimeFormatter;
  */
 public class DatabaseRestorer {
 
+    //TODO: Fix sonar issues on this file
     private static final Logger log = LoggerFactory.getLogger(DatabaseRestorer.class);
     private static final DateTimeFormatter FMT_FILE = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
     private static final String DB_PATH = "data/centralizesys.db";
@@ -54,76 +53,14 @@ public class DatabaseRestorer {
                 return; // Nothing to do
             }
 
-            log.warn(">>> RESTORE TRIGGER DETECTED! Starting restoration process... <<<");
+            log.warn(">>> RESTORE TRIGGER DETECTED! However, database restoration is temporarily disabled pending full PostgreSQL psql migration. <<<");
 
-            // --- SIZE VALIDATION ---
-            long restoreSize = Files.size(restoreFile);
-            Path dbFile = DataPathConfig.resolve(DB_PATH);
-            long currentDbSize = Files.exists(dbFile) ? Files.size(dbFile) : 0;
-
-            log.info("Restore file size: {} bytes | Current DB size: {} bytes", restoreSize, currentDbSize);
-
-            if (restoreSize < MIN_RESTORE_FILE_SIZE_BYTES) {
-                log.error(">>> CRITICAL: Restore file is suspiciously small ({} bytes, minimum required: {} bytes). " +
-                        "SKIPPING RESTORATION to prevent data loss. <<<", restoreSize, MIN_RESTORE_FILE_SIZE_BYTES);
-
-                // Write flag file for the frontend alert
-                writeRestoreFailedFlag(restoreSize);
-
-                // Delete the invalid restore file to prevent re-triggering on next restart
-                Files.deleteIfExists(restoreFile);
-                log.warn("Invalid restore file deleted to prevent repeated trigger.");
-                return;
-            }
-
-            backupCurrentDatabase();
-            restoreDatabase(restoreFile);
-
-            log.info(">>> RESTORATION SUCCESSFUL! System will start with new data. <<<");
+            // Delete the restore file since it cannot be used with PostgreSQL
+            Files.deleteIfExists(restoreFile);
+            log.info("Ignored and deleted .restore file as it is incompatible with the current database engine.");
 
         } catch (IOException e) {
-            log.error(">>> CRITICAL FAILURE DURING RESTORATION <<<", e);
+            log.error(">>> FAILURE DURING RESTORE CLEANUP <<<", e);
         }
-    }
-
-    private static void writeRestoreFailedFlag(long restoreSize) {
-        try {
-            Path flagFile = DataPathConfig.resolve(RESTORE_FAILED_FLAG);
-            Path parent = flagFile.getParent();
-            if (parent != null && !Files.exists(parent)) {
-                Files.createDirectories(parent);
-            }
-            String content = "RESTORE_SKIPPED|size=" + restoreSize
-                    + "|min_required=" + MIN_RESTORE_FILE_SIZE_BYTES
-                    + "|timestamp=" + LocalDateTime.now().format(FMT_FILE);
-            Files.writeString(flagFile, content);
-            log.info("Restore failure flag written to: {}", flagFile);
-        } catch (IOException e) {
-            log.error("Failed to write restore failure flag file", e);
-        }
-    }
-
-    private static void backupCurrentDatabase() throws IOException {
-        Path dbFile = DataPathConfig.resolve(DB_PATH);
-        if (!Files.exists(dbFile)) {
-            return;
-        }
-
-        Path checkpointsDir = DataPathConfig.resolve("backups/checkpoints");
-        if (!Files.exists(checkpointsDir)) {
-            Files.createDirectories(checkpointsDir);
-        }
-
-        String timestamp = LocalDateTime.now().format(FMT_FILE);
-        Path safetyBackup = checkpointsDir.resolve("pre_restore_" + timestamp + ".db");
-
-        log.info("Creating safety backup: {}", safetyBackup);
-        Files.copy(dbFile, safetyBackup, StandardCopyOption.REPLACE_EXISTING);
-    }
-
-    private static void restoreDatabase(Path restoreFile) throws IOException {
-        Path dbFile = DataPathConfig.resolve(DB_PATH);
-        log.info("Restoring database from: {}", restoreFile);
-        Files.move(restoreFile, dbFile, StandardCopyOption.REPLACE_EXISTING);
     }
 }

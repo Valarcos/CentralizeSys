@@ -1,6 +1,5 @@
 package com.centralizesys;
 
-import com.centralizesys.config.TestDatabaseConfig;
 import com.centralizesys.model.auth.Usuario;
 import com.centralizesys.model.auth.UsuarioRole;
 import com.centralizesys.model.product.Location;
@@ -12,7 +11,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -21,9 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @SpringBootTest
-// 1. Load our In-Memory Config
-@Import(TestDatabaseConfig.class)
-// 2. Prevent Spring from using H2 (We want SQLite)
+// 1. Load our Application Config automatically
+// 2. Prevent Spring from replacing the DataSource with an in-memory DB
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 // 3. Rollback changes after every test method
 @Transactional
@@ -119,8 +116,10 @@ public abstract class BaseIntegrationTest {
     @BeforeEach
     protected void cleanTransactionalData() {
         // 1. Delete dependent tables first (Foreign Key Order)
-        // We MUST delete 'auditoria' because it references Users
-        jdbcTemplate.execute("DELETE FROM auditoria");
+        // We MUST empty 'auditoria' because it references Users
+        // In PostgreSQL, 'auditoria' has a BEFORE DELETE trigger that prevents DELETES.
+        // TRUNCATE bypasses row-level DELETE triggers and is faster.
+        jdbcTemplate.execute("TRUNCATE TABLE auditoria");
 
         // Sales Cycle
         jdbcTemplate.execute("DELETE FROM pagos_deuda");
@@ -149,10 +148,7 @@ public abstract class BaseIntegrationTest {
         // Other tests (like createTestProduct) might silently create "1".
         jdbcTemplate.execute("DELETE FROM ubicaciones");
 
-        // 4. DO NOT DELETE 'usuarios'
-        // schema.sql inserts 'Administrador'. If we delete it, we'll break tests that
-        // need a user.
-        // But since we deleted 'auditoria' (the FK holder), we are safe to keep
-        // 'usuarios'.
+        // 4. Delete test users but KEEP system/admin users to avoid UNIQUE constraint failures
+        jdbcTemplate.execute("DELETE FROM usuarios WHERE email NOT IN ('sistema@centralizesys.internal', 'marcosachavalmbaj@gmail.com')");
     }
 }

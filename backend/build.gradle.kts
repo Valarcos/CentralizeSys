@@ -19,13 +19,20 @@ java {
 repositories {
     mavenCentral()
 }
+
 // TODO: Fix issue of testcontainers not having been tested due to windows complications
 // TODO: Fix issue of database password beeing too weak
 // TODO: Fix backup system to work on the cloud
+
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 dependencies {
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    implementation("me.paulschwarz:spring-dotenv:4.0.0")
 
     // PostgreSQL JDBC driver
     implementation("org.postgresql:postgresql")

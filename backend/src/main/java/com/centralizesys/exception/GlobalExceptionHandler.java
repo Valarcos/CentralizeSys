@@ -68,11 +68,10 @@ public class GlobalExceptionHandler {
     }
 
     // ══════════════════════════════════════════════════════════════════════════════
-    // DATABASE EXCEPTIONS (Translated via sql-error-codes.xml)
+    // DATABASE EXCEPTIONS (Translated natively by Spring for PostgreSQL)
     // ══════════════════════════════════════════════════════════════════════════════
+    // Handles DB constraints: UNIQUE, FK, CHECK, NOT NULL (e.g. Postgres code 23505)
 
-    // Handles DB constraints: UNIQUE, FK, CHECK, NOT NULL (codes: 19, 275, 531,
-    // 787, etc.)
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex,
                                                                       HttpServletRequest req) {
@@ -81,11 +80,12 @@ public class GlobalExceptionHandler {
 
         // User-friendly message - technical detail goes to console
         String userMessage = "Error de datos: Los datos ingresados no son válidos o ya existen.";
-        if (detail != null && detail.contains("UNIQUE")) {
+        String lowerDetail = detail != null ? detail.toLowerCase() : "";
+        if (lowerDetail.contains("unique")) {
             userMessage = "Error: Ya existe un registro con los mismos datos únicos.";
-        } else if (detail != null && detail.contains("FOREIGN KEY")) {
+        } else if (lowerDetail.contains("foreign key")) {
             userMessage = "Error: No se puede realizar la operación porque hay registros relacionados.";
-        } else if (detail != null && detail.contains("NOT NULL")) {
+        } else if (lowerDetail.contains("not null") || lowerDetail.contains("not-null")) {
             userMessage = "Error: Faltan datos obligatorios.";
         }
 

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -43,8 +44,8 @@ public class VentaService {
     public PageResponse<Venta> getVentasPage(String startDate, String endDate, int page,
                                              int size) {
         // 1. Set Defaults (Last 30 Days)
-        LocalDate end = (endDate == null || endDate.isBlank()) ? LocalDate.now() : LocalDate.parse(endDate);
-        LocalDate start = (startDate == null || startDate.isBlank()) ? end.minusDays(30) : LocalDate.parse(startDate);
+        LocalDateTime end = (endDate == null || endDate.isBlank()) ? LocalDateTime.now() : LocalDate.parse(endDate).atTime(23, 59, 59, 999999999);
+        LocalDateTime start = (startDate == null || startDate.isBlank()) ? end.minusDays(30).withHour(0).withMinute(0).withSecond(0).withNano(0) : LocalDate.parse(startDate).atStartOfDay();
 
         // 2. Validate Range (Max 60 Days)
         long daysDiff = java.time.temporal.ChronoUnit.DAYS.between(start, end);
@@ -60,8 +61,8 @@ public class VentaService {
         int offset = page * size;
 
         // 4. Fetch
-        List<Venta> ventas = ventaRepository.findVentasByFechaBetween(start.toString(), end.toString(), size, offset);
-        long totalElements = ventaRepository.countVentasByFechaBetween(start.toString(), end.toString());
+        List<Venta> ventas = ventaRepository.findVentasByFechaBetween(start, end, size, offset);
+        long totalElements = ventaRepository.countVentasByFechaBetween(start, end);
         long totalPages = (long) Math.ceil((double) totalElements / size);
 
         return new com.centralizesys.model.dto.PageResponse<>(ventas, (long) page, (long) size, totalElements,
@@ -164,7 +165,7 @@ public class VentaService {
         String vendedorNombre = ventaRepository.findVendedorNombre(request.getUsuarioId());
         return new VentaResponse(
                 txInfo.getVentaId(),
-                LocalDate.now().toString(),
+                LocalDateTime.now(),
                 request.getClienteNombre(),
                 vendedorNombre,
                 processedData.getTotalVenta(),
@@ -296,12 +297,12 @@ public class VentaService {
 
         // A. Header
         Venta venta = new Venta();
-        venta.setFecha(LocalDate.now().toString()); // Result: "ej.: 2025-12-14"
+        venta.setFecha(LocalDateTime.now()); // Result: LocalDateTime
         venta.setClienteNombre(request.getClienteNombre());
         venta.setTotalVenta(processedData.getTotalVenta());
         venta.setDescuentoGlobal(processedData.getDescuentoGlobal());
         venta.setTipoVenta(request.getTipoVenta() != null ? request.getTipoVenta().name() : "MINORISTA"); // Default
-        // safe
+
         // If the frontend sends null, this will be null in DB (allowed by schema if not
         // strict, but good for traceability)
         venta.setUsuarioId(request.getUsuarioId());

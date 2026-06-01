@@ -20,14 +20,22 @@ repositories {
     mavenCentral()
 }
 
+// TODO: Fix issue of testcontainers not having been tested due to windows complications
+// TODO: Fix issue of database password beeing too weak
+// TODO: Fix backup system to work on the cloud
+
+dependencyLocking {
+    lockAllConfigurations()
+}
+
 dependencies {
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    implementation("me.paulschwarz:spring-dotenv:4.0.0")
 
-    // SQLite JDBC driver
-    // FIX: Uncommented specific version to ensure DatabaseConfig finds "SQLiteConfig"
-    implementation("org.xerial:sqlite-jdbc:3.45.1.0")
+    // PostgreSQL JDBC driver
+    implementation("org.postgresql:postgresql")
 
     implementation("org.hibernate.validator:hibernate-validator")
 
@@ -49,6 +57,10 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.springframework.security:spring-security-test")
+
+    // Testcontainers for PostgreSQL (Integration Tests)
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:postgresql")
 
     // Updated to 5.4.0 to resolve CVE-2025-31672, CVE-2024-25710, CVE-2024-26308
     // Excel (Apache POI)

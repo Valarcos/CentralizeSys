@@ -66,7 +66,7 @@ class LocationServiceTest {
         String duplicateInfo = "5";
         when(repository.createLocation(duplicateInfo)).thenThrow(
                 new org.springframework.dao.DataIntegrityViolationException(
-                        "UNIQUE constraint failed: ubicaciones.nombre"));
+                        "violates unique constraint: ubicaciones.nombre"));
 
         BusinessRuleException ex = assertThrows(BusinessRuleException.class,
                 () -> service.create(duplicateInfo));

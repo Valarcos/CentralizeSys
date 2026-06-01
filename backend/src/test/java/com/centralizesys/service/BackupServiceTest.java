@@ -11,10 +11,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
@@ -71,17 +69,8 @@ class BackupServiceTest {
         service.performBackup(BackupService.BackupType.MANUAL, 1L);
 
         // THEN
-        // 1. Verify VACUUM INTO was called
-        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
-        verify(jdbcTemplate).execute(sqlCaptor.capture());
-        String executedSql = sqlCaptor.getValue();
-
-        if (executedSql == null)
-            executedSql = "";
-
-        assertTrue(executedSql.toUpperCase().startsWith("VACUUM INTO"));
-        // Check for manual path (using replace to handle Windows backslashes)
-        assertTrue(executedSql.replace("\\", "/").contains("manual"));
+        // 1. Verify VACUUM INTO was NOT called (Deferred)
+        verify(jdbcTemplate, never()).execute(anyString());
 
         // 2. Verify Audit Success
         verify(auditoriaService).registrarAccion(eq(1L), eq("BACKUP_EXITOSO"), contains("MANUAL"));
@@ -113,14 +102,14 @@ class BackupServiceTest {
         BackupService service = new BackupService(jdbcTemplate, auditoriaService, productRepository, ventaRepository,
                 compraRepository, deudoresRepository, auditoriaRepository, pathStrategy);
 
-        // Force SQL Exception
-        doThrow(new DataIntegrityViolationException("Disk Full")).when(jdbcTemplate)
-                .execute(anyString());
+        // Force Exception by throwing from auditoriaService during success log
+        doThrow(new IllegalArgumentException("Simulated Error")).when(auditoriaService)
+                .registrarAccion(eq(1L), eq("BACKUP_EXITOSO"), anyString());
 
         // WHEN / THEN
         assertThrows(InfrastructureException.class,
                 () -> service.performBackup(BackupService.BackupType.MANUAL, 1L));
-        verify(auditoriaService).registrarAccion(eq(1L), eq("BACKUP_FALLIDO"), contains("Disk Full"));
+        verify(auditoriaService).registrarAccion(eq(1L), eq("BACKUP_FALLIDO"), anyString());
     }
 
     @Test

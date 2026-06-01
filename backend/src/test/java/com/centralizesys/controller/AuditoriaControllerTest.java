@@ -12,7 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -31,7 +31,7 @@ class AuditoriaControllerTest {
     @Test
     @WithMockUser(username = "admin", roles = { "ADMIN" })
     void testGetLogs_AsAdmin_Returns200() throws Exception {
-        given(auditoriaService.getLogsByDateRange(anyString(), anyString())).willReturn(Collections.emptyList());
+        given(auditoriaService.findByDateRange(any(), any())).willReturn(Collections.emptyList());
 
         mockMvc.perform(get("/api/auditoria"))
                 .andExpect(status().isOk());

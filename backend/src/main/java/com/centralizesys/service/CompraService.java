@@ -17,7 +17,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -76,7 +76,7 @@ public class CompraService {
         // 7. Return Response
         return new CompraResponse(
                 compraId,
-                LocalDate.now().toString(),
+                LocalDateTime.now(),
                 request.getProveedor(),
                 request.getNroComprobante(),
                 result.getTotalCompra(),
@@ -202,7 +202,7 @@ public class CompraService {
 
     private Long saveTransaction(CompraRequest request, ProcessedPurchaseResult result) {
         Compra compra = new Compra();
-        compra.setFecha(LocalDate.now().toString());
+        compra.setFecha(LocalDateTime.now());
         compra.setProveedor(request.getProveedor());
         compra.setNroComprobante(request.getNroComprobante());
         compra.setUsuarioId(request.getUsuarioId());

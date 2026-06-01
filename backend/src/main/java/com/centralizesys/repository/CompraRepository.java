@@ -32,8 +32,7 @@ public class CompraRepository {
 
         SqlParameterSource params = new BeanPropertySqlParameterSource(compra);
         KeyHolder keyHolder = new GeneratedKeyHolder();
-
-        namedJdbcTemplate.update(sql, params, keyHolder);
+        namedJdbcTemplate.update(sql, params, keyHolder, new String[]{"id"});
 
         return Objects.requireNonNull(keyHolder.getKey()).longValue();
     }
@@ -63,7 +62,7 @@ public class CompraRepository {
         return namedJdbcTemplate.query(sql, (rs, rowNum) -> {
             Compra c = new Compra();
             c.setId(rs.getLong("id"));
-            c.setFecha(rs.getString("fecha"));
+            c.setFecha(rs.getObject("fecha", java.time.LocalDateTime.class));
             c.setProveedor(rs.getString("proveedor"));
             c.setNroComprobante(rs.getString("nro_comprobante"));
             c.setTotalCompra(rs.getDouble("total_compra"));

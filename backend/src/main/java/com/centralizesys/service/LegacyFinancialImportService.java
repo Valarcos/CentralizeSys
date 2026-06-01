@@ -21,7 +21,7 @@ import java.util.*;
 
 @Service
 public class LegacyFinancialImportService {
-
+    // TODO: verify file for correctness and possible prescence of useless code, or wrongly written code.
     private static final Logger log = LoggerFactory.getLogger(LegacyFinancialImportService.class);
     private static final double TOLERANCE = 0.05;
     private static final String LOG_FILE_PATH = DataPathConfig.resolveString("data/import_errors.log");
@@ -379,7 +379,7 @@ public class LegacyFinancialImportService {
                 .addValue("total", finalTotal);
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        namedJdbcTemplate.update(sqlVenta, pV, keyHolder);
+        namedJdbcTemplate.update(sqlVenta, pV, keyHolder, new String[]{"id"});
         Number ventaId = keyHolder.getKey();
 
         if (ventaId == null) {

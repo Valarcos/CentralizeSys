@@ -2,16 +2,7 @@
 
 **Role:** Expert Systems Analyst, Senior Java Developer (Spring Boot), and Database Architect.
 **Project:** "CentralizeSys" - Inventory & Finance POS.
-**Context:** Thesis project for elderly users. Zero post-delivery maintenance. Self-healing, strictly typed, high-contrast UX.
-
----
-
-## 0. Behavioral & Interaction Guidelines (Strict)
-*   **Process:** Always explain the "Why". Separate concerns clearly.
-*   **Quality:** SonarCloud standards. Readable, maintainable code.
-*   **Hardcoding:** Avoid hardcoding logic. SQLite text blocks are acceptable.
-*   **No "Yes-Man":** Correct me if I'm wrong. Suggest technical alternatives.
-*   **Feasibility:** State clearly if something is impossible. No hallucinations.
+**Context:** Thesis project for elderly users. Minimal post-delivery maintenance. Self-healing, strictly typed, high-contrast UX.
 
 ---
 
@@ -19,18 +10,17 @@
 *   **Target Audience:** Elderly. High-contrast UI. Forgiving logic (e.g., negative stock allowed).
 *   **Mobile Design:** **STRICTLY** use minimal padding (0.25rem - 0.5rem) on mobile layouts to maximize screen real estate. Use `!important` if necessary to override defaults.
 *   **Data Lists/Tables:** **STRICTLY** use alternating background colors (zebra striping) for rows to enhance readability and data navigation.
-*   **Delivery:** "One-and-done". Local Windows execution.
+*   **Delivery:** Phased deployment.
 *   **Future:** Architecture must support migration to online hosting (Stateless REST API).
 *   **Tech Stack:**
     *   **Java:** 21 (LTS).
     *   **Framework:** Spring Boot 3.3.3.
-    *   **DB:** SQLite (Embedded). `SQLiteConfig` with `enforceForeignKeys(true)`.
+    *   **DB:** PostgreSQL. `HikariCP` connection pooling. No SQLite.
     *   **Persistence:** **STRICTLY `NamedParameterJdbcTemplate`** + `RowMapper`. NO JPA/Hibernate. Use `BeanPropertySqlParameterSource` or `SqlParameterSourceUtils.createBatch`.
     *   **Build:** Gradle (Kotlin DSL).
 *   **Coding Constraints:**
     *   **Numeric:** `Long`/`Double` only. No primitives or `Integer`.
     *   **Language:** Java = English (Code). Database/API = Spanish (Tables/DTOs).
-    *   **Helpers:** Divide "God Methods".
 
 ---
 
@@ -39,14 +29,13 @@
 *   **Clean Code:**
     *   **Constants:** `Constants.java` for error messages/SQL keys (e.g., `PARAM_ID`).
     *   **CORS:** `@CrossOrigin(origins = "*")` with `@SuppressWarnings("java:S5122")`.
-    *   **Comments:** **Always add short, descriptive comments to complex code blocks.** You must not automatically change the format or sentence length of pre-existing comments unless you are modifying what the comment says.
     *   **Logging:** SLF4J (`Logger`, `LoggerFactory`). Strictly avoid `System.err/out`.
 *   **Exception Handling:** `GlobalExceptionHandler` must manage:
     *   `BusinessRuleException` (400 Bad Request) - Logic violations.
     *   `ResourceNotFoundException` (404 Not Found) - Missing IDs.
     *   `InfrastructureException` (500) - DB failures.
     *   **Constraint Violations:** Must explicitly catch `DataIntegrityViolationException` (Unique/FK violations).
-    *   **Fail Fast:** Avoid silent failures. Never swallow exceptions. Do not use `Optional.get()` without `orElseThrow()`. Fail loudly with descriptive errors.
+    *   **Nulls:** Do not use `Optional.get()` without `orElseThrow()`.
 
 ---
 
@@ -69,7 +58,7 @@
 *   **Initialization:** New products start with Stock = 0.
 *   **Logic:**
     *   **Update:** Check for collisions (unless Code "1").
-    *   **Delete:** Check existence first. Delegate physical delete to DB (Cascade); do not manually delete stock rows.
+    *   **Delete:** Check existence first. Use **Logical Deletion** (`UPDATE ... SET activo = false`). Do NOT physically delete rows.
 
 **Technical Implementation:**
 *   **DTOs:** `ProductRequest` (No ID/Stock), `ProductResponse` (Immutable + Stock).
@@ -165,7 +154,7 @@
 *   **Failsafe:** Wrapped in `try-catch` (Log to SLF4J if DB fails).
 
 ### G. Authentication (Usuarios)
-*   **Method:** Stateless REST. Client holds JWT. **SECURITY RULE:** The backend MUST extract identity (`usuarioId`) from the `SecurityContext` (JWT) for attribution. NEVER trust a `usuarioId` sent in the request body from the client.
+*   **Method:** Stateless REST. Client holds JWT.
 *   **Security:** `BCrypt` (Strength 10). `csrf.disable()`.
 *   **UX:** Explicit messages ("Email not found", "Wrong Password").
 *   **Privacy:** `UsuarioResponse` excludes hash.
@@ -174,31 +163,21 @@
 ---
 
 ## 5. Testing Strategy (Mandatory)
-*   **Coverage Assessment Criteria:**
-    *   **DB Interaction Rule:** If a module interacts with the Database (even indirectly), you MUST implement **BOTH** Unit Tests (for logic/flow) AND Integration Tests (for SQL/Constraints/Mapping).
-    *   **Scenario Completeness:** Tests MUST cover **ALL** possible business scenarios. This includes:
-        *   Happy Paths (Success).
-        *   Edge Cases (Boundaries, Nulls, Empty Lists).
-        *   Negative Paths (Exceptions, Business Rules Violations).
-        *   "Happy path" only is UNACCEPTABLE.
-    *   **Workflow Constraints:**
-        *   **Always Run Tests:** You MUST always run relevant, existing testing suites when you make code changes or additions.
-        *   **Post-Approval Test Creation:** You must modify existing tests or create new tests to cover modified or new logic. This action MUST happen **AFTER** the created / modified code has been reviewed and approved by the user.
 
 ### A. Unit Tests (JUnit 5 + Mockito)
 *   **Strategy:** "Gray Box".
 *   **Technique:** Refactor complex logic (Math/Loops) to **Package-Private** helpers. Test helpers directly.
 *   **Coverage:** Guard Clauses, Math/Rounding, Stock Loops.
 
-### B. Integration Tests (Spring Boot Test + SQLite)
-*   **Config:** `TestDatabaseConfig` must use `SingleConnectionDataSource` (SuppressClose=true). `autoCommit` allowed (Spring handles it).
+### B. Integration Tests (Spring Boot Test + PostgreSQL Testcontainers)
+*   **Config:** `TestDatabaseConfig` must use **Testcontainers** with the Singleton Container Pattern to guarantee PostgreSQL syntax compatibility without draining PC resources.
 *   **Base Class:** `@Transactional`.
 *   **Cleanup:** `cleanTransactionalData()` must truncate in strict FK order:
     1. `auditoria`
     2. `ventas` / `compras`
     3. `stock_por_ubicacion`
     4. `productos`
-*   **Audit Mocking:** Must disable/mock `AuditoriaService` in ITs (SQLite single-conn doesn't support `REQUIRES_NEW` locking).
+*   **Audit Mocking:** Must disable/mock `AuditoriaService` in ITs if needed, though Postgres supports `REQUIRES_NEW`.
 *   **Verifications:**
     *   **Atomicity:** Assert Header is NOT saved if Details fail.
     *   **Triggers:** Assert `productos.cantidad_stock` updates after `stock_por_ubicacion` insert.
@@ -212,8 +191,8 @@
     *   Test Profile: `spring.sql.init.mode=never`.
     *   **Logging:** Set `JdbcTemplate` and `DataSourceTransactionManager` to **DEBUG** in 'test' profile.
 *   **Lombok:** Explicit Constructors required for `RowMapper`.
-*   **Error Mapping:** In `sql-error-codes.xml`, map SQLite error codes:
-    *   **19, 787, 1555, 2067** -> `DataIntegrityViolationException`.
+*   **Error Mapping:** In `sql-error-codes.xml`, map PostgreSQL error codes if necessary (Spring usually handles Postgres natively).
+
 ---
 
 ## 7. Development Roadmap (Current State)
@@ -222,50 +201,28 @@
 *   **Phase 2.5:** Security Infrastructure (Spring Security, JWT/Auth, User Isolation).
 *   **Phase 3:** Frontend (React / Flutter).
 *   **Phase 4:** External Integration (TiendaNube).
----
-
-## 8. General Guidelines
-*   **Consistency:** When creating new Unit or Integration Tests, **ALWAYS** use the existing test classes as a base/template to ensure consistency in setup, teardown, and naming conventions.
-*   **Mandatory Cleanup & Integrity Check:**
-    *   Before finalizing any file, you MUST scan for "unused" elements (imports, fields, variables, commented blocks).
-    *   **Critical Verification:** For each unused item, determine its cause:
-        *   **Scaffolding/Abandoned Idea:** If it remains from a previous approach (e.g., an unused Repository after switching to `JdbcTemplate`), **DELETE** it immediately.
-        *   **Forgotten Logic:** If it implies a missing feature or unfulfilled requirement, **IMPLEMENT** the missing logic.
-        *   **Result:** The final delivery must be free of "dead code", but fully functional. Never simply delete code to silence a linter if it hints at a gap in logic.
-    *   **Implementation Plans:** **NEVER** summarize, shorten, or remove details from the `implementation_plan.md` during iterations. The plan must remain a comprehensive, "source of truth" document. If a section is "done", mark it as such, but do NOT delete the details. Always ADD or REFINE; never SUBTRACT information.
 
 ---
 
-## 9. Agent Authority & Quality of Life
-*   **Auto-Run Authority:** The Agent is AUTHORIZED to set `SafeToAutoRun=true` for:
-    *   Test execution (`./gradlew test`, `mvn test`).
-    *   Build commands (`./gradlew build`).
-    *   Read-only commands (`ls`, `cat`, `grep`, `find`).
-    *   Project analysis/dependency checks.
-*   **Approval Policy:** Only require explicit approval for:
-    *   Destructive file operations (outside of requested changes).
-    *   Deployment / External API calls (other than safe lookups).
-    *   System-level configuration changes.
-    *   File deletion (outside of requested changes).
-    *   File relocation (outside of requested changes).
-
----
-
-## 10. Future Roadmap & Handover
+## 8. Future Roadmap & Handover
 *   **Audit Access:** Once the system is stable and users are proficient, grant Owners (`EMPLEADO`) access to `GET /api/auditoria` (Read-only).
 *   **User Management:** eventually allow Owners to create/manage their own cashier accounts (Self-Service).
 *   **Hosting:** Transition from Local/Tunnel to Cloud VPS (Oracle Always Free) for "One-and-Done" reliability.
 
-## 11. Technical Debt & Known Issues
+## 9. Technical Debt & Known Issues
 *   **Repository Testing:**
     *   **Status:** RESOLVED (Sprint 1).
     *   **Issue:** Only `UsuarioRepository` and `ProductRepository` had integration tests.
     *   **Resolution:** ALL repositories (`auditoria`, `compras`, `deudores`, `MetodoPagoRepository`, `ventas`, `stock`, `productos`) now have comprehensive integration tests.
 
 *   **Database Concurrency (Tech Debt):**
-    *   **Issue:** `SQLITE_BUSY` errors under high concurrency.
-    *   **Mitigation:** Add `?busy_timeout=30000` to `spring.datasource.url` in `application.properties`.
-    *   **Status:** Pending for future production hardening.
+    *   **Status:** RESOLVED (Migrating to PostgreSQL). SQLite concurrency limits are no longer applicable.
+
+*   **Testcontainers Docker Detection on Windows (Tech Debt):**
+    *   **Status:** UNRESOLVED.
+    *   **Issue:** Integration tests using `jdbc:tc:postgresql` fail to initialize because Testcontainers throws `Could not find a valid Docker environment` on Windows when Docker Desktop is installed but using alternate named pipes (e.g., `dockerDesktopLinuxEngine`).
+    *   **Temporary Workaround:** `application-test.properties` is hardcoded to use the local running PostgreSQL container on port 5432 (`Option A`). Data is wiped between tests using `TRUNCATE CASCADE`.
+    *   **Resolution Plan:** Resolve this properly when migrating to a Linux CI/CD environment or by enforcing a strict `.testcontainers.properties` configuration across environments.
 
 *   **Authentication Security (Phase 4+):**
     *   **Status:** Critical Security Gap.
@@ -322,15 +279,7 @@
 
 ---
 
-## 12. Critical Stability Rules (White Screen of Death Prevention)
-*   **Atomic Refactoring:** When removing functions, variables, or imports, you **MUST** ensure that all references to them are removed or updated in the **SAME** tool call sequence or immediately prior. Never leave a file in a broken state where a defined symbol is removed but still referenced, as this causes the React application to crash (Blank Screen).
-*   **Verification:** After applying a `replace_file_content` that removes code, you MUST verify that the file is syntactically valid and that no lingering references exist.
-*   **Variable Scope Check:** Before finalizing any React component, you MUST explicitly verify that every variable used in the JSX (e.g., inside `{}`) is defined in the component's scope (props, state, or imports). undefined variables cause immediate white-screen crashes.
-*   **Self-Correction:** If a blank screen is reported, your first priority is to check for `ReferenceError` (undefined variables/functions) in the recently edited files.
-
----
-
-## 13. UI Behavior Reference (Informational)
+## 10. UI Behavior Reference (Informational)
 **Safe Buttons (Double-Submit Protected):**
 *   **Stock Entry:** "CONFIRMAR" button (Purchase registration).
 *   **Sales Page:** "FINALIZAR VENTA" button.

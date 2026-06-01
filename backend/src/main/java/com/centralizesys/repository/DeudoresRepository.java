@@ -9,7 +9,7 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -29,10 +29,10 @@ public class DeudoresRepository {
             rs.getLong("venta_id"),
             rs.getString("cliente_nombre"),
             rs.getDouble("monto_deuda"),
-            rs.getString("fecha_deuda"), // SQLite stores YYYY-MM-DD
+            rs.getObject("fecha_deuda", LocalDateTime.class),
             rs.getString("estado"),
             rs.getDouble("monto_original"),
-            rs.getString("fecha_ultimo_pago"));
+            rs.getObject("fecha_ultimo_pago", LocalDateTime.class));
 
     public void save(Long ventaId, String clienteNombre, Double montoDeuda) {
         // Use native ISO format for SQLite compatibility
@@ -45,7 +45,7 @@ public class DeudoresRepository {
                 .addValue("ventaId", ventaId)
                 .addValue("clienteNombre", clienteNombre)
                 .addValue("montoDeuda", montoDeuda)
-                .addValue("fechaDeuda", LocalDate.now().toString())
+                .addValue("fechaDeuda", LocalDateTime.now())
                 .addValue("estado", DebtStatus.PENDIENTE.name());
         namedJdbcTemplate.update(sql, params);
     }
@@ -101,12 +101,12 @@ public class DeudoresRepository {
                     FROM deudores d
                     JOIN ventas v ON d.venta_id = v.id
                     WHERE d.estado IN ('PENDIENTE', 'PARCIAL')
-                    AND d.fecha_deuda <= date('now', '-' || :days || ' days')
+                    AND d.fecha_deuda <= :thresholdDate
                     ORDER BY d.fecha_deuda ASC
                 """;
 
         return namedJdbcTemplate.query(sql,
-                new MapSqlParameterSource("days", days),
+                new MapSqlParameterSource("thresholdDate", LocalDateTime.now().minusDays(days)),
                 rowMapper);
     }
 
@@ -127,7 +127,7 @@ public class DeudoresRepository {
                         rs.getLong("deuda_id"),
                         rs.getLong("metodo_pago_id"),
                         rs.getDouble("monto"),
-                        rs.getString("fecha_pago"),
+                        rs.getObject("fecha_pago", LocalDateTime.class),
                         rs.getString("observaciones"),
                         rs.getLong("usuario_id"),
                         rs.getString("metodo_pago_nombre"),
@@ -137,7 +137,7 @@ public class DeudoresRepository {
     public void insertarPagoDeuda(Long deudaId, Long metodoPagoId, Double monto, String observaciones, Long usuarioId) {
         String sql = """
                     INSERT INTO pagos_deuda (deuda_id, metodo_pago_id, monto, fecha_pago, observaciones, usuario_id)
-                    VALUES (:deudaId, :metodoPagoId, :monto, datetime('now', 'localtime'), :observaciones, :usuarioId)
+                    VALUES (:deudaId, :metodoPagoId, :monto, CURRENT_TIMESTAMP, :observaciones, :usuarioId)
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()

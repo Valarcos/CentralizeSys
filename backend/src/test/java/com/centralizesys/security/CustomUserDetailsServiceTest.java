@@ -32,7 +32,7 @@ class CustomUserDetailsServiceTest {
     @Test
     void loadUserByUsername_Success() {
         // Arrange
-        Usuario user = new Usuario(1L, "Test User", "test@test.com", "hashedPass", UsuarioRole.EMPLEADO, "now");
+        Usuario user = new Usuario(1L, "Test User", "test@test.com", "hashedPass", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now());
 
         when(usuarioRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
 

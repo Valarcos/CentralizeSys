@@ -3,6 +3,8 @@ package com.centralizesys.model.debt;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Data
 @NoArgsConstructor
@@ -12,7 +14,8 @@ public class PagoDeuda {
     private Long deudaId;
     private Long metodoPagoId;
     private Double monto;
-    private String fechaPago;
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime fechaPago;
     private String observaciones;
     private Long usuarioId;
 

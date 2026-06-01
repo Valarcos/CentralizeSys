@@ -3,6 +3,8 @@ package com.centralizesys.model.debt;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 @Data
 @NoArgsConstructor
@@ -12,8 +14,10 @@ public class DeudaResponse {
     private Long ventaId;
     private String clienteNombre;
     private Double montoDeuda; // The current remaining balance
-    private String fechaDeuda; // dd-mm-YYYY
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime fechaDeuda; // dd-mm-YYYY
     private String estado; // PENDIENTE, PARCIAL, PAGADO
     private Double montoOriginal; // NEW: From ventas.total_venta
-    private String fechaUltimoPago; // NEW: From deudores.fecha_pago
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime fechaUltimoPago; // NEW: From deudores.fecha_pago
 }

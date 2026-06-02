@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.format.DateTimeFormatter;
 
 /**
  * Utility class to handle Database Restoration logic BEFORE Spring Context
@@ -16,17 +15,7 @@ import java.time.format.DateTimeFormatter;
  */
 public class DatabaseRestorer {
 
-    //TODO: Fix sonar issues on this file
     private static final Logger log = LoggerFactory.getLogger(DatabaseRestorer.class);
-    private static final DateTimeFormatter FMT_FILE = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-    private static final String DB_PATH = "data/centralizesys.db";
-
-    /**
-     * Minimum acceptable size for a restore file (10 KB).
-     * A valid SQLite DB with schema + seed data is at least ~40 KB.
-     * Anything under 10 KB is either empty, corrupted, or a test artifact.
-     */
-    static final long MIN_RESTORE_FILE_SIZE_BYTES = 10_240L;
 
     /**
      * Flag file written when a restore is skipped due to validation failure.

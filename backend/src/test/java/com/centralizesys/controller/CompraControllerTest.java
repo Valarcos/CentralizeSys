@@ -4,6 +4,7 @@ import com.centralizesys.model.purchase.CompraRequest;
 import com.centralizesys.model.purchase.CompraResponse;
 import com.centralizesys.security.CustomUserDetails;
 import com.centralizesys.service.CompraService;
+import com.centralizesys.service.AuditoriaService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,9 +38,9 @@ class CompraControllerTest {
 
     @MockBean
     private CompraService compraService;
-    //TODO: Check unused service mockbeans for utility
+
     @MockBean
-    private com.centralizesys.service.AuditoriaService auditoriaService;
+    private AuditoriaService auditoriaService;
 
     // Security Mocks
     @MockBean

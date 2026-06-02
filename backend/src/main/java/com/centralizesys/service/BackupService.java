@@ -9,6 +9,7 @@ import com.centralizesys.repository.CompraRepository;
 import com.centralizesys.repository.DeudoresRepository;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.repository.VentaRepository;
+import com.centralizesys.security.SecurityUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
@@ -24,14 +25,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 @Service
@@ -40,13 +39,10 @@ public class BackupService {
     private static final Logger log = LoggerFactory.getLogger(BackupService.class);
     private static final DateTimeFormatter FMT_FILE = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
 
-    private static final String EXT_DB = ".db";
     private static final String EXT_XLSX = ".xlsx";
-    private static final String PREFIX_DB = "centralizesys_";
+    private static final String PREFIX_FILE = "centralizesys_";
 
     private static final Long RETENTION_DAYS_DAILY = 60L;
-    private static final Long CHECKPOINT_TTL_MS = 12 * 60 * 60 * 1000L; // 12 Hours
-    private static final Long PRE_RESTORE_RETENTION_MS = 180L * 24 * 60 * 60 * 1000L; // 6 Months
     private static final String FECHA = "Fecha";
 
     private final JdbcTemplate jdbcTemplate;
@@ -76,7 +72,7 @@ public class BackupService {
         this.pathStrategy = pathStrategy;
     }
 
-    //TODO: Fix sonar issues on this file as well as unused variables and methods
+
     public enum BackupType {
         DAILY,
         MANUAL;
@@ -90,7 +86,7 @@ public class BackupService {
     }
 
     public void performBackup(BackupType type) {
-        performBackup(type, com.centralizesys.security.SecurityUtils.getAuthenticatedUserId());
+        performBackup(type, SecurityUtils.getAuthenticatedUserId());
     }
 
     public void performBackup(BackupType type, Long userId) {
@@ -102,8 +98,7 @@ public class BackupService {
         String timestamp = now.format(FMT_FILE);
         String prefix = type == BackupType.DAILY ? "daily_" : "manual_";
 
-        String dbFileName = PREFIX_DB + prefix + timestamp + EXT_DB;
-        String excelFileName = PREFIX_DB + prefix + timestamp + EXT_XLSX;
+        String excelFileName = PREFIX_FILE + prefix + timestamp + EXT_XLSX;
 
         Path dirPath = Paths.get(type.getDirectory(pathStrategy));
 
@@ -112,18 +107,16 @@ public class BackupService {
                 Files.createDirectories(dirPath);
             }
 
-            Path fullDbPath = dirPath.resolve(dbFileName).toAbsolutePath();
             Path fullExcelPath = dirPath.resolve(excelFileName).toAbsolutePath();
 
             // 1. PostgreSQL DB Backup (Deferred)
-            // Database backup using pg_dump is deferred to the cloud migration phase.
-            log.warn("Database binary backup is temporarily disabled pending full cloud PostgreSQL pg_dump migration.");
+            log.warn("Database backup is deferred to the cloud migration phase (pg_dump implementation pending).");
 
             // 2. Excel Export
             exportToExcel(fullExcelPath.toString());
 
             // 3. Audit Success
-            String message = String.format("Respaldo %s completo. DB: %s", type.name(), dbFileName);
+            String message = String.format("Respaldo %s (Excel) completo.", type.name());
             auditoriaService.registrarAccion(userId, "BACKUP_EXITOSO", message);
 
         } catch (IOException | DataAccessException | IllegalArgumentException e) {
@@ -132,9 +125,7 @@ public class BackupService {
         }
     }
 
-    private void executeVacuumInto(Path fullDbPath) {
-        throw new UnsupportedOperationException("SQLite VACUUM INTO is not supported in PostgreSQL. Database backup is deferred to the cloud migration phase.");
-    }
+
 
     private void exportToExcel(String filePath) throws IOException {
         try (Workbook workbook = new XSSFWorkbook()) {
@@ -253,7 +244,7 @@ public class BackupService {
                         String name = path.getFileName().toString();
                         // Returns TRUE or FALSE based on filename extension. If true, path object
                         // is included in the resulting stream.
-                        return name.endsWith(EXT_DB) || name.endsWith(EXT_XLSX);
+                        return name.endsWith(EXT_XLSX);
                     })
                     .map(path -> mapPathToDto(path, type))
                     .filter(Objects::nonNull)
@@ -282,8 +273,7 @@ public class BackupService {
                     name,
                     date,
                     Files.size(path),
-                    type.name() + (name.endsWith(EXT_DB) ? "_DB" : "_EXCEL"));
-            // the operation after + is an if else that checks the file extension
+                    type.name() + "_EXCEL");
         } catch (IOException e) {
             return null;
         }
@@ -318,7 +308,7 @@ public class BackupService {
         List<File> files;
         try (Stream<Path> stream = Files.list(dirPath)) {
             files = stream
-                    .filter(p -> p.toString().endsWith(EXT_DB) || p.toString().endsWith(EXT_XLSX))
+                    .filter(p -> p.toString().endsWith(EXT_XLSX))
                     .map(Path::toFile)
                     .sorted(Comparator.comparingLong(File::lastModified))
                     .toList();
@@ -387,85 +377,6 @@ public class BackupService {
         }
     }
 
-    // --- System Restore ---
-    public void scheduleRestore(String filename, Long userId) throws IOException {
-        throw new UnsupportedOperationException("Database restoration is temporarily disabled pending full cloud PostgreSQL psql migration.");
-    }
-
-    // --- Checkpoints ---
-    public String createCheckpoint(String reason, Long userId) {
-        log.warn("Database checkpoint creation is temporarily disabled pending PostgreSQL pg_dump migration. Reason: " + reason);
-        return "checkpoint_deferred.db";
-    }
-
-    public void cleanupCheckpoints() {
-        Path dir = Paths.get(pathStrategy.getCheckpointsDir());
-        if (!Files.exists(dir))
-            return;
-
-        long now = System.currentTimeMillis();
-        AtomicInteger deleted = new AtomicInteger(0);
-
-        try (Stream<Path> stream = Files.list(dir)) {
-            stream.filter(p -> p.getFileName().toString().endsWith(EXT_DB))
-                    .filter(p -> isCheckpointExpired(p, now))
-                    .forEach(p -> deleteFileSafely(p, deleted));
-        } catch (IOException e) {
-            log.warn("Checkpoint cleanup failed", e);
-        }
-        // System Cleanup Task - UserID 0
-        if (deleted.get() > 0) {
-            auditoriaService.registrarAccion(0L, "CHECKPOINT_CLEANUP",
-                    "Deleted " + deleted.get() + " expired checkpoints/safety backups.");
-        }
-    }
-
-    private boolean isCheckpointExpired(Path p, long now) {
-        String name = p.getFileName().toString();
-        long lastModified = p.toFile().lastModified();
-
-        if (name.startsWith("checkpoint_")) {
-            return now - lastModified > CHECKPOINT_TTL_MS;
-        } else if (name.startsWith("pre_restore_")) {
-            return now - lastModified > PRE_RESTORE_RETENTION_MS;
-        }
-        return false;
-    }
-
-    private void deleteFileSafely(Path p, AtomicInteger deleted) {
-        try {
-            Files.delete(p);
-            deleted.incrementAndGet();
-        } catch (IOException e) {
-            log.warn("Failed to delete checkpoint/backup: {}", p);
-        }
-    }
-
-    public void restoreFromUpload(org.springframework.web.multipart.MultipartFile file, Long userId)
-            throws IOException {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("Uploaded file is empty");
-        }
-
-        String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || !originalFilename.toLowerCase().endsWith(EXT_DB)) {
-            throw new IllegalArgumentException("Only .db files can be restored.");
-        }
-
-        // Use Strategy
-        Path restoreTrigger = pathStrategy.getRestoreTriggerPath();
-
-        Path parent = restoreTrigger.getParent();
-        if (parent != null && !Files.exists(parent)) {
-            Files.createDirectories(parent);
-        }
-
-        // Save uploaded file directly to restore trigger path
-        Files.copy(file.getInputStream(), restoreTrigger, StandardCopyOption.REPLACE_EXISTING);
-
-        auditoriaService.registrarAccion(userId, "RESTORE_UPLOAD_SCHEDULED",
-                "Restore pending from upload: " + originalFilename);
-    }
 
     public void removeMidDayBackup() {
         LocalDateTime now = LocalDateTime.now();

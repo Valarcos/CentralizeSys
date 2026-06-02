@@ -22,7 +22,7 @@ public class BackupTask {
         try {
             log.info("Starting Mid-Day Backup...");
             backupService.performBackup(BackupService.BackupType.DAILY, 0L);
-            backupService.cleanupCheckpoints();
+
             log.info("Mid-Day Backup completed.");
         } catch (Exception e) {
             log.error("Mid-Day Backup failed", e);
@@ -41,7 +41,7 @@ public class BackupTask {
 
             // Check retention immediately after backup
             backupService.cleanupOldBackups();
-            backupService.cleanupCheckpoints();
+
             log.info("Daily Backup completed.");
         } catch (Exception e) {
             log.error("Daily Backup failed", e);

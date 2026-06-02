@@ -21,7 +21,8 @@ import java.util.*;
 
 @Service
 public class LegacyFinancialImportService {
-    // TODO: verify file for correctness and possible prescence of useless code, or wrongly written code.
+    // TODO: After moving to production on Oracle Cloud, revisit this service to verify if the excel import works properly
+
     private static final Logger log = LoggerFactory.getLogger(LegacyFinancialImportService.class);
     private static final double TOLERANCE = 0.05;
     private static final String LOG_FILE_PATH = DataPathConfig.resolveString("data/import_errors.log");
@@ -39,14 +40,11 @@ public class LegacyFinancialImportService {
 
     private final AuditoriaService auditoriaService;
     private final NamedParameterJdbcTemplate namedJdbcTemplate;
-    private final BackupService backupService;
 
     public LegacyFinancialImportService(AuditoriaService auditoriaService,
-                                        NamedParameterJdbcTemplate namedJdbcTemplate,
-                                        BackupService backupService) {
+                                        NamedParameterJdbcTemplate namedJdbcTemplate) {
         this.auditoriaService = auditoriaService;
         this.namedJdbcTemplate = namedJdbcTemplate;
-        this.backupService = backupService;
     }
 
     /**
@@ -57,8 +55,8 @@ public class LegacyFinancialImportService {
     public String importLegacyFile(String filePath) {
         // 0. Resilience Checkpoint
         // Context: One-time system import, so UserID 0 is acceptable
-        String checkpointFile = backupService.createCheckpoint("legacy_import", 0L);
-        log.info("Created resilience checkpoint: {}", checkpointFile);
+        // Database checkpoints disabled for PostgreSQL migration
+        // log.info("Created resilience checkpoint: {}", checkpointFile);
 
         log.info("Starting Legacy Import from: {}", filePath);
 

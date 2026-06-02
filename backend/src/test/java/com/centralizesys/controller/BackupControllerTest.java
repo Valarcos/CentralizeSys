@@ -60,10 +60,7 @@ class BackupControllerTest {
             // Path updated to /api/backups
             mockMvc.perform(post("/api/backups/restore/" + filename)
                             .param("confirm", "true"))
-                    .andExpect(status().isOk());
-
-            // Assert
-            verify(backupService).scheduleRestore(filename, userId);
+                    .andExpect(status().isNotImplemented());
 
         } finally {
             SecurityContextHolder.clearContext();

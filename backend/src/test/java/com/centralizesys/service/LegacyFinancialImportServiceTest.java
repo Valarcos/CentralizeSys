@@ -23,7 +23,6 @@ import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -47,7 +46,7 @@ class LegacyFinancialImportServiceTest {
     @DisplayName("Should process valid file correctly")
     void testImportValidFile() throws IOException {
         // Setup Mocks
-        when(backupService.createCheckpoint(anyString(), anyLong())).thenReturn("checkpoint.zip");
+
 
         // Mock DB Insert (Venta) to return an ID
         // Mock DB Insert (Venta) to return an ID
@@ -124,7 +123,7 @@ class LegacyFinancialImportServiceTest {
     @DisplayName("Should accept short client names (e.g. TO)")
     void testImportShortClientName() throws IOException {
         // Setup Mocks
-        when(backupService.createCheckpoint(anyString(), anyLong())).thenReturn("checkpoint.zip");
+
 
         File tempFile = File.createTempFile("test_short_name", ".xlsx");
         tempFile.deleteOnExit();
@@ -175,7 +174,7 @@ class LegacyFinancialImportServiceTest {
     @DisplayName("Should skip sheets marked as summary (e.g. RESUMEN)")
     void testImportSkippedSheets() throws IOException {
         // Setup Mocks
-        when(backupService.createCheckpoint(anyString(), anyLong())).thenReturn("checkpoint.zip");
+
 
         File tempFile = File.createTempFile("test_skip_sheet", ".xlsx");
         tempFile.deleteOnExit();
@@ -200,7 +199,7 @@ class LegacyFinancialImportServiceTest {
     @Test
     @DisplayName("Should skip orphan rows (items before any client)")
     void testImportOrphanRows() throws IOException {
-        when(backupService.createCheckpoint(anyString(), anyLong())).thenReturn("checkpoint.zip");
+
         File tempFile = File.createTempFile("test_orphan", ".xlsx");
         tempFile.deleteOnExit();
 
@@ -232,7 +231,7 @@ class LegacyFinancialImportServiceTest {
     @Test
     @DisplayName("Should skip invalid items (Zero Cost, Short Desc)")
     void testImportInvalidItems() throws IOException {
-        when(backupService.createCheckpoint(anyString(), anyLong())).thenReturn("checkpoint.zip");
+
         File tempFile = File.createTempFile("test_invalid_items", ".xlsx");
         tempFile.deleteOnExit();
 
@@ -287,7 +286,7 @@ class LegacyFinancialImportServiceTest {
     @Test
     @DisplayName("Should recover price from Total/Quantity if missing")
     void testImportPriceRecovery() throws IOException {
-        when(backupService.createCheckpoint(anyString(), anyLong())).thenReturn("checkpoint.zip");
+
         File tempFile = File.createTempFile("test_price_recovery", ".xlsx");
         tempFile.deleteOnExit();
 
@@ -354,7 +353,7 @@ class LegacyFinancialImportServiceTest {
     @DisplayName("Should detect and import Year 2026 correctly")
     void testImportYear2026() throws IOException {
         // Setup Mocks
-        when(backupService.createCheckpoint(anyString(), anyLong())).thenReturn("checkpoint.zip");
+
 
         File tempFile = File.createTempFile("test_2026", ".xlsx");
         tempFile.deleteOnExit();

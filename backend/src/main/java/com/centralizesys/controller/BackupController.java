@@ -77,31 +77,15 @@ public class BackupController {
     @PostMapping("/restore/{filename}")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> restoreDatabase(@PathVariable String filename) {
-        // Confirmation is handled by frontend UI ensuring intent before calling this.
-        // We rely on ADMIN role for security here combined with UI confirmation.
-
-        try {
-            Long userId = SecurityUtils.getAuthenticatedUserId();
-            backupService.scheduleRestore(filename, userId);
-            return ResponseEntity.ok("Restauración programada. El sistema se reiniciará en breve.");
-        } catch (Exception e) {
-            log.error("Restore scheduling failed", e);
-            return ResponseEntity.internalServerError().body("Fallo al restaurar: " + e.getMessage());
-        }
+        return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_IMPLEMENTED)
+                .body("Restauración deshabilitada temporalmente (migración a PostgreSQL en proceso).");
     }
 
     @PostMapping(value = "/upload-restore", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> restoreFromUpload(
             @RequestPart("file") org.springframework.web.multipart.MultipartFile file) {
-        try {
-            Long userId = SecurityUtils.getAuthenticatedUserId();
-            backupService.restoreFromUpload(file, userId);
-            return ResponseEntity
-                    .ok("Restauración desde archivo subido programada. El sistema se reiniciará en breve.");
-        } catch (Exception e) {
-            log.error("Restore from upload failed", e);
-            return ResponseEntity.internalServerError().body("Fallo al restaurar: " + e.getMessage());
-        }
+        return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_IMPLEMENTED)
+                .body("Carga de restauración deshabilitada temporalmente (migración a PostgreSQL en proceso).");
     }
 }

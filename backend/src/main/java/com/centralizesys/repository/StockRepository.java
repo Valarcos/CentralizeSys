@@ -140,11 +140,4 @@ public class StockRepository {
 
         return key.longValue();
     }
-    //TODO: Method is never used, analyze the possible places where it could have been originally intended to be used and verify if it serves any purpose or not.
-
-    // Kept for backward compatibility if used elsewhere, but findAllLocations is preferred
-    public List<String> getAllLocationNames() {
-        String sql = "SELECT nombre FROM ubicaciones";
-        return namedJdbcTemplate.getJdbcOperations().queryForList(sql, String.class);
-    }
 }

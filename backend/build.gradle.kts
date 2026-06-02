@@ -20,9 +20,7 @@ repositories {
     mavenCentral()
 }
 
-// TODO: Fix issue of testcontainers not having been tested due to windows complications
-// TODO: Fix issue of database password beeing too weak
-// TODO: Fix backup system to work on the cloud
+
 
 dependencyLocking {
     lockAllConfigurations()

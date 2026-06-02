@@ -38,7 +38,7 @@ class UsuarioServiceTest {
     @DisplayName("Login Success: Returns user and audits action")
     void login_Success() {
         // Arrange
-        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, java.time.LocalDateTime.now());
+        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, java.time.LocalDateTime.now(), true);
         when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("raw123", "hashed123")).thenReturn(true);
 
@@ -66,7 +66,7 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Login Failure: Wrong Password throws Friendly Exception")
     void login_WrongPassword() {
-        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, java.time.LocalDateTime.now());
+        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, java.time.LocalDateTime.now(), true);
         when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "hashed123")).thenReturn(false);
 
@@ -110,7 +110,7 @@ class UsuarioServiceTest {
     @DisplayName("Update Success: Updates all provided fields")
     void update_Success_AllFields() {
         // Arrange
-        Usuario existing = new Usuario(1L, "Old Name", "old@test.com", "oldHash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now());
+        Usuario existing = new Usuario(1L, "Old Name", "old@test.com", "oldHash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(usuarioRepository.findByEmail("new@test.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("newPassword")).thenReturn("newHash");
@@ -162,8 +162,8 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Update Failure: Duplicate email throws Exception")
     void update_DuplicateEmail() {
-        Usuario existing = new Usuario(1L, "Name", "old@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now());
-        Usuario other = new Usuario(2L, "Other", "taken@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now());
+        Usuario existing = new Usuario(1L, "Name", "old@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
+        Usuario other = new Usuario(2L, "Other", "taken@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
 
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(usuarioRepository.findByEmail("taken@test.com")).thenReturn(Optional.of(other));
@@ -181,7 +181,7 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Update Failure: Invalid role throws Exception")
     void update_InvalidRole() {
-        Usuario existing = new Usuario(1L, "Name", "test@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now());
+        Usuario existing = new Usuario(1L, "Name", "test@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
 
         com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
@@ -197,7 +197,7 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Update Success: Same email does not trigger duplicate check")
     void update_SameEmail_NoConflict() {
-        Usuario existing = new Usuario(1L, "Name", "same@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now());
+        Usuario existing = new Usuario(1L, "Name", "same@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
 
         com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
@@ -217,7 +217,7 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Update Success: Null/blank fields are ignored")
     void update_NullFields_Ignored() {
-        Usuario existing = new Usuario(1L, "Original", "orig@test.com", "origHash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now());
+        Usuario existing = new Usuario(1L, "Original", "orig@test.com", "origHash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
 
         com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(

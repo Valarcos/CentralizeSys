@@ -30,7 +30,8 @@ public class UsuarioRepository {
             rs.getString(EMAIL),
             rs.getString("password_hash"),
             UsuarioRole.valueOf(rs.getString("rol")),
-            rs.getObject("fecha_creacion", LocalDateTime.class));
+            rs.getObject("fecha_creacion", LocalDateTime.class),
+            rs.getBoolean("activo"));
 
     public Optional<Usuario> findByEmail(String email) {
         String sql = "SELECT * FROM usuarios WHERE email = :email";

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS productos (
     precio_minorista REAL NOT NULL,
     cantidad_stock INTEGER DEFAULT 0,
     tiendanube_id TEXT,
-    CONSTRAINT unique_producto_variante UNIQUE (codigo, precio_costo, precio_minorista)
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );;
 
 -- 2. Tabla de Ubicaciones
@@ -21,21 +21,22 @@ CREATE TABLE IF NOT EXISTS ubicaciones (
 CREATE TABLE IF NOT EXISTS usuarios (
     id SERIAL PRIMARY KEY,
     nombre TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     rol TEXT NOT NULL DEFAULT 'EMPLEADO' CHECK(rol IN ('ADMIN', 'EMPLEADO')),
-    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    activo BOOLEAN NOT NULL DEFAULT TRUE
 );;
 
 -- Usuario Sistema reservado (ID convencional = 1, primer SERIAL, pero necesitamos ID 0)
-INSERT INTO usuarios (id, nombre, email, password_hash, rol)
-VALUES (0, 'Sistema', 'sistema@centralizesys.internal', 'NO_LOGIN', 'EMPLEADO')
-ON CONFLICT (id) DO NOTHING;;
+INSERT INTO usuarios (id, nombre, email, password_hash, rol, activo)
+    VALUES (0, 'Sistema', 'sistema@centralizesys.internal', 'NO_LOGIN', 'EMPLEADO', TRUE)
+    ON CONFLICT (id) DO NOTHING;;
 
 -- Usuario Administrador
 INSERT INTO usuarios (nombre, email, password_hash, rol)
-VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu', 'ADMIN')
-ON CONFLICT (email) DO NOTHING;;
+    VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu', 'ADMIN')
+    ON CONFLICT DO NOTHING;;
 
 -- 4. Métodos de Pago
 CREATE TABLE IF NOT EXISTS metodos_pago (
@@ -55,7 +56,7 @@ INSERT INTO metodos_pago (acronimo, descripcion) VALUES
     ('TBMP', 'MercadoPago'),
     ('TBH', 'Transferencia Habitualitá'),
     ('TB3', 'Transferencia a Terceros')
-ON CONFLICT (acronimo) DO NOTHING;;
+    ON CONFLICT (acronimo) DO NOTHING;;
 
 -- 5. Stock por Ubicación
 CREATE TABLE IF NOT EXISTS stock_por_ubicacion (
@@ -173,6 +174,21 @@ CREATE INDEX IF NOT EXISTS idx_deudores_cliente ON deudores(cliente_nombre);;
 CREATE INDEX IF NOT EXISTS idx_auditoria_fecha ON auditoria(fecha_hora);;
 CREATE INDEX IF NOT EXISTS idx_compras_fecha ON compras(fecha);;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_productos_tiendanube ON productos(tiendanube_id);;
+
+-- Partial Unique Indexes for Logical Deletion:
+-- Replaces the former table-level UNIQUE constraint on productos.
+-- Allows re-creating a product variant with the same (codigo, precio_costo, precio_minorista)
+-- after its predecessor has been soft-deleted (activo = false).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_producto_variante_activo
+    ON productos (codigo, precio_costo, precio_minorista)
+    WHERE activo = true;;
+
+-- Replaces the former table-level UNIQUE constraint on usuarios.email.
+-- Allows re-registering a new user with the same email after the original
+-- account has been soft-deleted (activo = false).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_usuario_email_activo
+    ON usuarios (email)
+    WHERE activo = true;;
 
 -- TRIGGERS
 

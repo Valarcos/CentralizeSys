@@ -26,10 +26,8 @@ public class ProductRepository {
     }
 
     // Mapeo exacto de Columnas DB (Español) -> Objeto Java
-    // SQLite returns empty strings for NULL REAL columns, which break
-    // getObject(Double.class)
     private final RowMapper<Product> rowMapper = (rs, rowNum) -> {
-        // Safe nullable Double extraction - handles empty strings from SQLite
+        // Safe nullable Double extraction - handles empty strings from old SQLite-era data
         Double precioMayorista = parseNullableDouble(rs.getString("precio_mayorista"));
 
         return new Product(
@@ -39,7 +37,8 @@ public class ProductRepository {
                 rs.getDouble("precio_costo"),
                 precioMayorista,
                 rs.getDouble("precio_minorista"),
-                rs.getLong("cantidad_stock"));
+                rs.getLong("cantidad_stock"),
+                rs.getBoolean("activo"));
     };
 
     /**

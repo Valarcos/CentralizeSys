@@ -39,7 +39,7 @@ class ProductServiceTest {
     @Test
     @DisplayName("getAll returns list from repository")
     void getAll_ReturnsList() {
-        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L);
+        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L, true);
         when(repository.findAll()).thenReturn(List.of(p));
         List<Product> result = service.getAll();
         assertEquals(1, result.size());
@@ -48,7 +48,7 @@ class ProductServiceTest {
     @Test
     @DisplayName("getAllOrSearch (Browse) returns PageResponse")
     void getAllOrSearch_Browse() {
-        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L);
+        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L, true);
         when(repository.findAll(20L, 0L)).thenReturn(List.of(p));
         when(repository.countAll()).thenReturn(1L);
 
@@ -61,7 +61,7 @@ class ProductServiceTest {
     @Test
     @DisplayName("getAllOrSearch (Search) returns PageResponse")
     void getAllOrSearch_Search() {
-        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L);
+        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L, true);
         when(repository.search("query")).thenReturn(List.of(p));
 
         PageResponse<Product> result = service.getAllOrSearch("query", 0L, 20L);
@@ -74,7 +74,7 @@ class ProductServiceTest {
     @Test
     @DisplayName("getById returns product when found")
     void getById_Success() {
-        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L);
+        Product p = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 0L, true);
         when(repository.findById(1L)).thenReturn(Optional.of(p));
 
         Product result = service.getById(1L);
@@ -174,7 +174,7 @@ class ProductServiceTest {
     @DisplayName("createWithStock saves product and calls stock service")
     void createWithStock_Success() {
         Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
-        Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
+        Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
 
         when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
         when(repository.save(p)).thenReturn(saved);
@@ -191,7 +191,7 @@ class ProductServiceTest {
     @DisplayName("createWithStock does NOT call stock service if quantity is null/zero")
     void createWithStock_NoStock() {
         Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
-        Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
+        Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
 
         when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
         when(repository.save(p)).thenReturn(saved);
@@ -206,7 +206,7 @@ class ProductServiceTest {
     @DisplayName("Create throws on exact duplicate (Code+Cost+Price)")
     void create_Duplicate_Throws() {
         Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
-        Product existing = new Product(1L, "CODE", "Old", 10.0, 10.0, 20.0, 0L);
+        Product existing = new Product(1L, "CODE", "Old", 10.0, 10.0, 20.0, 0L, true);
 
         when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing));
 
@@ -246,7 +246,7 @@ class ProductServiceTest {
     @DisplayName("CreateWithStock defaults null wholesale price to retail price")
     void createWithStock_NullWholesale_DefaultsToRetail() {
         Product p = new Product("CODE", "Desc", 10.0, null, 30.0);
-        Product saved = new Product(1L, "CODE", "Desc", 10.0, 30.0, 30.0, 0L);
+        Product saved = new Product(1L, "CODE", "Desc", 10.0, 30.0, 30.0, 0L, true);
 
         when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
         when(repository.save(any(Product.class))).thenReturn(saved);
@@ -262,7 +262,7 @@ class ProductServiceTest {
     @DisplayName("Update defaults null wholesale price to retail price")
     void update_NullWholesale_DefaultsToRetail() {
         Product updateReq = new Product("CODE", "Desc", 10.0, null, 40.0);
-        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
+        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
 
         when(repository.findById(1L)).thenReturn(Optional.of(existing));
         when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing));
@@ -292,7 +292,7 @@ class ProductServiceTest {
     void update_Success() {
         // Changing price from 20 to 25
         Product updateReq = new Product("CODE", "Desc", 10.0, 10.0, 25.0);
-        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
+        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
 
         when(repository.findById(1L)).thenReturn(Optional.of(existing));
         when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing));
@@ -310,8 +310,8 @@ class ProductServiceTest {
         // Trying to change Price to 30. But there is ANOTHER product (ID 2) with Cost
         // 10, Price 30.
         Product updateReq = new Product("CODE", "Desc", 10.0, 10.0, 30.0);
-        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L);
-        Product other = new Product(2L, "CODE", "Other", 10.0, 10.0, 30.0, 0L);
+        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
+        Product other = new Product(2L, "CODE", "Other", 10.0, 10.0, 30.0, 0L, true);
 
         when(repository.findById(1L)).thenReturn(Optional.of(existing));
         when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing, other));
@@ -325,7 +325,7 @@ class ProductServiceTest {
     @Test
     @DisplayName("Delete calls audit service")
     void delete_Audits() {
-        Product existing = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 10L);
+        Product existing = new Product(1L, "C", "D", 1.0, 1.0, 1.0, 10L, true);
         when(repository.findById(1L)).thenReturn(Optional.of(existing));
 
         service.deleteById(1L, 999L);

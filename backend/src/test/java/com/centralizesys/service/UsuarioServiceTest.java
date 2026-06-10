@@ -1,9 +1,12 @@
 package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
+import com.centralizesys.exception.ResourceNotFoundException;
+import com.centralizesys.model.auth.UpdateUserRequest;
 import com.centralizesys.model.auth.Usuario;
 import com.centralizesys.model.auth.UsuarioRole;
 import com.centralizesys.repository.UsuarioRepository;
+import com.centralizesys.security.SecurityUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,7 +42,7 @@ class UsuarioServiceTest {
     @DisplayName("Login Success: Returns user and audits action")
     void login_Success() {
         // Arrange
-        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, java.time.LocalDateTime.now(), true);
+        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
         when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("raw123", "hashed123")).thenReturn(true);
 
@@ -66,7 +70,7 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Login Failure: Wrong Password throws Friendly Exception")
     void login_WrongPassword() {
-        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, java.time.LocalDateTime.now(), true);
+        Usuario user = new Usuario(1L, "Admin", "admin@test.com", "hashed123", UsuarioRole.ADMIN, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
         when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "hashed123")).thenReturn(false);
 
@@ -110,16 +114,15 @@ class UsuarioServiceTest {
     @DisplayName("Update Success: Updates all provided fields")
     void update_Success_AllFields() {
         // Arrange
-        Usuario existing = new Usuario(1L, "Old Name", "old@test.com", "oldHash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
+        Usuario existing = new Usuario(1L, "Old Name", "old@test.com", "oldHash", UsuarioRole.EMPLEADO, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(usuarioRepository.findByEmail("new@test.com")).thenReturn(Optional.empty());
         when(passwordEncoder.encode("newPassword")).thenReturn("newHash");
 
-        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
-                "New Name", "new@test.com", "newPassword", "ADMIN");
+        UpdateUserRequest request = new UpdateUserRequest("New Name", "new@test.com", "newPassword", "ADMIN");
 
-        try (var mockedSecurityUtils = mockStatic(com.centralizesys.security.SecurityUtils.class)) {
-            mockedSecurityUtils.when(com.centralizesys.security.SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
+        try (var mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
 
             // Act
             usuarioService.update(1L, request);
@@ -136,8 +139,7 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Update Failure: Cannot modify system user (id=0)")
     void update_CannotModifySystemUser() {
-        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
-                "Name", null, null, null);
+        UpdateUserRequest request = new UpdateUserRequest("Name", null, null, null);
 
         BusinessRuleException ex = assertThrows(BusinessRuleException.class,
                 () -> usuarioService.update(0L, request));
@@ -151,10 +153,9 @@ class UsuarioServiceTest {
     void update_UserNotFound() {
         when(usuarioRepository.findById(999L)).thenReturn(Optional.empty());
 
-        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
-                "Name", null, null, null);
+        UpdateUserRequest request = new UpdateUserRequest("Name", null, null, null);
 
-        assertThrows(com.centralizesys.exception.ResourceNotFoundException.class,
+        assertThrows(ResourceNotFoundException.class,
                 () -> usuarioService.update(999L, request));
         verify(usuarioRepository, never()).update(any());
     }
@@ -162,14 +163,13 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Update Failure: Duplicate email throws Exception")
     void update_DuplicateEmail() {
-        Usuario existing = new Usuario(1L, "Name", "old@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
-        Usuario other = new Usuario(2L, "Other", "taken@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
+        Usuario existing = new Usuario(1L, "Name", "old@test.com", "hash", UsuarioRole.EMPLEADO, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
+        Usuario other = new Usuario(2L, "Other", "taken@test.com", "hash", UsuarioRole.EMPLEADO, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
 
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(usuarioRepository.findByEmail("taken@test.com")).thenReturn(Optional.of(other));
 
-        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
-                null, "taken@test.com", null, null);
+        UpdateUserRequest request = new UpdateUserRequest(null, "taken@test.com", null, null);
 
         BusinessRuleException ex = assertThrows(BusinessRuleException.class,
                 () -> usuarioService.update(1L, request));
@@ -181,11 +181,10 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Update Failure: Invalid role throws Exception")
     void update_InvalidRole() {
-        Usuario existing = new Usuario(1L, "Name", "test@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
+        Usuario existing = new Usuario(1L, "Name", "test@test.com", "hash", UsuarioRole.EMPLEADO, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
 
-        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
-                null, null, null, "INVALID_ROLE");
+        UpdateUserRequest request = new UpdateUserRequest(null, null, null, "INVALID_ROLE");
 
         BusinessRuleException ex = assertThrows(BusinessRuleException.class,
                 () -> usuarioService.update(1L, request));
@@ -197,14 +196,13 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Update Success: Same email does not trigger duplicate check")
     void update_SameEmail_NoConflict() {
-        Usuario existing = new Usuario(1L, "Name", "same@test.com", "hash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
+        Usuario existing = new Usuario(1L, "Name", "same@test.com", "hash", UsuarioRole.EMPLEADO, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
 
-        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
-                null, "same@test.com", null, null);
+        UpdateUserRequest request = new UpdateUserRequest(null, "same@test.com", null, null);
 
-        try (var mockedSecurityUtils = mockStatic(com.centralizesys.security.SecurityUtils.class)) {
-            mockedSecurityUtils.when(com.centralizesys.security.SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
+        try (var mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
 
             usuarioService.update(1L, request);
 
@@ -217,14 +215,13 @@ class UsuarioServiceTest {
     @Test
     @DisplayName("Update Success: Null/blank fields are ignored")
     void update_NullFields_Ignored() {
-        Usuario existing = new Usuario(1L, "Original", "orig@test.com", "origHash", UsuarioRole.EMPLEADO, java.time.LocalDateTime.now(), true);
+        Usuario existing = new Usuario(1L, "Original", "orig@test.com", "origHash", UsuarioRole.EMPLEADO, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
         when(usuarioRepository.findById(1L)).thenReturn(Optional.of(existing));
 
-        com.centralizesys.model.auth.UpdateUserRequest request = new com.centralizesys.model.auth.UpdateUserRequest(
-                null, "", "   ", null);
+        UpdateUserRequest request = new UpdateUserRequest(null, "", "   ", null);
 
-        try (var mockedSecurityUtils = mockStatic(com.centralizesys.security.SecurityUtils.class)) {
-            mockedSecurityUtils.when(com.centralizesys.security.SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
+        try (var mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
 
             usuarioService.update(1L, request);
 
@@ -233,6 +230,86 @@ class UsuarioServiceTest {
                     u.getEmail().equals("orig@test.com") &&
                     u.getPasswordHash().equals("origHash") &&
                     u.getRol() == UsuarioRole.EMPLEADO));
+        }
+    }
+
+    // --- DELETE TESTS ---
+
+    @Test
+    @DisplayName("Delete Failure: Cannot delete Sistema user (id=0)")
+    void delete_CannotDeleteSistemaUser() {
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> usuarioService.delete(0L));
+
+        assertEquals("No se puede eliminar al Usuario del Sistema.", ex.getMessage());
+        verify(usuarioRepository, never()).deleteById(anyLong());
+    }
+
+    @Test
+    @DisplayName("Delete Failure: Last active ADMIN cannot be deleted (lockout guard)")
+    void delete_LastAdmin_ThrowsLockoutException() {
+        // Arrange: target is an ADMIN, and they are the only one left
+        Usuario lastAdmin = new Usuario(2L, "Sole Admin", "admin@test.com", "hash",
+                UsuarioRole.ADMIN, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
+
+        try (var mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
+
+            when(usuarioRepository.findById(2L)).thenReturn(Optional.of(lastAdmin));
+            when(usuarioRepository.countActiveAdmins()).thenReturn(1L);
+
+            // Act & Assert
+            BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                    () -> usuarioService.delete(2L));
+
+            assertTrue(ex.getMessage().contains("único Administrador activo"),
+                    "Error message must mention the sole-admin restriction");
+            verify(usuarioRepository, never()).deleteById(anyLong());
+            verify(auditoriaService, never()).registrarAccion(anyLong(), anyString(), anyString());
+        }
+    }
+
+    @Test
+    @DisplayName("Delete Success: Non-last ADMIN can be deleted when others exist")
+    void delete_NonLastAdmin_SucceedsWhenOthersExist() {
+        // Arrange: 2 active ADMINs exist — deletion of one is permitted
+        Usuario adminToDelete = new Usuario(2L, "Admin2", "admin2@test.com", "hash",
+                UsuarioRole.ADMIN, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
+
+        try (var mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
+
+            when(usuarioRepository.findById(2L)).thenReturn(Optional.of(adminToDelete));
+            when(usuarioRepository.countActiveAdmins()).thenReturn(2L);
+
+            // Act
+            usuarioService.delete(2L);
+
+            // Assert
+            verify(usuarioRepository).deleteById(2L);
+            verify(auditoriaService).registrarAccion(99L, "DELETE_USER", "Usuario eliminado: admin2@test.com");
+        }
+    }
+
+    @Test
+    @DisplayName("Delete Success: EMPLEADO can always be deleted without ADMIN count check")
+    void delete_Empleado_DoesNotCheckAdminCount() {
+        // Arrange: target is EMPLEADO — the admin count guard must NOT be invoked
+        Usuario empleado = new Usuario(3L, "Emp", "emp@test.com", "hash",
+                UsuarioRole.EMPLEADO, LocalDateTime.of(2023, java.time.Month.JANUARY, 1, 12, 0), true);
+
+        try (var mockedSecurityUtils = mockStatic(SecurityUtils.class)) {
+            mockedSecurityUtils.when(SecurityUtils::getAuthenticatedUserId).thenReturn(99L);
+
+            when(usuarioRepository.findById(3L)).thenReturn(Optional.of(empleado));
+
+            // Act
+            usuarioService.delete(3L);
+
+            // Assert
+            verify(usuarioRepository).deleteById(3L);
+            // countActiveAdmins must NEVER be called for a non-ADMIN target
+            verify(usuarioRepository, never()).countActiveAdmins();
         }
     }
 }

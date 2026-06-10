@@ -19,6 +19,7 @@ public class UsuarioRepository {
 
     public static final String EMAIL = "email";
     public static final String NOMBRE = "nombre";
+    private static final String PARAM_ID = "id";
 
     public UsuarioRepository(JdbcTemplate jdbcTemplate) {
         this.namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
@@ -34,7 +35,7 @@ public class UsuarioRepository {
             rs.getBoolean("activo"));
 
     public Optional<Usuario> findByEmail(String email) {
-        String sql = "SELECT * FROM usuarios WHERE email = :email";
+        String sql = "SELECT * FROM usuarios WHERE email = :email AND activo = true";
         List<Usuario> users = namedJdbcTemplate.query(
                 sql,
                 new MapSqlParameterSource(EMAIL, email),
@@ -43,10 +44,10 @@ public class UsuarioRepository {
     }
 
     public Optional<Usuario> findById(Long id) {
-        String sql = "SELECT * FROM usuarios WHERE id = :id";
+        String sql = "SELECT * FROM usuarios WHERE id = :id AND activo = true";
         List<Usuario> users = namedJdbcTemplate.query(
                 sql,
-                new MapSqlParameterSource("id", id),
+                new MapSqlParameterSource(PARAM_ID, id),
                 rowMapper);
         return users.stream().findFirst();
     }
@@ -67,13 +68,25 @@ public class UsuarioRepository {
     }
 
     public List<Usuario> findAll() {
-        String sql = "SELECT * FROM usuarios";
-        return namedJdbcTemplate.query(sql, rowMapper);
+        String sql = "SELECT * FROM usuarios WHERE activo = true";
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource(), rowMapper);
+    }
+
+    /**
+     * Returns the count of currently active ADMIN users.
+     * Used by the delete guard to prevent a full system lockout.
+     */
+    public Long countActiveAdmins() {
+        String sql = "SELECT COUNT(*) FROM usuarios WHERE rol = 'ADMIN' AND activo = true";
+        return namedJdbcTemplate.getJdbcTemplate().queryForObject(sql, Long.class);
     }
 
     public void deleteById(Long id) {
-        String sql = "DELETE FROM usuarios WHERE id = :id";
-        namedJdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
+        // Logical Deletion: preserves all audit trail references tied to this user.
+        // Sets activo = false, making the user invisible to all application queries
+        // and blocking their ability to authenticate.
+        String sql = "UPDATE usuarios SET activo = false WHERE id = :id";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource(PARAM_ID, id));
     }
 
     public void update(Usuario usuario) {
@@ -84,7 +97,7 @@ public class UsuarioRepository {
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("id", usuario.getId())
+                .addValue(PARAM_ID, usuario.getId())
                 .addValue(NOMBRE, usuario.getNombre())
                 .addValue(EMAIL, usuario.getEmail())
                 .addValue("passwordHash", usuario.getPasswordHash())

@@ -30,13 +30,13 @@ CREATE TABLE IF NOT EXISTS usuarios (
 
 -- Usuario Sistema reservado (ID convencional = 1, primer SERIAL, pero necesitamos ID 0)
 INSERT INTO usuarios (id, nombre, email, password_hash, rol, activo)
-    VALUES (0, 'Sistema', 'sistema@centralizesys.internal', 'NO_LOGIN', 'EMPLEADO', TRUE)
-    ON CONFLICT (id) DO NOTHING;;
+VALUES (0, 'Sistema', 'sistema@centralizesys.internal', 'NO_LOGIN', 'EMPLEADO', TRUE)
+ON CONFLICT (id) DO NOTHING;;
 
 -- Usuario Administrador
 INSERT INTO usuarios (nombre, email, password_hash, rol)
-    VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu', 'ADMIN')
-    ON CONFLICT DO NOTHING;;
+VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu', 'ADMIN')
+ON CONFLICT DO NOTHING;;
 
 -- 4. Métodos de Pago
 CREATE TABLE IF NOT EXISTS metodos_pago (
@@ -241,7 +241,7 @@ CREATE TRIGGER update_stock_after_delete
 
 -- Function for Deudores payment date
 CREATE OR REPLACE FUNCTION fn_set_fecha_pago_deudores()
-RETURNS TRIGGER AS $$
+    RETURNS TRIGGER AS $$
 BEGIN
     IF OLD.estado IS DISTINCT FROM NEW.estado THEN
         IF NEW.estado IN ('PARCIAL', 'PAGADO') THEN
@@ -261,7 +261,7 @@ CREATE TRIGGER trg_set_fecha_pago_deudores
 
 -- Function to prevent audit mutations
 CREATE OR REPLACE FUNCTION fn_audit_no_mutation()
-RETURNS TRIGGER AS $$
+    RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'UPDATE' THEN
         RAISE EXCEPTION 'La tabla auditoria es inmutable: no se permiten modificaciones.';

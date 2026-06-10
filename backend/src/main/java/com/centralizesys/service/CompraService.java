@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -76,7 +77,7 @@ public class CompraService {
         // 7. Return Response
         return new CompraResponse(
                 compraId,
-                LocalDateTime.now(),
+                LocalDateTime.now(ZoneId.systemDefault()),
                 request.getProveedor(),
                 request.getNroComprobante(),
                 result.getTotalCompra(),
@@ -126,20 +127,28 @@ public class CompraService {
 
             Product product = productMap.get(itemReq.getProductoId());
 
-            // A. Existence Check
+            // A. Existence Check (product absent from map means soft-deleted or never existed)
             if (product == null) {
                 throw new ResourceNotFoundException("Producto", itemReq.getProductoId());
             }
 
-            // B. Cost Consistency Check (Business Rule)
+            // B. Active-product guard: defence-in-depth to produce a precise error message.
+            // A deleted product should never be restocked — it is archived, not missing.
+            if (!product.isActivo()) {
+                throw new BusinessRuleException(
+                        "El producto '" + product.getDescripcion() + "' (ID: " + product.getId()
+                                + ") está eliminado y no puede ser incluido en una compra.");
+            }
+
+            // C. Cost Consistency Check (Business Rule)
             // [EXTRACTED] Specific rule for variants
             validateCostConsistency(product, itemReq.getCostoUnitario());
 
-            // C. Calculations
+            // D. Calculations
             Double subtotal = itemReq.getCantidad() * itemReq.getCostoUnitario();
             totalAcumulado += subtotal;
 
-            // D. Prepare Detail Entity (For DB)
+            // E. Prepare Detail Entity (For DB)
             DetalleCompra detalle = new DetalleCompra();
             detalle.setProductoId(product.getId());
             detalle.setCantidad(itemReq.getCantidad());
@@ -147,7 +156,7 @@ public class CompraService {
             detalle.setSubtotal(subtotal);
             result.getDetallesToSave().add(detalle);
 
-            // E. Prepare Response Item (For UI)
+            // F. Prepare Response Item (For UI)
             result.getItemsResponse().add(new DetalleCompraResponse(
                     product.getCodigo(),
                     product.getDescripcion(),
@@ -202,7 +211,7 @@ public class CompraService {
 
     private Long saveTransaction(CompraRequest request, ProcessedPurchaseResult result) {
         Compra compra = new Compra();
-        compra.setFecha(LocalDateTime.now());
+        compra.setFecha(LocalDateTime.now(ZoneId.systemDefault()));
         compra.setProveedor(request.getProveedor());
         compra.setNroComprobante(request.getNroComprobante());
         compra.setUsuarioId(request.getUsuarioId());

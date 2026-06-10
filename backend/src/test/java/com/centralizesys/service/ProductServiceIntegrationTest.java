@@ -53,8 +53,8 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("IT-03: Delete adheres to DB Cascade constraints (Deletes Stock)")
-    void delete_CascadesToStock() {
+    @DisplayName("IT-03: Delete sets activo=false and leaves Stock intact (Logical Delete)")
+    void delete_SetsActivoFalseAndLeavesStockIntact() {
         // 1. Create Product with Stock
         Long prodId = createTestProduct("CASCADE-TEST", 200.0, 50L);
         Long userId = createTestUser();
@@ -67,9 +67,9 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
         // 2. Delete Product
         productService.deleteById(prodId, userId);
 
-        // 3. Verify Stock is gone (Cascade)
+        // 3. Verify Stock remains intact (Logical Deletion)
         Long stockAfter = jdbcTemplate.queryForObject(
                 "SELECT count(*) FROM stock_por_ubicacion WHERE producto_id = ?", Long.class, prodId);
-        assertEquals(0, stockAfter, "Stock should be deleted via Cascade");
+        assertEquals(1, stockAfter, "Stock should NOT be deleted physically with Logical Deletion");
     }
 }

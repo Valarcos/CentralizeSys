@@ -302,4 +302,32 @@ class CompraServiceTest {
                 "Registrada Compra ID 500 (Prov: Sony) - Total: $200.0"
         );
     }
+
+    // --- GROUP 6: SOFT-DELETE PRODUCT GUARD ---
+
+    @Test
+    @DisplayName("UT-15: processItems throws BusinessRuleException when product is logically deleted (activo=false)")
+    void processItems_Throws_WhenProductIsInactive() {
+        // Arrange: product is present in the map but soft-deleted.
+        // This covers the defence-in-depth check inside processItems(), independently
+        // of findAllById() which filters activo=true in the repository.
+        Product inactiveProduct = new Product(1L, "OLD", "Producto Archivado", 100.0, 150.0, 200.0, 0L, false);
+
+        CompraItemRequest item = new CompraItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(2L);
+        item.setCostoUnitario(100.0);
+
+        Map<Long, Product> productMap = Map.of(1L, inactiveProduct);
+        List<CompraItemRequest> items = List.of(item);
+
+        // Act & Assert: must be BusinessRuleException, NOT ResourceNotFoundException
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> compraService.processItems(items, productMap));
+
+        assertTrue(ex.getMessage().contains("eliminado"),
+                "Error message must indicate the product is archived, not missing");
+        assertTrue(ex.getMessage().contains("Producto Archivado"),
+                "Error message must include the product's description for user clarity");
+    }
 }

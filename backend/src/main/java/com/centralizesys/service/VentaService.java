@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -44,11 +45,11 @@ public class VentaService {
     public PageResponse<Venta> getVentasPage(String startDate, String endDate, int page,
                                              int size) {
         // 1. Set Defaults (Last 30 Days)
-        LocalDateTime end = (endDate == null || endDate.isBlank()) ? LocalDateTime.now() : LocalDate.parse(endDate).atTime(23, 59, 59, 999999999);
+        LocalDateTime end = (endDate == null || endDate.isBlank()) ? LocalDateTime.now(ZoneId.systemDefault()) : LocalDate.parse(endDate).atTime(23, 59, 59, 999999999);
         LocalDateTime start = (startDate == null || startDate.isBlank()) ? end.minusDays(30).withHour(0).withMinute(0).withSecond(0).withNano(0) : LocalDate.parse(startDate).atStartOfDay();
 
         // 2. Validate Range (Max 60 Days)
-        long daysDiff = java.time.temporal.ChronoUnit.DAYS.between(start, end);
+        long daysDiff = java.time.temporal.ChronoUnit.DAYS.between(start.atZone(ZoneId.systemDefault()), end.atZone(ZoneId.systemDefault()));
         if (daysDiff < 0) {
             throw new BusinessRuleException("La fecha de inicio no puede ser posterior a la fecha de fin.");
         }
@@ -165,7 +166,7 @@ public class VentaService {
         String vendedorNombre = ventaRepository.findVendedorNombre(request.getUsuarioId());
         return new VentaResponse(
                 txInfo.getVentaId(),
-                LocalDateTime.now(),
+                LocalDateTime.now(ZoneId.systemDefault()),
                 request.getClienteNombre(),
                 vendedorNombre,
                 processedData.getTotalVenta(),
@@ -211,11 +212,19 @@ public class VentaService {
         Double totalAcumulado = 0.0;
 
         for (VentaRequest.ItemRequest itemReq : itemsReq) {
-            // A. Fetch Product
+            // A. Fetch Product (repository filters activo=true, so deleted products → empty)
             Product producto = productRepository.findById(itemReq.getProductoId())
                     .orElseThrow(() -> new ResourceNotFoundException("Producto", itemReq.getProductoId()));
 
-            // B. Build Detail & C. Calculate Prices
+            // B. Active-product guard: defence-in-depth to produce a precise error message.
+            // A deleted product should never appear in a sale — it is archived, not missing.
+            if (!producto.isActivo()) {
+                throw new BusinessRuleException(
+                        "El producto '" + producto.getDescripcion() + "' (ID: " + producto.getId()
+                                + ") está eliminado y no puede ser incluido en una venta.");
+            }
+
+            // C. Build Detail & D. Calculate Prices
             DetalleVenta detalle = createDetalleVenta(producto, itemReq, tipoVenta);
 
             result.getDetalles().add(detalle);
@@ -297,7 +306,7 @@ public class VentaService {
 
         // A. Header
         Venta venta = new Venta();
-        venta.setFecha(LocalDateTime.now()); // Result: LocalDateTime
+        venta.setFecha(LocalDateTime.now(ZoneId.systemDefault())); // Result: LocalDateTime
         venta.setClienteNombre(request.getClienteNombre());
         venta.setTotalVenta(processedData.getTotalVenta());
         venta.setDescuentoGlobal(processedData.getDescuentoGlobal());

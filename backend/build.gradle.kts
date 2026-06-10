@@ -26,6 +26,13 @@ dependencyLocking {
     lockAllConfigurations()
 }
 
+// CRITICAL FIX: IntelliJ injects ephemeral configurations for testing and debugging (e.g., ijJvmDebugger)
+// If we lock all configurations globally, Gradle will fail to create tasks in IntelliJ because these
+// injected configurations are not in the gradle.lockfile. We must disable locking for them.
+configurations.matching { it.name.startsWith("ij") || it.name.startsWith("idea") }.configureEach {
+    resolutionStrategy.deactivateDependencyLocking()
+}
+
 dependencies {
     // Spring Boot
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -51,7 +58,7 @@ dependencies {
 
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation(platform("org.junit:junit-bom:5.10.0"))
+
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.springframework.security:spring-security-test")

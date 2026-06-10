@@ -20,32 +20,39 @@ public class ProductRepository {
     private final JdbcTemplate jdbcTemplate;
     private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
+    // SQL parameter name constants (Sonar S1192 - avoids duplicated string literals)
+    private static final String PARAM_ID = "id";
+    private static final String PARAM_IDS = "ids";
+    private static final String PARAM_CODIGO = "codigo";
+    private static final String PARAM_TERMINO = "termino";
+    private static final String PARAM_LIMIT = "limit";
+    private static final String PARAM_OFFSET = "offset";
+
     public ProductRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
         this.namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
     }
 
     // Mapeo exacto de Columnas DB (Español) -> Objeto Java
-    // SQLite returns empty strings for NULL REAL columns, which break
-    // getObject(Double.class)
     private final RowMapper<Product> rowMapper = (rs, rowNum) -> {
-        // Safe nullable Double extraction - handles empty strings from SQLite
+        // Safe nullable Double extraction - handles empty strings from old SQLite-era data
         Double precioMayorista = parseNullableDouble(rs.getString("precio_mayorista"));
 
         return new Product(
                 rs.getLong("id"),
-                rs.getString("codigo"),
+                rs.getString(PARAM_CODIGO),
                 rs.getString("descripcion"),
                 rs.getDouble("precio_costo"),
                 precioMayorista,
                 rs.getDouble("precio_minorista"),
-                rs.getLong("cantidad_stock"));
+                rs.getLong("cantidad_stock"),
+                rs.getBoolean("activo"));
     };
 
     /**
      * Safely parses a nullable Double from a String.
-     * SQLite returns empty strings for NULL REAL columns which break
-     * getObject(Double.class).
+     * PostgreSQL may return null for optional REAL columns (e.g., precio_mayorista).
+     * Falls back to null on blank or unparseable input for defensive compatibility.
      */
     private Double parseNullableDouble(String value) {
         if (value == null || value.isBlank()) {
@@ -59,13 +66,13 @@ public class ProductRepository {
     }
 
     public List<Product> findAll() {
-        String sql = "SELECT * FROM productos";
+        String sql = "SELECT * FROM productos WHERE activo = true";
         return jdbcTemplate.query(sql, rowMapper);
     }
 
     public Optional<Product> findById(Long id) {
-        String sql = "SELECT * FROM productos WHERE id = :id";
-        List<Product> results = namedJdbcTemplate.query(sql, new MapSqlParameterSource("id", id), rowMapper);
+        String sql = "SELECT * FROM productos WHERE id = :id AND activo = true";
+        List<Product> results = namedJdbcTemplate.query(sql, new MapSqlParameterSource(PARAM_ID, id), rowMapper);
         return results.stream().findFirst();
     }
 
@@ -75,41 +82,49 @@ public class ProductRepository {
             return List.of();
         }
         // Static SQL allows DB caching and satisfies Sonar
-        String sql = "SELECT * FROM productos WHERE id IN (:ids)";
-        MapSqlParameterSource parameters = new MapSqlParameterSource("ids", ids);
+        String sql = "SELECT * FROM productos WHERE id IN (:ids) AND activo = true";
+        MapSqlParameterSource parameters = new MapSqlParameterSource(PARAM_IDS, ids);
         return namedJdbcTemplate.query(sql, parameters, rowMapper);
     }
 
     // Buscador por Código ART (Fundamental para sync con Excel)
     // Uses List<Product> to support multiple variants (same code, different cost)
+    // SAFETY: Filters activo = true, preventing barcode/search from surfacing deleted products.
     public List<Product> findAllByCodigo(String codigo) {
-        String sql = "SELECT * FROM productos WHERE codigo = :codigo";
-        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("codigo", codigo), rowMapper);
+        String sql = "SELECT * FROM productos WHERE codigo = :codigo AND activo = true";
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource(PARAM_CODIGO, codigo), rowMapper);
     }
 
     public Long countAll() {
-        String sql = "SELECT COUNT(*) FROM productos";
+        String sql = "SELECT COUNT(*) FROM productos WHERE activo = true";
         return jdbcTemplate.queryForObject(sql, Long.class);
     }
 
     public List<Product> findAll(Long limit, Long offset) {
-        String sql = "SELECT * FROM productos LIMIT :limit OFFSET :offset";
+        String sql = "SELECT * FROM productos WHERE activo = true LIMIT :limit OFFSET :offset";
         MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("limit", limit);
-        params.addValue("offset", offset);
+        params.addValue(PARAM_LIMIT, limit);
+        params.addValue(PARAM_OFFSET, offset);
         return namedJdbcTemplate.query(sql, params, rowMapper);
     }
 
     // Buscador "Smart": Busca coincidencias en Código O Descripción
     // Útil para la UI "Super Intuitiva" donde el usuario escribe en un solo campo
+    // SAFETY: Filters activo = true, guaranteeing the barcode scanner and typed
+    // search can never surface logically-deleted products to the frontend.
     public List<Product> search(String query) {
         if (query == null)
             return List.of();
         String term = "%" + query.trim() + "%";
         // STRICT: Limit to 100 to prevent UI performance issues
-        String sql = "SELECT * FROM productos WHERE codigo LIKE :termino OR descripcion LIKE :termino LIMIT 100";
+        String sql = """
+                    SELECT * FROM productos
+                    WHERE activo = true
+                    AND (codigo LIKE :termino OR descripcion LIKE :termino)
+                    LIMIT 100
+                """;
 
-        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("termino", term), rowMapper);
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource(PARAM_TERMINO, term), rowMapper);
     }
 
     public Product save(Product producto) {
@@ -163,17 +178,18 @@ public class ProductRepository {
     }
 
     public void deleteById(Long id) {
-        // El DELETE CASCADE en la DB se encargará de borrar el stock asociado
-        String sql = "DELETE FROM productos WHERE id = :id";
-        namedJdbcTemplate.update(sql, new MapSqlParameterSource("id", id));
+        // Logical Deletion: preserves stock history and all transactional references.
+        // Sets activo = false, making the product invisible to all application queries.
+        String sql = "UPDATE productos SET activo = false WHERE id = :id";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource(PARAM_ID, id));
     }
 
     /**
-     * Find products with negative stock (stock < 0).
+     * Find active products with negative stock (stock &lt; 0).
      * Used by Dashboard "Morning Warning" modal.
      */
     public List<Product> findLowStock() {
-        String sql = "SELECT * FROM productos WHERE cantidad_stock < 0";
+        String sql = "SELECT * FROM productos WHERE activo = true AND cantidad_stock < 0";
         return jdbcTemplate.query(sql, rowMapper);
     }
 }

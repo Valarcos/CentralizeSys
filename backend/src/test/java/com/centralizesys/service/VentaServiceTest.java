@@ -20,6 +20,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -511,9 +513,9 @@ class VentaServiceTest {
     @DisplayName("UT-20: getVentasPage uses default 30-day range when dates are null")
     void getVentasPage_UsesDefaultRange_WhenNull() {
         // Arrange
-        when(ventaRepository.findVentasByFechaBetween(any(java.time.LocalDateTime.class), any(java.time.LocalDateTime.class), anyInt(), anyInt()))
+        when(ventaRepository.findVentasByFechaBetween(any(LocalDateTime.class), any(LocalDateTime.class), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
-        when(ventaRepository.countVentasByFechaBetween(any(java.time.LocalDateTime.class), any(java.time.LocalDateTime.class))).thenReturn(0L);
+        when(ventaRepository.countVentasByFechaBetween(any(LocalDateTime.class), any(LocalDateTime.class))).thenReturn(0L);
 
         // Act
         ventaService.getVentasPage(null, null, 0, 20);
@@ -521,15 +523,15 @@ class VentaServiceTest {
         // Assert
         // Verify we called repo with dates. Since we can't easily predict "now",
         // we capture arguments or just verify it was called.
-        verify(ventaRepository).findVentasByFechaBetween(any(java.time.LocalDateTime.class), any(java.time.LocalDateTime.class), eq(20), eq(0));
+        verify(ventaRepository).findVentasByFechaBetween(any(LocalDateTime.class), any(LocalDateTime.class), eq(20), eq(0));
     }
 
     @Test
     @DisplayName("UT-21: getVentasPage throws when range exceeds 60 days")
     void getVentasPage_Throws_WhenRangeExceeds60Days() {
         // Arrange
-        String start = java.time.LocalDate.now().minusDays(61).toString();
-        String end = java.time.LocalDate.now().toString();
+        String start = LocalDate.of(2023, java.time.Month.JANUARY, 1).minusDays(61).toString();
+        String end = LocalDate.of(2023, java.time.Month.JANUARY, 1).toString();
 
         // Act & Assert
         assertThrows(BusinessRuleException.class,
@@ -540,11 +542,38 @@ class VentaServiceTest {
     @DisplayName("UT-22: getVentasPage throws when start date is after end date")
     void getVentasPage_Throws_WhenStartAfterEnd() {
         // Arrange
-        String start = java.time.LocalDate.now().toString();
-        String end = java.time.LocalDate.now().minusDays(2).toString();
+        String start = LocalDate.of(2023, java.time.Month.JANUARY, 1).toString();
+        String end = LocalDate.of(2023, java.time.Month.JANUARY, 1).minusDays(2).toString();
 
         // Act & Assert
         assertThrows(BusinessRuleException.class,
                 () -> ventaService.getVentasPage(start, end, 0, 20));
+    }
+
+    // --- GROUP 6: SOFT-DELETE PRODUCT GUARD ---
+
+    @Test
+    @DisplayName("UT-23: processItems throws BusinessRuleException when product is logically deleted (activo=false)")
+    void processItems_Throws_WhenProductIsInactive() {
+        // Arrange: Product exists in DB but is soft-deleted
+        Product deletedProduct = new Product(1L, "OLD-CODE", "Producto Archivado", 50.0, 80.0, 100.0, 0L, false);
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        // Simulate defence-in-depth: the service receives the inactive product object
+        when(productRepository.findById(1L)).thenReturn(Optional.of(deletedProduct));
+
+        List<VentaRequest.ItemRequest> items = List.of(item);
+
+        // Act & Assert: must be BusinessRuleException, NOT ResourceNotFoundException
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> ventaService.processItems(items, TipoVenta.MINORISTA));
+
+        assertTrue(ex.getMessage().contains("eliminado"),
+                "Error message must indicate the product is archived, not missing");
+        assertTrue(ex.getMessage().contains("Producto Archivado"),
+                "Error message must include the product's description for user clarity");
     }
 }

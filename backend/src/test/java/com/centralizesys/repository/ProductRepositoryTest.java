@@ -92,14 +92,23 @@ class ProductRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Delete removes product")
-    void delete_RemovesProduct() {
+    @DisplayName("SoftDelete sets activo=false and hides product from active queries")
+    void softDelete_HidesProductFromActiveQueries() {
         Long id = createTestProduct("D-001", 50.0, 5L);
 
+        // Act: soft-delete
         productRepository.deleteById(id);
 
+        // Assert 1: The product is no longer visible via the active-filtered query
         Optional<Product> found = productRepository.findById(id);
         assertThat(found).isEmpty();
+
+        // Assert 2: The physical row still exists in the DB with activo = false,
+        // proving this is a true soft-delete and not a physical row removal.
+        Boolean activo = jdbcTemplate.queryForObject(
+                "SELECT activo FROM productos WHERE id = ?",
+                Boolean.class, id);
+        assertThat(activo).isFalse();
     }
 
     @Test
@@ -155,5 +164,23 @@ class ProductRepositoryTest extends BaseIntegrationTest {
 
         // Assert
         assertThat(lowStock).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Partial Unique Index allows re-creating product with same code if previous is soft-deleted")
+    void partialUniqueIndex_AllowsReuseOfCodeIfDeleted() {
+        // 1. Create a product and soft delete it
+        Product p1 = new Product("UNIQUE-CODE", "Desc 1", 10.0, 15.0, 20.0);
+        Product saved1 = productRepository.save(p1);
+        productRepository.deleteById(saved1.getId());
+
+        // 2. Create another product with the exact same unique fields
+        Product p2 = new Product("UNIQUE-CODE", "Desc 2", 10.0, 15.0, 20.0);
+
+        // 3. Save should succeed without DataIntegrityViolationException
+        Product saved2 = productRepository.save(p2);
+
+        assertThat(saved2.getId()).isNotNull();
+        assertThat(saved2.getId()).isNotEqualTo(saved1.getId());
     }
 }

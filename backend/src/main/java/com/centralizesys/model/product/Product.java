@@ -23,9 +23,14 @@ public class Product {
     @Setter(lombok.AccessLevel.NONE)
     private Long cantidadStock;
 
+    // Soft-delete flag. When false, the product is logically deleted and invisible
+    // to the application. Physical row and stock history are preserved.
+    private boolean activo;
+
+    // TODO: fix the constructor. Sonar raises it as an issue because it has 8 parameters instead of the 7 allowed.
     // Full Constructor (Used by RowMapper)
     public Product(Long id, String codigo, String descripcion, Double precioCosto,
-                   Double precioMayorista, Double precioMinorista, Long cantidadStock) {
+                   Double precioMayorista, Double precioMinorista, Long cantidadStock, boolean activo) {
         this.id = id;
         this.codigo = codigo;
         this.descripcion = descripcion;
@@ -33,11 +38,12 @@ public class Product {
         this.precioMayorista = precioMayorista;
         this.precioMinorista = precioMinorista;
         this.cantidadStock = cantidadStock;
+        this.activo = activo;
     }
 
-    // Constructor for New Products (Stock is 0 until Locations are added)
+    // Constructor for New Products (Stock is 0 until Locations are added, always active by default)
     public Product(String codigo, String descripcion, Double precioCosto,
                    Double precioMayorista, Double precioMinorista) {
-        this(null, codigo, descripcion, precioCosto, precioMayorista, precioMinorista, 0L);
+        this(null, codigo, descripcion, precioCosto, precioMayorista, precioMinorista, 0L, true);
     }
 }

@@ -57,7 +57,7 @@ class ProductControllerTest {
     @Test
     @DisplayName("Get All Products (Browse) returns PageResponse")
     void getAll_ReturnsPage() throws Exception {
-        Product p = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 5L);
+        Product p = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 5L, true);
         PageResponse<Product> pageResponse = new PageResponse<>(
                 List.of(p), 0L, 20L, 1L, 1L);
 
@@ -73,7 +73,7 @@ class ProductControllerTest {
     @Test
     @DisplayName("Search Products returns PageResponse")
     void search_ReturnsPage() throws Exception {
-        Product p = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 5L);
+        Product p = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 5L, true);
         PageResponse<Product> pageResponse = new PageResponse<>(
                 List.of(p), 0L, 100L, 1L, 1L);
 
@@ -97,7 +97,7 @@ class ProductControllerTest {
         req.setCantidad(5);
         req.setUbicacionId(1L);
 
-        Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 5L);
+        Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 5L, true);
 
         when(service.createWithStock(any(Product.class), eq(1L), eq(5L))).thenReturn(saved);
 
@@ -163,7 +163,7 @@ class ProductControllerTest {
     @Test
     @DisplayName("Get Alerts returns list")
     void getAlerts_Success() throws Exception {
-        Product p = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, -5L);
+        Product p = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, -5L, true);
         when(service.getLowStockAlerts()).thenReturn(List.of(p));
 
         mockMvc.perform(get("/api/productos/alerts"))

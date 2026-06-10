@@ -1,6 +1,8 @@
 package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
+import com.centralizesys.exception.ResourceNotFoundException;
+import com.centralizesys.model.auth.UpdateUserRequest;
 import com.centralizesys.model.auth.Usuario;
 import com.centralizesys.model.auth.UsuarioRole;
 import com.centralizesys.repository.UsuarioRepository;
@@ -83,10 +85,19 @@ public class UsuarioService {
             throw new BusinessRuleException("No puedes eliminar tu propia cuenta.");
         }
 
-        // Check if exists
+        // Check if exists (confirms target is active, since repository filters activo=true)
         Usuario toDelete = usuarioRepository.findById(id)
-                .orElseThrow(() -> new com.centralizesys.exception.ResourceNotFoundException(
-                        "Usuario", id));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
+
+        // Last-ADMIN lockout guard: prevent deleting the sole remaining active administrator.
+        // Without this, the system would become permanently inaccessible.
+        if (toDelete.getRol() == UsuarioRole.ADMIN) {
+            Long activeAdminCount = usuarioRepository.countActiveAdmins();
+            if (activeAdminCount <= 1L) {
+                throw new BusinessRuleException(
+                        "No se puede eliminar al único Administrador activo del sistema. Asigne otro Administrador primero.");
+            }
+        }
 
         usuarioRepository.deleteById(id);
 
@@ -98,13 +109,13 @@ public class UsuarioService {
      * Only non-null fields in the request will be updated.
      */
     @Transactional
-    public void update(Long id, com.centralizesys.model.auth.UpdateUserRequest request) {
+    public void update(Long id, UpdateUserRequest request) {
         if (id == 0L) {
             throw new BusinessRuleException("No se puede modificar al Usuario del Sistema.");
         }
 
         Usuario existing = usuarioRepository.findById(id)
-                .orElseThrow(() -> new com.centralizesys.exception.ResourceNotFoundException("Usuario", id));
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
 
         updateNombre(existing, request.nombre());
         updateEmail(existing, request.email());

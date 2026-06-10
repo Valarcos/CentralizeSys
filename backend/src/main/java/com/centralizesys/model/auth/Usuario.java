@@ -17,4 +17,7 @@ public class Usuario {
     private UsuarioRole rol;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime fechaCreacion;
+    // Soft-delete flag. When false, the user is logically deleted and
+    // cannot log in or be returned by any user query.
+    private boolean activo;
 }

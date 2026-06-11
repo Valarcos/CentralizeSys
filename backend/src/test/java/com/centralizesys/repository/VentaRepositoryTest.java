@@ -25,7 +25,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         Venta venta = new Venta();
-        venta.setFecha(LocalDateTime.now());
+        venta.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         venta.setClienteNombre("Test Client");
         venta.setTotalVenta(500.00);
         venta.setUsuarioId(userId);
@@ -43,7 +43,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         Venta venta = new Venta();
-        venta.setFecha(LocalDateTime.now());
+        venta.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         venta.setClienteNombre(null);
         venta.setTotalVenta(100.00);
         venta.setUsuarioId(userId);
@@ -63,7 +63,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         Long productId = createTestProduct("VENTA-001", 150.0, 10L);
 
         Venta venta = new Venta();
-        venta.setFecha(LocalDateTime.now());
+        venta.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         venta.setClienteNombre("Snapshot Test");
         venta.setTotalVenta(300.00);
         venta.setUsuarioId(userId);
@@ -98,7 +98,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         Venta venta = new Venta();
-        venta.setFecha(LocalDateTime.now());
+        venta.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         venta.setClienteNombre("Payment Test");
         venta.setTotalVenta(1000.00);
         venta.setUsuarioId(userId);
@@ -139,7 +139,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         Venta venta = new Venta();
-        venta.setFecha(LocalDateTime.now());
+        venta.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         venta.setClienteNombre("Find Test");
         venta.setTotalVenta(250.00);
         venta.setUsuarioId(userId);
@@ -171,14 +171,14 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         Long userId = createTestUser();
 
         Venta v1 = new Venta();
-        v1.setFecha(LocalDateTime.now());
+        v1.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         v1.setClienteNombre("First");
         v1.setTotalVenta(100.00);
         v1.setUsuarioId(userId);
         ventaRepository.saveVenta(v1);
 
         Venta v2 = new Venta();
-        v2.setFecha(LocalDateTime.now());
+        v2.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         v2.setClienteNombre("Second");
         v2.setTotalVenta(200.00);
         v2.setUsuarioId(userId);
@@ -200,7 +200,7 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         Long productId = createTestProduct("MAP-001", 50.0, 5L);
 
         Venta venta = new Venta();
-        venta.setFecha(LocalDateTime.now());
+        venta.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         venta.setClienteNombre("Map Test");
         venta.setTotalVenta(45.00);
         venta.setUsuarioId(userId);

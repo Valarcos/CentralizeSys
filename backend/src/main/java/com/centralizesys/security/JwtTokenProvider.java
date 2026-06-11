@@ -6,7 +6,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
+import java.time.Instant;
+
 
 @Component
 public class JwtTokenProvider {
@@ -29,13 +30,11 @@ public class JwtTokenProvider {
 
     public String generateToken(Authentication authentication) {
         String username = authentication.getName();
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
-
+        Instant nowInstant = Instant.now();
         return Jwts.builder()
                 .setSubject(username)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
+                .setIssuedAt(java.util.Date.from(nowInstant))
+                .setExpiration(java.util.Date.from(nowInstant.plusMillis(jwtExpirationInMs)))
                 .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()), SignatureAlgorithm.HS512)
                 .compact();
     }

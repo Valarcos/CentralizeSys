@@ -57,8 +57,10 @@ class AuditoriaRepositoryTest extends BaseIntegrationTest {
         auditoriaRepository.save(userId, "ACTION_2", "Second action");
 
         // Use a range that covers "now" with buffer
-        LocalDateTime startRange = LocalDateTime.now().minusHours(1);
-        LocalDateTime endRange = LocalDateTime.now().plusHours(1);
+        List<Auditoria> logs = auditoriaRepository.findAll();
+        LocalDateTime insertedDate = logs.getFirst().getFechaHora();
+        LocalDateTime startRange = insertedDate.minusHours(1);
+        LocalDateTime endRange = insertedDate.plusHours(1);
 
         // Act
         List<Auditoria> results = auditoriaRepository.findByDateRange(startRange, endRange);
@@ -75,8 +77,10 @@ class AuditoriaRepositoryTest extends BaseIntegrationTest {
         auditoriaRepository.save(userId, "TEST_ACTION", "Action within range");
 
         // Query for a future range
-        LocalDateTime futureStart = LocalDateTime.now().plusDays(1);
-        LocalDateTime futureEnd = LocalDateTime.now().plusDays(2);
+        List<Auditoria> logs = auditoriaRepository.findAll();
+        LocalDateTime insertedDate = logs.getFirst().getFechaHora();
+        LocalDateTime futureStart = insertedDate.plusDays(1);
+        LocalDateTime futureEnd = insertedDate.plusDays(2);
 
         // Act
         List<Auditoria> results = auditoriaRepository.findByDateRange(futureStart, futureEnd);

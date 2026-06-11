@@ -23,7 +23,7 @@ class DeudoresRepositoryTest extends BaseIntegrationTest {
     private Long createTestSale() {
         Long userId = createTestUser();
         var venta = new com.centralizesys.model.sales.Venta();
-        venta.setFecha(java.time.LocalDateTime.now());
+        venta.setFecha(java.time.LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         venta.setClienteNombre("Debt Test Client");
         venta.setTotalVenta(1000.00);
         venta.setUsuarioId(userId);
@@ -185,7 +185,7 @@ class DeudoresRepositoryTest extends BaseIntegrationTest {
         // Debt 2: 20 Days Ago (Expired)
         deudoresRepository.save(ventaId2, "Old Debtor", 200.0);
         // Manually backdate the second debt
-        java.time.LocalDateTime oldDate = java.time.LocalDateTime.now().minusDays(20);
+        java.time.LocalDateTime oldDate = java.time.LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0).minusDays(20);
         // Get ID of the last inserted (Old Debtor)
         Long oldDebtId = deudoresRepository.findAll().getFirst().getId(); // List is ordered DESC, so first is newest (Old
         // Debtor)

@@ -45,7 +45,7 @@ public class DeudoresRepository {
                 .addValue("ventaId", ventaId)
                 .addValue("clienteNombre", clienteNombre)
                 .addValue("montoDeuda", montoDeuda)
-                .addValue("fechaDeuda", LocalDateTime.now())
+                .addValue("fechaDeuda", LocalDateTime.now(java.time.ZoneId.systemDefault()))
                 .addValue("estado", DebtStatus.PENDIENTE.name());
         namedJdbcTemplate.update(sql, params);
     }
@@ -106,7 +106,7 @@ public class DeudoresRepository {
                 """;
 
         return namedJdbcTemplate.query(sql,
-                new MapSqlParameterSource("thresholdDate", LocalDateTime.now().minusDays(days)),
+                new MapSqlParameterSource("thresholdDate", LocalDateTime.now(java.time.ZoneId.systemDefault()).minusDays(days)),
                 rowMapper);
     }
 

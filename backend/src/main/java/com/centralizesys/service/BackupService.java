@@ -94,7 +94,7 @@ public class BackupService {
         if (userId == null)
             userId = 0L;
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         String timestamp = now.format(FMT_FILE);
         String prefix = type == BackupType.DAILY ? "daily_" : "manual_";
 
@@ -265,7 +265,7 @@ public class BackupService {
                         Instant.ofEpochMilli(Files.getLastModifiedTime(path).toMillis()),
                         ZoneId.systemDefault());
             } catch (IOException e) {
-                date = LocalDateTime.now(); // Fallback
+                date = LocalDateTime.now(ZoneId.systemDefault()); // Fallback
             }
         }
         try {
@@ -321,14 +321,14 @@ public class BackupService {
     }
 
     private void processRetentionPolicy(List<File> files) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         Set<Integer> yearsKept = new HashSet<>();
 
         // Process files older than retention period
         List<File> filesToDelete = files.stream()
                 .filter(f -> {
                     LocalDateTime fileDate = parseDateFromFilename(f.getName());
-                    return fileDate != null && ChronoUnit.DAYS.between(fileDate, now) > RETENTION_DAYS_DAILY;
+                    return fileDate != null && ChronoUnit.DAYS.between(fileDate.atZone(ZoneId.systemDefault()), now.atZone(ZoneId.systemDefault())) > RETENTION_DAYS_DAILY;
                 })
 
                 .filter(f -> shouldDeleteArchivedFile(Objects.requireNonNull(parseDateFromFilename(f.getName())), now,
@@ -379,7 +379,7 @@ public class BackupService {
 
 
     public void removeMidDayBackup() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
         String datePart = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String midDaySuffix = "_" + datePart + "_1300";
 

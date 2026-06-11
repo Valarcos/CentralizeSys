@@ -74,7 +74,7 @@ class CompraControllerTest {
             // request.setUsuarioId(null); // Explicitly null/ignoring
 
             // Mock Service Response
-            CompraResponse response = new CompraResponse(10L, java.time.LocalDateTime.now(), "Prov 1", "A-001", 100.0,
+            CompraResponse response = new CompraResponse(10L, java.time.LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0), "Prov 1", "A-001", 100.0,
                     Collections.emptyList());
             when(compraService.registrarCompra(any(CompraRequest.class))).thenReturn(response);
 

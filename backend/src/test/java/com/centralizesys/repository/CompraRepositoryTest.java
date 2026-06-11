@@ -23,7 +23,7 @@ class CompraRepositoryTest extends BaseIntegrationTest {
         // Arrange
         Long userId = createTestUser();
         Compra compra = new Compra();
-        compra.setFecha(LocalDateTime.now());
+        compra.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         compra.setProveedor("Test Supplier");
         compra.setNroComprobante("FACT-001");
         compra.setTotalCompra(1500.00);
@@ -41,7 +41,7 @@ class CompraRepositoryTest extends BaseIntegrationTest {
     void saveCompra_handlesNullUserId() {
         // Arrange
         Compra compra = new Compra();
-        compra.setFecha(LocalDateTime.now());
+        compra.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         compra.setProveedor("Anonymous Supplier");
         compra.setNroComprobante("FACT-002");
         compra.setTotalCompra(500.00);
@@ -62,7 +62,7 @@ class CompraRepositoryTest extends BaseIntegrationTest {
         Long productId = createTestProduct("COMP-001", 100.0, 0L);
 
         Compra compra = new Compra();
-        compra.setFecha(LocalDateTime.now());
+        compra.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         compra.setProveedor("Batch Supplier");
         compra.setNroComprobante("FACT-003");
         compra.setTotalCompra(300.00);
@@ -100,7 +100,7 @@ class CompraRepositoryTest extends BaseIntegrationTest {
         Long userId = createTestUser();
 
         Compra c1 = new Compra();
-        c1.setFecha(LocalDateTime.now());
+        c1.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         c1.setProveedor("Supplier A");
         c1.setNroComprobante("A-001");
         c1.setTotalCompra(100.00);
@@ -108,7 +108,7 @@ class CompraRepositoryTest extends BaseIntegrationTest {
         compraRepository.saveCompra(c1);
 
         Compra c2 = new Compra();
-        c2.setFecha(LocalDateTime.now());
+        c2.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
         c2.setProveedor("Supplier B");
         c2.setNroComprobante("B-001");
         c2.setTotalCompra(200.00);
@@ -129,7 +129,7 @@ class CompraRepositoryTest extends BaseIntegrationTest {
     void findAll_mapsAllFields() {
         // Arrange
         Long userId = createTestUser();
-        LocalDateTime today = LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        LocalDateTime today = LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
 
         Compra compra = new Compra();
         compra.setFecha(today);

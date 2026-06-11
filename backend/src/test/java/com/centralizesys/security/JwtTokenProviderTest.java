@@ -10,7 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 
-import java.util.Date;
+
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
@@ -45,8 +45,8 @@ class JwtTokenProviderTest {
     void testGetUsernameFromJWT() {
         String token = Jwts.builder()
                 .setSubject("testuser")
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(new Date().getTime() + jwtExpirationInMs))
+                .setIssuedAt(java.util.Date.from(java.time.Instant.parse("2000-01-01T12:00:00Z")))
+                .setExpiration(java.util.Date.from(java.time.Instant.parse("2099-01-01T12:00:00Z")))
                 .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()), SignatureAlgorithm.HS512)
                 .compact();
 
@@ -60,8 +60,8 @@ class JwtTokenProviderTest {
     void testValidateToken_Valid() {
         String token = Jwts.builder()
                 .setSubject("testuser")
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(new Date().getTime() + jwtExpirationInMs))
+                .setIssuedAt(java.util.Date.from(java.time.Instant.parse("2000-01-01T12:00:00Z")))
+                .setExpiration(java.util.Date.from(java.time.Instant.parse("2099-01-01T12:00:00Z")))
                 .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()), SignatureAlgorithm.HS512)
                 .compact();
 
@@ -72,8 +72,8 @@ class JwtTokenProviderTest {
     void testValidateToken_Expired() {
         String token = Jwts.builder()
                 .setSubject("testuser")
-                .setIssuedAt(new Date(new Date().getTime() - jwtExpirationInMs * 2))
-                .setExpiration(new Date(new Date().getTime() - jwtExpirationInMs))
+                .setIssuedAt(java.util.Date.from(java.time.Instant.parse("2000-01-01T12:00:00Z")))
+                .setExpiration(java.util.Date.from(java.time.Instant.parse("2001-01-01T12:00:00Z")))
                 .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes()), SignatureAlgorithm.HS512)
                 .compact();
 

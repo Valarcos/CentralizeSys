@@ -40,7 +40,7 @@ public class AuditoriaRepository {
                 .addValue("usuarioId", usuarioId)
                 .addValue("accion", accion)
                 .addValue("detalles", detalles)
-                .addValue("fechaHora", LocalDateTime.now());
+                .addValue("fechaHora", LocalDateTime.now(java.time.ZoneId.systemDefault()));
 
         namedJdbcTemplate.update(sql, params);
     }

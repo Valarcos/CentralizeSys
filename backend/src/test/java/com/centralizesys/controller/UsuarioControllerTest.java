@@ -69,7 +69,7 @@ class UsuarioControllerTest {
     }
 
     @Test
-    void register_Unauthenticated_Forbidden() throws Exception {
+    void register_Unauthenticated_Unauthorized() throws Exception {
         RegisterRequest request = new RegisterRequest();
         request.setNombre("Anon");
         request.setEmail("anon@test.com");
@@ -78,7 +78,9 @@ class UsuarioControllerTest {
         mockMvc.perform(post("/api/usuarios/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isForbidden()); // Expect 403
+                // SecurityConfig.authenticationEntryPoint returns 401 for unauthenticated requests.
+                // 403 Forbidden is for authenticated users lacking the required role.
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

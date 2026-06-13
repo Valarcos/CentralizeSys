@@ -45,6 +45,12 @@ class SystemStatusControllerTest {
     private com.centralizesys.security.CustomUserDetailsService customUserDetailsService; // Required by
     // JwtAuthenticationFilter
 
+    @MockBean
+    private com.centralizesys.service.ActiveTokenCacheService activeTokenCacheService; // Required by JwtAuthenticationFilter
+
+    @MockBean
+    private com.centralizesys.repository.ActiveTokenRepository activeTokenRepository; // Required by JwtAuthenticationFilter
+
     @TempDir
     Path tempDir;
 

@@ -167,6 +167,31 @@ CREATE TABLE IF NOT EXISTS auditoria (
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );;
 
+-- 14. Login Attempts (Brute-Force Protection)
+-- NOTE: No FK to usuarios intentionally — we must track attempts for
+-- non-existent emails to prevent bypass via slight email misspellings.
+-- The UNIQUE constraint on email enables the ON CONFLICT upsert in LoginAttemptRepository.
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id            SERIAL PRIMARY KEY,
+    email         TEXT NOT NULL UNIQUE,
+    ip_address    TEXT,
+    attempts      INTEGER NOT NULL DEFAULT 0,
+    last_attempt  TIMESTAMP NOT NULL,
+    blocked_until TIMESTAMP
+);;
+
+-- 15. Active Tokens (Single-Session Enforcement)
+-- Stores one active JWT per user (identified by the jti claim).
+-- On new login, any prior token for the user is deleted, invalidating the old session.
+CREATE TABLE IF NOT EXISTS active_tokens (
+    id          SERIAL PRIMARY KEY,
+    usuario_id  INTEGER NOT NULL,
+    jti         TEXT NOT NULL,
+    expires_at  TIMESTAMP NOT NULL,
+    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+);;
+
 -- ÍNDICES
 CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha);;
 CREATE INDEX IF NOT EXISTS idx_productos_codigo ON productos(codigo);;
@@ -189,6 +214,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_producto_variante_activo
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_usuario_email_activo
     ON usuarios (email)
     WHERE activo = true;;
+
+-- Security: indexes for fast login-attempt lookup and token validation.
+CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email);;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_active_tokens_jti ON active_tokens(jti);;
+CREATE INDEX IF NOT EXISTS idx_active_tokens_usuario ON active_tokens(usuario_id);;
 
 -- TRIGGERS
 

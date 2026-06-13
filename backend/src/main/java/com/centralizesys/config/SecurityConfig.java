@@ -63,6 +63,11 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
 
+                // Return 401 Unauthorized instead of 403 Forbidden for unauthenticated requests
+                .exceptionHandling(e -> e.authenticationEntryPoint(
+                        (request, response, authException) -> response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")
+                ))
+
                 // FORCE Stateless: Spring will *never* create a session.
                 // All auth state must come from the JWT for every request.
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -118,7 +123,10 @@ public class SecurityConfig {
         // Allowed Origins: Injected from application.properties
         // Supports comma-separated values (e.g.
         // "http://localhost:3000,http://192.168.1.5:3000")
-        configuration.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
+        List<String> origins = java.util.Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .toList();
+        configuration.setAllowedOriginPatterns(origins);
 
         // Allowed Methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));

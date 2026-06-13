@@ -113,6 +113,7 @@ public abstract class BaseIntegrationTest {
     }
 
     // Use a cleaner check for data to ensure isolation
+    @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
     @BeforeEach
     protected void cleanTransactionalData() {
         // 1. Delete dependent tables first (Foreign Key Order)
@@ -149,6 +150,9 @@ public abstract class BaseIntegrationTest {
         jdbcTemplate.execute("DELETE FROM ubicaciones");
 
         // 4. Delete test users but KEEP system/admin users to avoid UNIQUE constraint failures
+        // Clear security session data first (active_tokens has FK to usuarios)
+        jdbcTemplate.execute("DELETE FROM active_tokens");
+        jdbcTemplate.execute("DELETE FROM login_attempts");
         jdbcTemplate.execute("DELETE FROM usuarios WHERE email NOT IN ('sistema@centralizesys.internal', 'marcosachavalmbaj@gmail.com')");
     }
 }

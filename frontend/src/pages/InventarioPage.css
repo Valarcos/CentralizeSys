@@ -516,3 +516,10 @@
         font-size: 0.85rem;
     }
 }
+
+/* --- VARIANT ACCENT --- */
+/* Teal left-border accent for rows that belong to a multi-variant family.
+   Requires products to be sorted by codigo ASC (backend ORDER BY clause guarantees this). */
+.variant-accent {
+    border-left: 4px solid #17a2b8;
+}

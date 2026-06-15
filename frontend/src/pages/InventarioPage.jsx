@@ -175,6 +175,16 @@ export default function InventarioPage() {
         return 'stock-badge in-stock';
     };
 
+    /**
+     * Returns 'variant-accent' CSS class if the product belongs to a family with multiple variants.
+     * Generic products (codigo='1') are excluded because '1' is a shared bucket for unrelated items.
+     */
+    const getVariantAccentClass = (product, allProducts) => {
+        if (product.codigo === '1') return '';
+        const siblings = allProducts.filter(p => p.codigo === product.codigo);
+        return siblings.length > 1 ? 'variant-accent' : '';
+    };
+
     const formatCurrency = (amount) => {
         if (amount == null) return '-';
         return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
@@ -263,36 +273,36 @@ export default function InventarioPage() {
                     <div className="products-table-container">
                         <table className="products-table" aria-label="Lista de productos">
                             <thead>
-                                <tr>
-                                    <th scope="col">Código</th>
-                                    <th scope="col">Descripción</th>
-                                    <th scope="col" className="cost-column">Costo</th>
-                                    <th scope="col">Mayorista</th>
-                                    <th scope="col">Minorista</th>
-                                    <th scope="col">Stock</th>
-                                    <th scope="col">Acciones</th>
-                                </tr>
+                            <tr>
+                                <th scope="col">Código</th>
+                                <th scope="col">Descripción</th>
+                                <th scope="col" className="cost-column">Costo</th>
+                                <th scope="col">Mayorista</th>
+                                <th scope="col">Minorista</th>
+                                <th scope="col">Stock</th>
+                                <th scope="col">Acciones</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                {products.map((product) => (
-                                    <tr key={product.id}>
-                                        <td data-label="Código">{product.codigo || '-'}</td>
-                                        <td data-label="Descripción" className="product-name-cell">{product.descripcion}</td>
-                                        <td data-label="Costo" className="cost-column">{formatCurrency(product.precioCosto)}</td>
-                                        <td data-label="Mayorista">{formatCurrency(product.precioMayorista)}</td>
-                                        <td data-label="Minorista" className="price-retail">{formatCurrency(product.precioMinorista)}</td>
-                                        <td data-label="Stock">
+                            {products.map((product) => (
+                                <tr key={product.id} className={getVariantAccentClass(product, products)}>
+                                    <td data-label="Código">{product.codigo || '-'}</td>
+                                    <td data-label="Descripción" className="product-name-cell">{product.descripcion}</td>
+                                    <td data-label="Costo" className="cost-column">{formatCurrency(product.precioCosto)}</td>
+                                    <td data-label="Mayorista">{formatCurrency(product.precioMayorista)}</td>
+                                    <td data-label="Minorista" className="price-retail">{formatCurrency(product.precioMinorista)}</td>
+                                    <td data-label="Stock">
                                             <span className={getStockClass(product)}>
                                                 {product.cantidadStock} unidades
                                             </span>
-                                        </td>
-                                        <td className="actions-cell">
-                                            <button onClick={() => handleStockClick(product)} className="action-btn stock">📦 Stock</button>
-                                            <button onClick={() => handleEditProduct(product)} className="action-btn edit">✏️ Editar</button>
-                                            <button onClick={() => handleDeleteClick(product)} className="action-btn delete">🗑️ Eliminar</button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                    </td>
+                                    <td className="actions-cell">
+                                        <button onClick={() => handleStockClick(product)} className="action-btn stock">📦 Stock</button>
+                                        <button onClick={() => handleEditProduct(product)} className="action-btn edit">✏️ Editar</button>
+                                        <button onClick={() => handleDeleteClick(product)} className="action-btn delete">🗑️ Eliminar</button>
+                                    </td>
+                                </tr>
+                            ))}
                             </tbody>
                         </table>
                     </div>

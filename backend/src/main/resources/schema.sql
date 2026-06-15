@@ -204,9 +204,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_productos_tiendanube ON productos(tiendanu
 -- Replaces the former table-level UNIQUE constraint on productos.
 -- Allows re-creating a product variant with the same (codigo, precio_costo, precio_minorista)
 -- after its predecessor has been soft-deleted (activo = false).
+-- NOTE: Generic products (codigo = '1') are excluded from this constraint because a store may
+-- sell many unrelated generic items (Apples, Shoes, Toys) each with their own cost and price,
+-- making uniqueness enforcement incorrect and unnecessarily restrictive for that bucket.
+-- DROP is required because PostgreSQL does not support ALTER INDEX to change the WHERE clause.
+DROP INDEX IF EXISTS idx_unique_producto_variante_activo;;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_producto_variante_activo
     ON productos (codigo, precio_costo, precio_minorista)
-    WHERE activo = true;;
+    WHERE activo = true AND codigo != '1';;
+
 
 -- Replaces the former table-level UNIQUE constraint on usuarios.email.
 -- Allows re-registering a new user with the same email after the original

@@ -181,3 +181,22 @@
         /* Reduced gap between stacked rows */
     }
 }
+
+/* --- SMART FORM HELPERS --- */
+
+/* Informational hint line rendered below codigo field during lookup */
+.field-status-hint {
+    display: block;
+    font-size: 0.82rem;
+    color: #17a2b8;
+    font-weight: 500;
+    margin-top: 0.25rem;
+}
+
+/* Locked fields: visually distinct but still readable */
+.product-form-modal .form-group input:disabled {
+    background-color: #f0f0f0;
+    color: #888;
+    cursor: not-allowed;
+    border-color: #ccc;
+}

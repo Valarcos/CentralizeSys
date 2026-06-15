@@ -9,6 +9,48 @@ import { generateReceipt } from '../utils/pdfGenerator';
 import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './VentaPage.css';
 
+/**
+ * Groups raw product variants into family objects for the product grid.
+ * Family key rules:
+ *   - Standard (codigo != '1'): key = codigo
+ *   - Generic  (codigo == '1'): key = '1|descripcion' (trimmed, lowercased)
+ * The family representative exposes the newest variant's prices and the accumulated total stock.
+ * Individual siblings are stored in _siblings[] for the inline picker.
+ */
+function groupProducts(rawProducts) {
+    const familyMap = new Map();
+    rawProducts.forEach(product => {
+        const key = product.codigo !== '1'
+            ? product.codigo
+            : `1|${product.descripcion.trim().toLowerCase()}`;
+
+        if (!familyMap.has(key)) {
+            familyMap.set(key, {
+                ...product,
+                cantidadStock: 0,
+                _siblings: [],
+                _isGrouped: false
+            });
+        }
+
+        const family = familyMap.get(key);
+        family._siblings.push(product);
+        family.cantidadStock += product.cantidadStock;
+
+        // Always use the newest (highest ID) variant as the family price representative
+        if (product.id > family.id) {
+            family.id = product.id;
+            family.precioCosto = product.precioCosto;
+            family.precioMinorista = product.precioMinorista;
+            family.precioMayorista = product.precioMayorista;
+        }
+
+        family._isGrouped = family._siblings.length > 1;
+    });
+
+    return Array.from(familyMap.values());
+}
+
 export default function VentaPage() {
     const {
         cartItems,
@@ -29,6 +71,9 @@ export default function VentaPage() {
         removePaymentMethod,
         totals
     } = useCart();
+
+    // Variant picker state: tracks which family card is expanded
+    const [expandedFamilyKey, setExpandedFamilyKey] = useState(null);
 
     // ... existing state ...
     const [lastSale, setLastSale] = useState(null); // Stores successful sale data for receipt
@@ -128,7 +173,9 @@ export default function VentaPage() {
             const res = await api.get('/api/productos');
             const productsList = res.data.content || [];
             if (productsList.length > 0) {
-                setProducts(productsList);
+                const groupedList = groupProducts(productsList);
+                setProducts(groupedList);
+                updateMultipleProductsData(productsList);
             }
 
             const updatedIssues = [];
@@ -285,7 +332,7 @@ export default function VentaPage() {
                 if (searchQuery) params.search = searchQuery;
 
                 const response = await api.get('/api/productos', { params });
-                setProducts(response.data.content);
+                setProducts(groupProducts(response.data.content || []));
             } catch (error) {
                 console.error("Error fetching products:", error);
                 toast.error("Error al cargar productos");
@@ -303,6 +350,22 @@ export default function VentaPage() {
 
     // --- HANDLERS ---
 
+
+    /**
+     * Handles a click on a product card in the grid.
+     * Single-variant cards add directly to cart.
+     * Multi-variant (family) cards toggle the inline variant picker.
+     */
+    const handleFamilyCardClick = (product) => {
+        if (!product._isGrouped) {
+            handleAddToCart(product);
+            return;
+        }
+        const key = product.codigo !== '1'
+            ? product.codigo
+            : `1|${product.descripcion.trim().toLowerCase()}`;
+        setExpandedFamilyKey(prev => prev === key ? null : key);
+    };
 
     const [pendingSaleType, setPendingSaleType] = useState(null);
     const [pendingProductToAdd, setPendingProductToAdd] = useState(null); // New state for force add
@@ -459,21 +522,56 @@ export default function VentaPage() {
                     />
                 </div>
                 <div className="product-grid">
-                    {products.map(product => (
-                        <div
-                            key={product.id}
-                            className="product-card"
-                            onClick={() => handleAddToCart(product)}
-                        >
-                            <h3>{product.descripcion}</h3>
-                            <div className="price">
-                                {formatCurrency(saleType === 'MAYORISTA' ? product.precioMayorista : product.precioMinorista)}
+                    {products.map(product => {
+                        const familyKey = product.codigo !== '1'
+                            ? product.codigo
+                            : `1|${product.descripcion.trim().toLowerCase()}`;
+                        const isExpanded = expandedFamilyKey === familyKey;
+
+                        return (
+                            <div key={familyKey} className="product-card-wrapper">
+                                <div
+                                    className={`product-card ${product._isGrouped ? 'product-card-family' : ''}`}
+                                    onClick={() => handleFamilyCardClick(product)}
+                                >
+                                    <h3>{product.descripcion}</h3>
+                                    {product._isGrouped && (
+                                        <span className="variant-badge">{product._siblings.length} variantes</span>
+                                    )}
+                                    <div className="price">
+                                        {formatCurrency(saleType === 'MAYORISTA' ? product.precioMayorista : product.precioMinorista)}
+                                    </div>
+                                    <div className={`stock ${product.cantidadStock <= 0 ? 'stock-warning' : ''}`}>
+                                        Stock total: {product.cantidadStock}
+                                    </div>
+                                    {product._isGrouped && (
+                                        <div className="expand-hint">{isExpanded ? '▲ Ocultar variantes' : '▼ Ver variantes'}</div>
+                                    )}
+                                </div>
+
+                                {isExpanded && product._isGrouped && (
+                                    <div className="variant-picker">
+                                        {product._siblings.map(variant => (
+                                            <div
+                                                key={variant.id}
+                                                className="variant-row"
+                                                onClick={() => {
+                                                    handleAddToCart(variant);
+                                                    setExpandedFamilyKey(null);
+                                                }}
+                                            >
+                                                <span className="variant-cost">Costo: {formatCurrency(variant.precioCosto)}</span>
+                                                <span className={`variant-stock ${variant.cantidadStock <= 0 ? 'stock-warning' : ''}`}>
+                                                    Stock: {variant.cantidadStock}
+                                                </span>
+                                                <button className="variant-add-btn">+ Agregar</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            <div className={`stock ${product.cantidadStock <= 0 ? 'stock-warning' : ''}`}>
-                                Stock: {product.cantidadStock}
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 

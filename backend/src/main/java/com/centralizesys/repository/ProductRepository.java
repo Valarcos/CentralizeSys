@@ -24,6 +24,7 @@ public class ProductRepository {
     private static final String PARAM_ID = "id";
     private static final String PARAM_IDS = "ids";
     private static final String PARAM_CODIGO = "codigo";
+    private static final String PARAM_DESCRIPCION = "descripcion";
     private static final String PARAM_TERMINO = "termino";
     private static final String PARAM_LIMIT = "limit";
     private static final String PARAM_OFFSET = "offset";
@@ -41,7 +42,7 @@ public class ProductRepository {
         return new Product(
                 rs.getLong("id"),
                 rs.getString(PARAM_CODIGO),
-                rs.getString("descripcion"),
+                rs.getString(PARAM_DESCRIPCION),
                 rs.getDouble("precio_costo"),
                 precioMayorista,
                 rs.getDouble("precio_minorista"),
@@ -101,7 +102,14 @@ public class ProductRepository {
     }
 
     public List<Product> findAll(Long limit, Long offset) {
-        String sql = "SELECT * FROM productos WHERE activo = true LIMIT :limit OFFSET :offset";
+        // ORDER BY groups variants of the same family contiguously so the frontend
+        // teal left-border accent renders correctly across all pagination pages.
+        String sql = """
+                SELECT * FROM productos
+                WHERE activo = true
+                ORDER BY codigo ASC, LOWER(TRIM(descripcion)) ASC, id ASC
+                LIMIT :limit OFFSET :offset
+                """;
         MapSqlParameterSource params = new MapSqlParameterSource();
         params.addValue(PARAM_LIMIT, limit);
         params.addValue(PARAM_OFFSET, offset);
@@ -116,11 +124,14 @@ public class ProductRepository {
         if (query == null)
             return List.of();
         String term = "%" + query.trim() + "%";
-        // STRICT: Limit to 100 to prevent UI performance issues
+        // STRICT: Limit to 100 to prevent UI performance issues.
+        // ORDER BY: variants with stock are returned first; among ties, newest (highest ID) wins,
+        // reflecting the most recent purchase cost for accurate price display.
         String sql = """
                     SELECT * FROM productos
                     WHERE activo = true
                     AND (codigo LIKE :termino OR descripcion LIKE :termino)
+                    ORDER BY cantidad_stock DESC, id DESC
                     LIMIT 100
                 """;
 
@@ -185,11 +196,82 @@ public class ProductRepository {
     }
 
     /**
-     * Find active products with negative stock (stock &lt; 0).
+     * Find active products with negative stock (stock < 0).
      * Used by Dashboard "Morning Warning" modal.
      */
     public List<Product> findLowStock() {
         String sql = "SELECT * FROM productos WHERE activo = true AND cantidad_stock < 0";
         return jdbcTemplate.query(sql, rowMapper);
+    }
+
+    /**
+     * Calculates the Weighted Average Cost (WAC) of all active variants sharing
+     * the same product family (identified by codigo, and optionally descripcion
+     * for generic products with codigo = "1").
+     *
+     * NOTE: The descripcion comparison uses LOWER(TRIM()) for case-insensitive
+     * matching that mirrors the frontend grouping logic.
+     *
+     * Uses GREATEST(0, cantidad_stock) to zero-clamp negative stock contributions.
+     * This prevents phantom-sold inventory (negative stock) from deflating the average
+     * and producing artificially low cost-of-goods-sold figures.
+     *
+     * Returns Optional.empty() when all variants have zero or negative stock,
+     * which signals the caller to use the newest variant's precio_costo as a fallback.
+     */
+    public Optional<Double> findWAC(String codigo, String descripcion) {
+        // CASE WHEN is used instead of GREATEST() for cross-database compatibility (SQLite test env).
+        // CAST(:descripcion AS TEXT) resolves PostgreSQL type ambiguity for nullable parameters.
+        String sql = """
+                SELECT SUM(CASE WHEN cantidad_stock > 0 THEN cantidad_stock ELSE 0 END * precio_costo)
+                     / NULLIF(SUM(CASE WHEN cantidad_stock > 0 THEN cantidad_stock ELSE 0 END), 0)
+                FROM productos
+                WHERE codigo = :codigo
+                  AND (CAST(:descripcion AS TEXT) IS NULL OR LOWER(TRIM(descripcion)) = LOWER(TRIM(CAST(:descripcion AS TEXT))))
+                  AND activo = true
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue(PARAM_CODIGO, codigo)
+                .addValue(PARAM_DESCRIPCION, descripcion);
+        Double result = namedJdbcTemplate.queryForObject(sql, params, Double.class);
+        return Optional.ofNullable(result);
+    }
+
+    /**
+     * Returns all active variants belonging to a product family, sorted oldest-first.
+     *
+     * Family key rules (matching frontend grouping logic):
+     *   - Standard products (codigo != "1"): family = all variants sharing the same codigo.
+     *   - Generic products (codigo = "1"):  family = all variants sharing codigo AND descripcion,
+     *     because "1" is a shared bucket for unrelated items.
+     *
+     * When descripcion is null, filters by codigo only (used for standard products).
+     * When descripcion is non-null, filters by both (used for generic products), case-insensitive.
+     *
+     * ORDER BY id ASC ensures oldest (cheapest) variants are deducted first in FIFO logic.
+     */
+    public List<Product> findSiblingsByFamily(String codigo, String descripcion) {
+        // CAST(:descripcion AS TEXT) resolves PostgreSQL type ambiguity for nullable parameters.
+        String sql = """
+                SELECT * FROM productos
+                WHERE codigo = :codigo
+                  AND (CAST(:descripcion AS TEXT) IS NULL OR LOWER(TRIM(descripcion)) = LOWER(TRIM(CAST(:descripcion AS TEXT))))
+                  AND activo = true
+                ORDER BY id ASC
+                """;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue(PARAM_CODIGO, codigo)
+                .addValue(PARAM_DESCRIPCION, descripcion);
+        return namedJdbcTemplate.query(sql, params, rowMapper);
+    }
+
+    /**
+     * Returns true if at least one active product with the given codigo exists.
+     * Used by the update flow to detect and block cross-family barcode reassignments.
+     */
+    public boolean existsByCodigo(String codigo) {
+        String sql = "SELECT COUNT(*) FROM productos WHERE codigo = :codigo AND activo = true";
+        Long count = namedJdbcTemplate.queryForObject(sql, new MapSqlParameterSource(PARAM_CODIGO, codigo), Long.class);
+        return count != null && count > 0;
     }
 }

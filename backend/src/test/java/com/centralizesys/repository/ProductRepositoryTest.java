@@ -183,4 +183,153 @@ class ProductRepositoryTest extends BaseIntegrationTest {
         assertThat(saved2.getId()).isNotNull();
         assertThat(saved2.getId()).isNotEqualTo(saved1.getId());
     }
+
+    // --- Portion 5: findWAC & Variants logic tests ---
+
+    @Test
+    @DisplayName("findWAC_ReturnsCorrectWeightedAverage_WithMultipleVariants")
+    void findWAC_ReturnsCorrectWeightedAverage_WithMultipleVariants() {
+        // createTestProduct(code, retailPrice, stock). Cost is 0.5 * retailPrice.
+        // Variant 1: 10 units at $10 retail ($5 cost) -> Total cost $50
+        createTestProduct("FAM-WAC", 10.0, 10L);
+        // Variant 2: 5 units at $40 retail ($20 cost) -> Total cost $100
+        createTestProduct("FAM-WAC", 40.0, 5L);
+
+        // Total value = 150. Total items = 15. WAC = 150 / 15 = 10.0
+        Optional<Double> wac = productRepository.findWAC("FAM-WAC", null);
+
+        assertThat(wac).contains(10.0);
+    }
+
+    @Test
+    @DisplayName("findWAC_ReturnsEmpty_WhenAllStockIsZeroOrNegative")
+    void findWAC_ReturnsEmpty_WhenAllStockIsZeroOrNegative() {
+        // Variant with 0 stock
+        createTestProduct("FAM-EMPTY", 10.0, 0L);
+
+        // Variant with negative stock
+        Long id2 = createTestProduct("FAM-EMPTY", 20.0, 0L);
+        Long locId = jdbcTemplate.queryForObject("SELECT id FROM ubicaciones LIMIT 1", Long.class);
+        jdbcTemplate.update("INSERT INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad) VALUES (?, ?, -5)", id2, locId);
+
+        Optional<Double> wac = productRepository.findWAC("FAM-EMPTY", null);
+
+        assertThat(wac).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findWAC_ClampsNegativeStock_WhenSomeVariantsArePhantom")
+    void findWAC_ClampsNegativeStock_WhenSomeVariantsArePhantom() {
+        // Variant 1: 10 units at $10 retail (Cost = 5.0)
+        createTestProduct("FAM-CLAMP", 10.0, 10L);
+
+        // Variant 2: -5 units at $50 retail (Cost = 25.0) -> Should be treated as 0 stock
+        Long id2 = createTestProduct("FAM-CLAMP", 50.0, 0L);
+        Long locId = jdbcTemplate.queryForObject("SELECT id FROM ubicaciones LIMIT 1", Long.class);
+        jdbcTemplate.update("INSERT INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad) VALUES (?, ?, -5)", id2, locId);
+
+        // WAC should be exactly $5.0, entirely ignoring the -5 stock variant
+        Optional<Double> wac = productRepository.findWAC("FAM-CLAMP", null);
+
+        assertThat(wac).contains(5.0);
+    }
+
+    @Test
+    @DisplayName("findWAC_FiltersGenericProductsByDescription")
+    void findWAC_FiltersGenericProductsByDescription() {
+        jdbcTemplate.update("INSERT INTO ubicaciones (id, nombre) VALUES (999, 'Test') ON CONFLICT(id) DO NOTHING");
+
+        // Generic Apples: 10 units at $10
+        Product p1 = new Product("1", "Apples", 10.0, 15.0, 20.0);
+        productRepository.save(p1);
+        jdbcTemplate.update("INSERT INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad) VALUES (?, 999, 10)", p1.getId());
+
+        // Generic Oranges: 10 units at $50
+        Product p2 = new Product("1", "Oranges", 50.0, 60.0, 70.0);
+        productRepository.save(p2);
+        jdbcTemplate.update("INSERT INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad) VALUES (?, 999, 10)", p2.getId());
+
+        // Asking WAC for "Apples" generic bucket should only see $10 cost
+        Optional<Double> wac = productRepository.findWAC("1", "Apples");
+
+        assertThat(wac).contains(10.0); // If it included Oranges, it would be 30.0
+    }
+
+    @Test
+    @DisplayName("findWAC_DescriptionFilterIsCaseInsensitive")
+    void findWAC_DescriptionFilterIsCaseInsensitive() {
+        jdbcTemplate.update("INSERT INTO ubicaciones (id, nombre) VALUES (999, 'Test') ON CONFLICT(id) DO NOTHING");
+
+        Product p1 = new Product("1", "Manzanas", 10.0, 15.0, 20.0);
+        productRepository.save(p1);
+        jdbcTemplate.update("INSERT INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad) VALUES (?, 999, 10)", p1.getId());
+
+        Product p2 = new Product("1", " manzanas ", 50.0, 60.0, 70.0);
+        productRepository.save(p2);
+        jdbcTemplate.update("INSERT INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad) VALUES (?, 999, 10)", p2.getId());
+
+        // WAC should average both (10*10 + 10*50) / 20 = 30.0
+        Optional<Double> wac = productRepository.findWAC("1", "MANZANAS");
+
+        assertThat(wac).contains(30.0);
+    }
+
+    @Test
+    @DisplayName("findSiblingsByFamily_ReturnsSortedByIdAsc")
+    void findSiblingsByFamily_ReturnsSortedByIdAsc() {
+        // Insert oldest first (Id will be lowest)
+        Product p1 = productRepository.save(new Product("FAM-SORT", "Desc", 10.0, 20.0, 30.0));
+        Product p2 = productRepository.save(new Product("FAM-SORT", "Desc", 15.0, 20.0, 30.0));
+        Product p3 = productRepository.save(new Product("FAM-SORT", "Desc", 12.0, 20.0, 30.0));
+
+        List<Product> siblings = productRepository.findSiblingsByFamily("FAM-SORT", null);
+
+        assertThat(siblings).hasSize(3);
+        assertThat(siblings.get(0).getId()).isEqualTo(p1.getId());
+        assertThat(siblings.get(1).getId()).isEqualTo(p2.getId());
+        assertThat(siblings.get(2).getId()).isEqualTo(p3.getId());
+    }
+
+    @Test
+    @DisplayName("existsByCodigo_ReturnsTrueForActiveCode")
+    void existsByCodigo_ReturnsTrueForActiveCode() {
+        createTestProduct("EXIST-1", 10.0, 10L);
+
+        // Active code
+        assertThat(productRepository.existsByCodigo("EXIST-1")).isTrue();
+
+        // Non-existent code
+        assertThat(productRepository.existsByCodigo("EXIST-999")).isFalse();
+
+        // Soft-deleted code
+        Product p2 = productRepository.save(new Product("EXIST-DEL", "Desc", 10.0, 20.0, 30.0));
+        productRepository.deleteById(p2.getId());
+        assertThat(productRepository.existsByCodigo("EXIST-DEL")).isFalse();
+    }
+
+    @Test
+    @DisplayName("search_OrdersByStockDescThenIdDesc")
+    void search_OrdersByStockDescThenIdDesc() {
+        jdbcTemplate.update("INSERT INTO ubicaciones (id, nombre) VALUES (999, 'Test') ON CONFLICT(id) DO NOTHING");
+
+        // Create 3 products matching "SEARCH-ORD"
+        // P1: Stock 0, ID lowest
+        Product p1 = productRepository.save(new Product("SEARCH-ORD-1", "Desc", 10.0, 20.0, 30.0));
+
+        // P2: Stock 10
+        Product p2 = productRepository.save(new Product("SEARCH-ORD-2", "Desc", 10.0, 20.0, 30.0));
+        jdbcTemplate.update("INSERT INTO stock_por_ubicacion (producto_id, ubicacion_id, cantidad) VALUES (?, 999, 10)", p2.getId());
+
+        // P3: Stock 0, ID highest
+        Product p3 = productRepository.save(new Product("SEARCH-ORD-3", "Desc", 10.0, 20.0, 30.0));
+
+        List<Product> results = productRepository.search("SEARCH-ORD");
+
+        assertThat(results).hasSize(3);
+        // P2 has highest stock (10)
+        assertThat(results.get(0).getId()).isEqualTo(p2.getId());
+        // P3 and P1 both have 0 stock. P3 is newer (higher ID), so it wins the tie-breaker
+        assertThat(results.get(1).getId()).isEqualTo(p3.getId());
+        assertThat(results.get(2).getId()).isEqualTo(p1.getId());
+    }
 }

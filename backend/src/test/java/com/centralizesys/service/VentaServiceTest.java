@@ -576,4 +576,171 @@ class VentaServiceTest {
         assertTrue(ex.getMessage().contains("Producto Archivado"),
                 "Error message must include the product's description for user clarity");
     }
+
+    // --- Portion 5: WAC & Stock Deduction Edge Cases ---
+
+    @Test
+    @DisplayName("processItems_SetsWACAsSnapshot_WithMultipleActiveVariants")
+    void processItems_SetsWACAsSnapshot_WithMultipleActiveVariants() {
+        Product p = new Product(1L, "WAC-CODE", "Desc", 10.0, 20.0, 30.0, 5L, true);
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(p));
+        // Return a WAC of $15.5
+        when(productRepository.findWAC("WAC-CODE", null)).thenReturn(Optional.of(15.5));
+
+        var result = ventaService.processItems(List.of(item), TipoVenta.MINORISTA);
+
+        assertEquals(15.5, result.getDetalles().getFirst().getCostoSnapshot());
+    }
+
+    @Test
+    @DisplayName("processItems_FallsBackToSelectedVariantCost_WhenWACIsNull")
+    void processItems_FallsBackToSelectedVariantCost_WhenWACIsNull() {
+        // Product's own cost is $25.0
+        Product p = new Product(1L, "WAC-CODE", "Desc", 25.0, 20.0, 30.0, 0L, true);
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        when(productRepository.findById(1L)).thenReturn(Optional.of(p));
+        // DB says WAC is null (e.g. all stock is 0 or negative)
+        when(productRepository.findWAC("WAC-CODE", null)).thenReturn(Optional.empty());
+
+        var result = ventaService.processItems(List.of(item), TipoVenta.MINORISTA);
+
+        // Should fallback to $25.0
+        assertEquals(25.0, result.getDetalles().getFirst().getCostoSnapshot());
+    }
+
+    @Test
+    @DisplayName("processItems_KeepsOriginalProductId_ForTraceability")
+    void processItems_KeepsOriginalProductId_ForTraceability() {
+        Product p = new Product(100L, "WAC-CODE", "Desc", 25.0, 20.0, 30.0, 5L, true);
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(100L); // Item requests ID 100
+        item.setCantidad(1L);
+
+        when(productRepository.findById(100L)).thenReturn(Optional.of(p));
+        when(productRepository.findWAC("WAC-CODE", null)).thenReturn(Optional.of(15.0));
+
+        var result = ventaService.processItems(List.of(item), TipoVenta.MINORISTA);
+
+        // The WAC doesn't change the fact that they explicitly sold variant ID 100
+        assertEquals(100L, result.getDetalles().getFirst().getProductoId());
+    }
+
+    @Test
+    @DisplayName("processItems_CorrectlyHandlesGenericProduct_WithDescriptionFilter")
+    void processItems_CorrectlyHandlesGenericProduct_WithDescriptionFilter() {
+        Product p = new Product(10L, "1", "Generic Item", 10.0, 20.0, 30.0, 5L, true);
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(10L);
+        item.setCantidad(1L);
+
+        when(productRepository.findById(10L)).thenReturn(Optional.of(p));
+        // Expect findWAC to be called with ("1", "Generic Item")
+        when(productRepository.findWAC("1", "Generic Item")).thenReturn(Optional.of(12.0));
+
+        var result = ventaService.processItems(List.of(item), TipoVenta.MINORISTA);
+
+        assertEquals(12.0, result.getDetalles().getFirst().getCostoSnapshot());
+        verify(productRepository).findWAC("1", "Generic Item");
+    }
+
+    @Test
+    @DisplayName("deductStockFromInventory_PhantomLocation_CreatesNegativeRowOnFirstSystemLocation")
+    void deductStockFromInventory_PhantomLocation_CreatesNegativeRowOnFirstSystemLocation() {
+        Long prodId = 1L;
+        Long qtyNeeded = 5L;
+
+        // No stock locations exist for this specific product...
+        when(stockRepository.findByProductId(prodId)).thenReturn(Collections.emptyList());
+        // ...but there IS a valid location in the system
+        com.centralizesys.model.product.Location fallbackLoc = new com.centralizesys.model.product.Location(1L, "Depósito Central");
+        when(stockRepository.findAllLocations()).thenReturn(List.of(fallbackLoc));
+
+        String alert = ventaService.deductStockFromInventory(prodId, "New Product", qtyNeeded);
+
+        assertNotNull(alert);
+        assertTrue(alert.contains("ATENCIÓN"));
+
+        // Should CREATE the phantom row explicitly
+        verify(stockRepository).addStock(prodId, 1L, -5L);
+        // And NEVER call subtractStock because no rows existed
+        verify(stockRepository, never()).subtractStock(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("deductStockFromInventory_PhantomLocation_ReturnsCriticoWhenNoSystemLocationsExist")
+    void deductStockFromInventory_PhantomLocation_ReturnsCriticoWhenNoSystemLocationsExist() {
+        Long prodId = 1L;
+
+        when(stockRepository.findByProductId(prodId)).thenReturn(Collections.emptyList());
+        // NO system locations at all (e.g. brand new install with empty DB)
+        when(stockRepository.findAllLocations()).thenReturn(Collections.emptyList());
+
+        String alert = ventaService.deductStockFromInventory(prodId, "New Product", 5L);
+
+        assertNotNull(alert);
+        assertTrue(alert.contains("CRÍTICO"));
+        assertTrue(alert.contains("NINGUNA ubicación"));
+
+        verify(stockRepository, never()).addStock(anyLong(), anyLong(), anyLong());
+        verify(stockRepository, never()).subtractStock(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("updateStockFromDetails_CallsDeductForEachDetalleProductoId")
+    void updateStockFromDetails_CallsDeductForEachDetalleProductoId() {
+        // Create 2 completely different items
+        DetalleVenta d1 = new DetalleVenta();
+        d1.setProductoId(1L);
+        d1.setDescripcionSnapshot("P1");
+        d1.setCantidad(2L);
+
+        DetalleVenta d2 = new DetalleVenta();
+        d2.setProductoId(2L);
+        d2.setDescripcionSnapshot("P2");
+        d2.setCantidad(3L);
+
+        // Setup locations to avoid logic branching into phantom code
+        when(stockRepository.findByProductId(1L)).thenReturn(List.of(new StockLocation(1L, 1L, 100L, "L1", 10L)));
+        when(stockRepository.findByProductId(2L)).thenReturn(List.of(new StockLocation(2L, 2L, 100L, "L1", 10L)));
+
+        ventaService.updateStockFromDetails(List.of(d1, d2));
+
+        // Verifies deduction logic triggered for BOTH
+        verify(stockRepository).subtractStock(100L, 1L, 2L);
+        verify(stockRepository).subtractStock(100L, 2L, 3L);
+    }
+
+    @Test
+    @DisplayName("updateStockFromDetails_TwoDetailsWithSameProductoId_DeductsTwiceSeparately")
+    void updateStockFromDetails_TwoDetailsWithSameProductoId_DeductsTwiceSeparately() {
+        // Two details representing the exact SAME product ID
+        DetalleVenta d1 = new DetalleVenta();
+        d1.setProductoId(1L);
+        d1.setDescripcionSnapshot("P1");
+        d1.setCantidad(2L);
+
+        DetalleVenta d2 = new DetalleVenta();
+        d2.setProductoId(1L);
+        d2.setDescripcionSnapshot("P1");
+        d2.setCantidad(3L);
+
+        when(stockRepository.findByProductId(1L)).thenReturn(List.of(new StockLocation(1L, 1L, 100L, "L1", 10L)));
+
+        ventaService.updateStockFromDetails(List.of(d1, d2));
+
+        // Should call subtractStock twice for product 1
+        verify(stockRepository).subtractStock(100L, 1L, 2L);
+        verify(stockRepository).subtractStock(100L, 1L, 3L);
+    }
 }

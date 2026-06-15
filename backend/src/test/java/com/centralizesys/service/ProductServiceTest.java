@@ -162,6 +162,7 @@ class ProductServiceTest {
     @DisplayName("Create saves valid product")
     void create_Success() {
         Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(Collections.emptyList());
         when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
         when(repository.save(p)).thenReturn(p);
 
@@ -176,6 +177,7 @@ class ProductServiceTest {
         Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
         Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
 
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(Collections.emptyList());
         when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
         when(repository.save(p)).thenReturn(saved);
         when(repository.findById(1L)).thenReturn(Optional.of(saved)); // For refresh call
@@ -193,6 +195,7 @@ class ProductServiceTest {
         Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
         Product saved = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
 
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(Collections.emptyList());
         when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
         when(repository.save(p)).thenReturn(saved);
 
@@ -208,6 +211,7 @@ class ProductServiceTest {
         Product p = new Product("CODE", "Desc", 10.0, 10.0, 20.0);
         Product existing = new Product(1L, "CODE", "Old", 10.0, 10.0, 20.0, 0L, true);
 
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(List.of(existing));
         when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing));
 
         assertThrows(BusinessRuleException.class, () -> service.create(p));
@@ -248,6 +252,7 @@ class ProductServiceTest {
         Product p = new Product("CODE", "Desc", 10.0, null, 30.0);
         Product saved = new Product(1L, "CODE", "Desc", 10.0, 30.0, 30.0, 0L, true);
 
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(Collections.emptyList());
         when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
         when(repository.save(any(Product.class))).thenReturn(saved);
         when(repository.findById(1L)).thenReturn(Optional.of(saved));
@@ -265,59 +270,155 @@ class ProductServiceTest {
         Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
 
         when(repository.findById(1L)).thenReturn(Optional.of(existing));
-        when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing));
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(List.of(existing));
 
         service.update(1L, updateReq);
 
-        assertEquals(40.0, updateReq.getPrecioMayorista(), "Wholesale price should default to retail price on update");
-        verify(repository).save(updateReq);
+        assertEquals(40.0, existing.getPrecioMayorista(), "Wholesale price should default to retail price on update");
+        verify(repository).save(existing);
     }
 
+    // --- Zero Trust Internal Create Tests ---
+
     @Test
-    @DisplayName("Create preserves explicit wholesale price (no default override)")
-    void create_ExplicitWholesale_PreservedAsIs() {
-        Product p = new Product("CODE", "Desc", 10.0, 15.0, 25.0);
-        when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
+    @DisplayName("internalCreate enforces Zero-Trust by overriding submitted prices with family prices")
+    void internalCreate_ZeroTrust_OverridesPricesFromSiblings() {
+        // User submits $99 for prices
+        Product p = new Product("CODE", "Desc", 10.0, 99.0, 99.0);
+        // DB family has $50 wholesale, $60 retail
+        Product sibling = new Product(1L, "CODE", "Desc", 15.0, 50.0, 60.0, 0L, true);
+
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(List.of(sibling));
+        when(repository.findAllByCodigo("CODE")).thenReturn(List.of(sibling));
         when(repository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
         Product created = service.create(p);
 
-        assertEquals(15.0, created.getPrecioMayorista(), "Explicit wholesale price should NOT be overridden");
+        // Prices must match the sibling, NOT the user input
+        assertEquals(50.0, created.getPrecioMayorista(), "Wholesale price should be overridden by family");
+        assertEquals(60.0, created.getPrecioMinorista(), "Retail price should be overridden by family");
+        assertEquals(10.0, created.getPrecioCosto(), "Cost should NOT be overridden");
     }
 
-    // --- Update Tests ---
+    @Test
+    @DisplayName("internalCreate runs collision check AFTER zero-trust price assignment")
+    void internalCreate_ZeroTrust_RunsCollisionCheckAfterPriceOverride() {
+        // User submits $99 for prices, but $10 cost
+        Product p = new Product("CODE", "Desc", 10.0, 99.0, 99.0);
+        // DB family has $50 wholesale, $60 retail. Cost is ALSO 10!
+        Product sibling = new Product(1L, "CODE", "Desc", 10.0, 50.0, 60.0, 0L, true);
+
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(List.of(sibling));
+        // the duplicate check inside checkVariantCollision will see the overriden prices
+        when(repository.findAllByCodigo("CODE")).thenReturn(List.of(sibling));
+
+        // Because internalCreate copies the $50/$60 prices, the new variant becomes
+        // an exact duplicate of the sibling (CODE, $10 cost, $50 wholesale, $60 retail).
+        assertThrows(BusinessRuleException.class, () -> service.create(p));
+        verify(repository, never()).save(any());
+    }
 
     @Test
-    @DisplayName("Update succeeds when no collision")
-    void update_Success() {
-        // Changing price from 20 to 25
-        Product updateReq = new Product("CODE", "Desc", 10.0, 10.0, 25.0);
-        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
+    @DisplayName("internalCreate does NOT override prices for generic products (code '1')")
+    void internalCreate_Generic_DoesNotOverridePrices() {
+        Product p = new Product("1", "Manzanas", 10.0, 15.0, 20.0);
+
+        // '1' bypasses findSiblingsByFamily and findAllByCodigo entirely inside internalCreate
+        when(repository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Product created = service.create(p);
+
+        // Generic product keeps its own prices
+        assertEquals(15.0, created.getPrecioMayorista(), "Generic product should keep its own wholesale price");
+        assertEquals(20.0, created.getPrecioMinorista(), "Generic product should keep its own retail price");
+    }
+
+    // --- Update Tests (Merge Block & Cascade) ---
+
+    @Test
+    @DisplayName("Update throws BusinessRuleException when attempting to change code to an existing different family (Merge Block)")
+    void update_MergeBlock_ThrowsWhenCodeBelongsToAnotherFamily() {
+        Product existing = new Product(1L, "OLD-CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
+        Product updateReq = new Product("NEW-CODE", "Desc", 10.0, 10.0, 20.0);
 
         when(repository.findById(1L)).thenReturn(Optional.of(existing));
-        when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing));
-        // findAllByCodigo returns 'existing', but logic excludes 'self'
+        when(repository.existsByCodigo("NEW-CODE")).thenReturn(true);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> service.update(1L, updateReq));
+        assertTrue(ex.getMessage().contains("pertenece a otra familia"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Update allows code change when new code does not exist in DB")
+    void update_MergeBlock_AllowsCodeChangeToNonExistentFamily() {
+        Product existing = new Product(1L, "OLD-CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
+        Product updateReq = new Product("NEW-CODE", "Desc", 10.0, 10.0, 20.0);
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.existsByCodigo("NEW-CODE")).thenReturn(false);
+        when(repository.findSiblingsByFamily("OLD-CODE", null)).thenReturn(List.of(existing));
 
         service.update(1L, updateReq);
 
-        verify(repository).save(updateReq);
-        assertEquals(1L, updateReq.getId());
+        verify(repository).save(existing);
+        assertEquals("NEW-CODE", existing.getCodigo());
+        assertEquals(10.0, existing.getPrecioCosto());
     }
 
     @Test
-    @DisplayName("Update throws when colliding with ANOTHER product")
-    void update_Collision_Throws() {
-        // Trying to change Price to 30. But there is ANOTHER product (ID 2) with Cost
-        // 10, Price 30.
-        Product updateReq = new Product("CODE", "Desc", 10.0, 10.0, 30.0);
-        Product existing = new Product(1L, "CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
-        Product other = new Product(2L, "CODE", "Other", 10.0, 10.0, 30.0, 0L, true);
+    @DisplayName("Update allows code change to generic bucket '1' without checking existsByCodigo")
+    void update_MergeBlock_AllowsCodeChangeToGenericBucket() {
+        Product existing = new Product(1L, "OLD-CODE", "Desc", 10.0, 10.0, 20.0, 0L, true);
+        Product updateReq = new Product("1", "Desc", 10.0, 10.0, 20.0);
 
         when(repository.findById(1L)).thenReturn(Optional.of(existing));
-        when(repository.findAllByCodigo("CODE")).thenReturn(List.of(existing, other));
+        when(repository.findSiblingsByFamily("OLD-CODE", null)).thenReturn(List.of(existing));
 
-        assertThrows(BusinessRuleException.class, () -> service.update(1L, updateReq));
-        verify(repository, never()).save(updateReq);
+        service.update(1L, updateReq);
+
+        verify(repository, never()).existsByCodigo("1");
+        verify(repository).save(existing);
+        assertEquals("1", existing.getCodigo());
+    }
+
+    @Test
+    @DisplayName("Update cascades description and prices to all siblings, but ignores cost")
+    void update_CascadeUpdate_AllSiblingsReceiveNewDescription() {
+        Product existing = new Product(1L, "CODE", "Old Desc", 10.0, 20.0, 30.0, 0L, true);
+        Product sibling1 = new Product(2L, "CODE", "Old Desc", 15.0, 20.0, 30.0, 0L, true);
+        Product sibling2 = new Product(3L, "CODE", "Old Desc", 20.0, 20.0, 30.0, 0L, true);
+
+        // Updating product 1
+        Product updateReq = new Product("CODE", "New Desc", 12.0, 25.0, 35.0);
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(List.of(existing, sibling1, sibling2));
+
+        service.update(1L, updateReq);
+
+        // Verify target product (which is 'existing')
+        verify(repository).save(existing);
+        assertEquals(12.0, existing.getPrecioCosto()); // Cost changed on target
+        assertEquals("New Desc", existing.getDescripcion());
+
+        // Verify sibling 1 (id: 2L)
+        verify(repository).save(argThat(p ->
+                p.getId() == 2L &&
+                        p.getDescripcion().equals("New Desc") &&
+                        p.getPrecioMayorista() == 25.0 &&
+                        p.getPrecioMinorista() == 35.0 &&
+                        p.getPrecioCosto() == 15.0 // Cost is preserved!
+        ));
+
+        // Verify sibling 2 (id: 3L)
+        verify(repository).save(argThat(p ->
+                p.getId() == 3L &&
+                        p.getDescripcion().equals("New Desc") &&
+                        p.getPrecioMayorista() == 25.0 &&
+                        p.getPrecioMinorista() == 35.0 &&
+                        p.getPrecioCosto() == 20.0 // Cost is preserved!
+        ));
     }
 
     // --- Delete Tests ---

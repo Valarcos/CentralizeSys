@@ -110,4 +110,15 @@ public class ProductController {
                 .map(ProductResponse::new)
                 .toList());
     }
+
+    // GET /api/productos/familia/{codigo}
+    // Returns all active variants of a product family for the Smart Form code lookup.
+    // Called by ProductFormModal on barcode blur to auto-fill family prices and lock fields.
+    @GetMapping("/familia/{codigo}")
+    public ResponseEntity<List<ProductResponse>> getVariantFamily(@PathVariable String codigo) {
+        List<Product> family = service.getVariantFamily(codigo);
+        return ResponseEntity.ok(family.stream()
+                .map(ProductResponse::new)
+                .toList());
+    }
 }

@@ -126,34 +126,85 @@ public class ProductService {
 
     // Helper to centralize creation logic and bypass self-invocation issues
     private Product internalCreate(Product product) {
+        // 1. Validate fields (throws BusinessRuleException on invalid input)
         validate(product);
+
+        // 2. Apply wholesale price default
         applyWholesalePriceDefault(product);
+
+        // 3. Zero-Trust Price Override for new variants of existing families.
+        //    When a new variant is being added (not a generic codigo='1'), look up the
+        //    existing family and enforce the family's current retail/wholesale prices.
+        //    This prevents price drift between siblings caused by a cashier entering a
+        //    slightly different price when registering a new purchase.
+        if (!"1".equals(product.getCodigo())) {
+            List<Product> existingSiblings = repository.findSiblingsByFamily(product.getCodigo(), null);
+            if (!existingSiblings.isEmpty()) {
+                // Use the last (newest) sibling as the authoritative source of family retail prices.
+                Product familyRepresentative = existingSiblings.getLast();
+                product.setPrecioMinorista(familyRepresentative.getPrecioMinorista());
+                product.setPrecioMayorista(familyRepresentative.getPrecioMayorista());
+            }
+        }
+
+        // 4. Check for variant collision (after price override, so the enforced prices are compared)
         checkVariantCollision(product, null);
+
+        // 5. Persist
         return repository.save(product);
     }
 
+    @Transactional
     public void update(Long id, Product product) {
         // 1. Basic Validation
         validate(product);
         applyWholesalePriceDefault(product);
 
-        // 2. Fetch Existing Data
-        Product existingProduct = repository.findById(id)
+        // 2. Fetch the original state BEFORE any changes, using it as the source of truth
+        //    for sibling lookup and change-detection.
+        Product original = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(PRODUCT, id));
 
-        // 3. Unique Constraint Check
-        // We only check for collision if relevant fields changed
-        boolean codeChanged = !product.getCodigo().equals(existingProduct.getCodigo());
-        boolean costChanged = !compareDouble(product.getPrecioCosto(), existingProduct.getPrecioCosto());
-        boolean priceChanged = !compareDouble(product.getPrecioMinorista(), existingProduct.getPrecioMinorista());
-
-        if (codeChanged || costChanged || priceChanged) {
-            checkVariantCollision(product, id);
+        // 3. Merge-Block: Prevent reassigning a barcode to an already-existing different family.
+        //    Example: Renaming "ART-001" to "ART-002" is blocked if "ART-002" already has variants,
+        //    because that would incorrectly merge two separate product families in the DB.
+        boolean codeChanged = !product.getCodigo().equals(original.getCodigo());
+        if (codeChanged && !"1".equals(product.getCodigo()) && repository.existsByCodigo(product.getCodigo())) {
+            throw new BusinessRuleException(
+                    "El código '" + product.getCodigo() + "' ya pertenece a otra familia de productos. "
+                            + "Cambiarlo causaría una fusión incorrecta de inventario.");
         }
 
-        // 4. Attach ID and Persist
-        product.setId(id);
-        repository.save(product);
+        // 4. Determine the sibling lookup key using the ORIGINAL codigo and descripcion.
+        //    Generic products (codigo='1') use both codigo AND descripcion as the family key.
+        String siblingDescripcion = "1".equals(original.getCodigo()) ? original.getDescripcion() : null;
+        List<Product> siblings = repository.findSiblingsByFamily(original.getCodigo(), siblingDescripcion);
+
+        // 5. Cascade Update: Apply new descripcion, precioMinorista, precioMayorista (and optionally
+        //    codigo) to ALL active siblings, including the product being edited itself.
+        //    Note: precioCosto is intentionally NOT cascaded — each variant has its own purchase cost.
+        for (Product sibling : siblings) {
+            sibling.setDescripcion(product.getDescripcion());
+            sibling.setPrecioMinorista(product.getPrecioMinorista());
+            sibling.setPrecioMayorista(product.getPrecioMayorista());
+            if (codeChanged) {
+                sibling.setCodigo(product.getCodigo());
+            }
+            // Only the explicitly edited product receives the new cost
+            if (sibling.getId().equals(id)) {
+                sibling.setPrecioCosto(product.getPrecioCosto());
+            }
+            repository.save(sibling);
+        }
+
+        // Edge case: If the edited product was not in the siblings list
+        // (e.g., the product was re-activated while siblings were found under old state),
+        // persist it directly to avoid losing the update.
+        boolean editedProductSaved = siblings.stream().anyMatch(s -> s.getId().equals(id));
+        if (!editedProductSaved) {
+            product.setId(id);
+            repository.save(product);
+        }
     }
 
     /**
@@ -216,5 +267,14 @@ public class ProductService {
      */
     public List<Product> getLowStockAlerts() {
         return repository.findLowStock();
+    }
+
+    /**
+     * Returns all active variants of a product family for the Smart Form code lookup.
+     * For standard products (codigo != "1"), matches by codigo only.
+     * Returns sorted oldest-first (id ASC) per findSiblingsByFamily contract.
+     */
+    public List<Product> getVariantFamily(String codigo) {
+        return repository.findSiblingsByFamily(codigo, null);
     }
 }

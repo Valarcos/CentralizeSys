@@ -239,18 +239,50 @@ public class VentaService {
     }
 
     /**
+     * Determines the descripcion parameter for sibling/WAC queries.
+     * Generic products (codigo='1') use both codigo AND descripcion as family key
+     * to avoid blending unrelated items (e.g. Apples vs Shoes, both coded '1').
+     */
+    private String resolveFamilyDescripcion(Product producto) {
+        return "1".equals(producto.getCodigo()) ? producto.getDescripcion() : null;
+    }
+
+    /**
      * Creates a DetalleVenta object with all price calculations applied.
+     * Cost snapshot uses Weighted Average Cost (WAC) of the product family to
+     * accurately represent the blended cost-of-goods-sold across all variants.
      */
     private DetalleVenta createDetalleVenta(Product producto, VentaRequest.ItemRequest itemReq, TipoVenta tipoVenta) {
         DetalleVenta detalle = new DetalleVenta();
+
+        // A. Traceability: Save the original product the cashier rang up.
         detalle.setProductoId(producto.getId());
         detalle.setCodigoSnapshot(producto.getCodigo());
         detalle.setDescripcionSnapshot(producto.getDescripcion());
-        // Snapshot of cost at time of sale for profit/loss calculations and Excel backups
-        detalle.setCostoSnapshot(producto.getPrecioCosto() != null ? producto.getPrecioCosto() : 0.0);
+
+        // B. Compute WAC for economic snapshot.
+        //    WAC uses GREATEST(0, stock) clamping to prevent phantom-sold inventory
+        //    (negative stock variants) from deflating the blended average cost.
+        //    Falls back to the newest sibling's precio_costo when all stock is zero or negative.
+        //    NOTE: To switch to FIFO instead of WAC, replace this block with:
+        //      1) Remove the findWAC() call.
+        //      2) Sort siblings by id ASC (oldest first — findSiblingsByFamily already does this).
+        //      3) Deduct quantity sequentially from each sibling's stock and weight its cost,
+        //         iterating until quantityNeeded is satisfied.
+        //      The CostCalculationStrategy interface can be introduced here to swap strategies
+        //      at runtime via Spring dependency injection if needed in the future.
+        String familyDescripcion = resolveFamilyDescripcion(producto);
+        java.util.Optional<Double> wacOptional = productRepository.findWAC(producto.getCodigo(), familyDescripcion);
+
+        // If WAC is null (e.g., zero total stock in the system), fallback to the cost
+        // of the explicitly selected variant that the cashier rang up.
+        double wac = wacOptional.orElse(producto.getPrecioCosto());
+
+        // Round to 2 decimal places to prevent floating-point drift in accounting reports
+        detalle.setCostoSnapshot(Math.round(wac * 100.0) / 100.0);
         detalle.setCantidad(itemReq.getCantidad());
 
-        // CALCULATE PRICES
+        // C. CALCULATE PRICES
         // ---------------------------------------------------------
         // Select Price based on Sale Type (Default to Retail if null)
         Double precioBase;
@@ -388,9 +420,21 @@ public class VentaService {
         // If we still need to deduct stock (e.g. need 5, only found 3, remaining is 2)
         if (remainingToDeduct > 0) {
             if (locations.isEmpty()) {
-                // Scenario: Product exists in DB but has NO entry in 'stock_por_ubicacion'
-                return "CRÍTICO: El producto '" + productName
-                        + "' se vendió pero NO tiene ubicación de stock asignada.";
+                // Scenario: Product exists in DB but has NO entry in 'stock_por_ubicacion'.
+                // FIX: Auto-create a negative stock row on the first available system location
+                // so the sale is always fully persisted. If no locations exist at all in the
+                // system, escalate to a CRÍTICO warning requiring admin intervention.
+                List<com.centralizesys.model.product.Location> allLocations = stockRepository.findAllLocations();
+                if (allLocations.isEmpty()) {
+                    return "CRÍTICO: El producto '" + productName
+                            + "' se vendió pero el sistema no tiene NINGUNA ubicación de stock configurada. "
+                            + "Contacte al administrador del sistema.";
+                }
+                Long defaultLocId = allLocations.getFirst().getId();
+                stockRepository.addStock(productId, defaultLocId, -remainingToDeduct);
+                return "ATENCIÓN: El producto '" + productName
+                        + "' se vendió pero no tenía ubicación asignada. "
+                        + "El sistema registró stock negativo en la ubicación primaria del sistema.";
             } else {
                 // Scenario: Product exists in 'stock_por_ubicacion' but sum is 0 or low.
                 // We force the subtraction on the first location found, making it negative.

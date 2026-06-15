@@ -31,6 +31,13 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
 
+    // Smart Form state (create mode only)
+    const [isLoadingCode, setIsLoadingCode] = useState(false);
+    const [isExistingFamily, setIsExistingFamily] = useState(false);
+    const [codeEvaluated, setCodeEvaluated] = useState(isEditing); // editing = already evaluated
+    // Smart lookup is only active when creating a brand-new product (not editing, not variant mode)
+    const isSmartLookupEnabled = !isEditing && !isVariant;
+
     // Load ubicaciones on mount (only for new products AND if NOT in purchase context)
     useEffect(() => {
         if (!isEditing && !isPurchaseContext) {
@@ -60,6 +67,48 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
             setLoadingUbicaciones(false);
         }
     };
+
+    /**
+     * Smart Form: Called when the user tabs away from the codigo field in create mode.
+     * Queries the family endpoint to auto-fill description and prices for existing families.
+     * Generic code "1" is skipped — it is a shared bucket and needs manual entry.
+     */
+    const handleCodeBlur = async () => {
+        const code = formData.codigo.trim();
+        if (!code || code === '1') {
+            setCodeEvaluated(true);
+            setIsExistingFamily(false);
+            return;
+        }
+
+        setIsLoadingCode(true);
+        try {
+            const res = await api.get(`/api/productos/familia/${encodeURIComponent(code)}`);
+            const family = res.data;
+
+            if (family && family.length > 0) {
+                const newest = family[family.length - 1];
+                setFormData(prev => ({
+                    ...prev,
+                    descripcion: newest.descripcion,
+                    precioMinorista: newest.precioMinorista?.toString() || '',
+                    precioMayorista: newest.precioMayorista?.toString() || '',
+                }));
+                setIsExistingFamily(true);
+            } else {
+                setIsExistingFamily(false);
+            }
+            setCodeEvaluated(true);
+        } catch (err) {
+            console.error('Error looking up product family:', err);
+            toast.error('Error al verificar el código. Complete los campos manualmente.');
+            setCodeEvaluated(true);
+            setIsExistingFamily(false);
+        } finally {
+            setIsLoadingCode(false);
+        }
+    };
+
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -166,8 +215,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
             onSuccess(savedProduct);
         } catch (error) {
             console.error('Error saving product:', error);
-            const message = error.response?.data?.message || 'Error al guardar producto';
-            toast.error(message);
+            // The global api.js interceptor automatically displays toast.error for API rejections
         } finally {
             setSaving(false);
         }
@@ -197,12 +245,26 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                 name="codigo"
                                 type="text"
                                 value={formData.codigo}
-                                onChange={handleChange}
-                                placeholder="Ej: ART-001"
+                                onChange={(e) => {
+                                    handleChange(e);
+                                    if (isSmartLookupEnabled) {
+                                        setCodeEvaluated(false);
+                                        setIsExistingFamily(false);
+                                    }
+                                }}
+                                onBlur={isSmartLookupEnabled ? handleCodeBlur : undefined}
+                                disabled={isVariant}
+                                placeholder={isVariant ? 'Código pre-asignado' : 'Ej: ART-001'}
                                 aria-invalid={!!errors.codigo}
                             />
                             {errors.codigo && (
                                 <span className="error-message">{errors.codigo}</span>
+                            )}
+                            {isLoadingCode && (
+                                <span className="field-status-hint">Verificando código...</span>
+                            )}
+                            {!isLoadingCode && isExistingFamily && isSmartLookupEnabled && (
+                                <span className="field-status-hint">Familia existente — descripción y precios autocompletados.</span>
                             )}
                         </div>
 
@@ -217,6 +279,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                 type="text"
                                 value={formData.descripcion}
                                 onChange={handleChange}
+                                disabled={isLoadingCode || (isExistingFamily && isSmartLookupEnabled)}
                                 placeholder="Nombre del producto"
                                 aria-invalid={!!errors.descripcion}
                             />
@@ -240,6 +303,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                     onChange={handleChange}
                                     onKeyDown={blockNonNumericKeys}
                                     onPaste={sanitizeNumericPaste}
+                                    disabled={isLoadingCode || (!codeEvaluated && isSmartLookupEnabled)}
                                     placeholder="0.00"
                                     aria-invalid={!!errors.precioCosto}
                                 />
@@ -261,6 +325,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                     onChange={handleChange}
                                     onKeyDown={blockNonNumericKeys}
                                     onPaste={sanitizeNumericPaste}
+                                    disabled={isLoadingCode || isVariant || (isExistingFamily && isSmartLookupEnabled)}
                                     placeholder="Igual al minorista si vacío"
                                 />
                                 {errors.precioMayorista && (
@@ -281,6 +346,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                     onChange={handleChange}
                                     onKeyDown={blockNonNumericKeys}
                                     onPaste={sanitizeNumericPaste}
+                                    disabled={isLoadingCode || isVariant || (isExistingFamily && isSmartLookupEnabled)}
                                     placeholder="0.00"
                                     aria-invalid={!!errors.precioMinorista}
                                 />
@@ -365,7 +431,10 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                         <button
                             type="submit"
                             className="primary"
-                            disabled={saving || (loadingUbicaciones && !isEditing && !isPurchaseContext)}
+                            disabled={saving
+                                || isLoadingCode
+                                || (isSmartLookupEnabled && !codeEvaluated)
+                                || (loadingUbicaciones && !isEditing && !isPurchaseContext)}
                         >
                             {saving ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Crear Producto')}
                         </button>

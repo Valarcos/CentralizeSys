@@ -17,6 +17,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
+import com.zaxxer.hikari.HikariDataSource;
+import javax.sql.DataSource;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -41,6 +44,8 @@ public class BackupService {
 
     private static final String EXT_XLSX = ".xlsx";
     private static final String PREFIX_FILE = "centralizesys_";
+    @SuppressWarnings("java:S2068")
+    private static final String ENV_PG_PASS = "PGPASSWORD";
 
     private static final Long RETENTION_DAYS_DAILY = 60L;
     private static final String FECHA = "Fecha";
@@ -54,6 +59,10 @@ public class BackupService {
     private final AuditoriaRepository auditoriaRepository;
     private final BackupPathStrategy pathStrategy;
 
+    private final String dbUrl;
+    private final String dbUser;
+    private final String dbPassword;
+
     public BackupService(JdbcTemplate jdbcTemplate,
                          AuditoriaService auditoriaService,
                          ProductRepository productRepository,
@@ -61,7 +70,10 @@ public class BackupService {
                          CompraRepository compraRepository,
                          DeudoresRepository deudoresRepository,
                          AuditoriaRepository auditoriaRepository,
-                         BackupPathStrategy pathStrategy) {
+                         BackupPathStrategy pathStrategy,
+                         @Value("${spring.datasource.url}") String dbUrl,
+                         @Value("${spring.datasource.username}") String dbUser,
+                         @Value("${spring.datasource.password}") String dbPassword) {
         this.jdbcTemplate = jdbcTemplate;
         this.auditoriaService = auditoriaService;
         this.productRepository = productRepository;
@@ -70,6 +82,9 @@ public class BackupService {
         this.deudoresRepository = deudoresRepository;
         this.auditoriaRepository = auditoriaRepository;
         this.pathStrategy = pathStrategy;
+        this.dbUrl = dbUrl;
+        this.dbUser = dbUser;
+        this.dbPassword = dbPassword;
     }
 
 
@@ -109,8 +124,10 @@ public class BackupService {
 
             Path fullExcelPath = dirPath.resolve(excelFileName).toAbsolutePath();
 
-            // 1. PostgreSQL DB Backup (Deferred)
-            log.warn("Database backup is deferred to the cloud migration phase (pg_dump implementation pending).");
+            // 1. PostgreSQL DB Backup
+            String sqlFileName = PREFIX_FILE + prefix + timestamp + ".sql";
+            Path fullSqlPath = dirPath.resolve(sqlFileName).toAbsolutePath();
+            performPgDump(fullSqlPath);
 
             // 2. Excel Export
             exportToExcel(fullExcelPath.toString());
@@ -125,7 +142,137 @@ public class BackupService {
         }
     }
 
+    private void performPgDump(Path fullSqlPath) {
+        try {
+            executePgDump(fullSqlPath.toFile());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new InfrastructureException("Backup process interrupted", e);
+        } catch (IOException e) {
+            throw new InfrastructureException("IO Error during pg_dump", e);
+        }
+    }
 
+
+
+    private void executePgDump(File outputFile) throws IOException, InterruptedException {
+        String cleanUrl = dbUrl;
+        if (cleanUrl.contains("?")) {
+            cleanUrl = cleanUrl.substring(0, cleanUrl.indexOf('?'));
+        }
+        String cleanUriStr = cleanUrl.replace("jdbc:", "");
+        java.net.URI uri = java.net.URI.create(cleanUriStr);
+        String host = uri.getHost();
+        int port = uri.getPort() == -1 ? 5432 : uri.getPort();
+        String db = uri.getPath().replace("/", "");
+
+        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        List<String> command = new ArrayList<>();
+        if (isWindows) {
+            command.addAll(Arrays.asList("docker", "exec", "-i", "-e", ENV_PG_PASS, "centralizesys_postgres",
+                    "pg_dump", "-U", dbUser, "-d", db, "--clean", "--if-exists", "-O", "-x"));
+        } else {
+            command.addAll(Arrays.asList("pg_dump", "--clean", "--if-exists", "-O", "-x",
+                    "-U", dbUser, "-h", host, "-p", String.valueOf(port), "-d", db));
+        }
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.environment().put(ENV_PG_PASS, dbPassword);
+
+        // Critical OS Buffer Fix: inheritIO for stdin/stderr, redirect stdout to file
+        pb.inheritIO();
+        pb.redirectOutput(outputFile);
+
+        Process process = pb.start();
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0) {
+            if (outputFile.exists()) {
+                try {
+                    Files.delete(outputFile.toPath());
+                } catch (IOException ignored) {
+                    // Ignored on failure
+                }
+            }
+            throw new InfrastructureException("pg_dump process failed with exit code: " + exitCode);
+        }
+    }
+
+    public void restoreDatabase(File sqlFile) {
+        com.centralizesys.config.MaintenanceInterceptor.isMaintenanceMode.set(true);
+        try {
+            DataSource ds = jdbcTemplate.getDataSource();
+            if (ds != null && ds.isWrapperFor(HikariDataSource.class)) {
+                HikariDataSource hds = ds.unwrap(HikariDataSource.class);
+                hds.close();
+            }
+
+            executePsqlRestore(sqlFile);
+
+            // Success Exit
+            Thread.ofVirtual().start(() -> {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+                // We use halt(0) instead of exit(0) to bypass Spring's shutdown hooks
+                // because we manually closed the DataSource and Spring will deadlock trying to close it again.
+                Runtime.getRuntime().halt(0);
+            });
+        } catch (Exception e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            log.error("Restore failed", e);
+            // Failure Exit
+            Thread.ofVirtual().start(() -> {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                }
+                Runtime.getRuntime().halt(1);
+            });
+            throw new InfrastructureException("Restore failed: " + e.getMessage(), e);
+        }
+    }
+
+    private void executePsqlRestore(File sqlFile) throws InfrastructureException, IOException, InterruptedException {
+        String cleanUrl = dbUrl;
+        if (cleanUrl.contains("?")) {
+            cleanUrl = cleanUrl.substring(0, cleanUrl.indexOf('?'));
+        }
+        String cleanUriStr = cleanUrl.replace("jdbc:", "");
+        java.net.URI uri = java.net.URI.create(cleanUriStr);
+        String db = uri.getPath().replace("/", "");
+
+        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        List<String> command = new ArrayList<>();
+        if (isWindows) {
+            command.addAll(Arrays.asList("cmd.exe", "/c",
+                    "docker exec -i -e " + ENV_PG_PASS + " centralizesys_postgres psql -v ON_ERROR_STOP=1 -U " + dbUser + " -d " + db + " --single-transaction < \"" + sqlFile.getAbsolutePath() + "\""));
+        } else {
+            String host = uri.getHost();
+            int port = uri.getPort() == -1 ? 5432 : uri.getPort();
+            command.addAll(Arrays.asList("psql", "-v", "ON_ERROR_STOP=1", "-U", dbUser, "-h", host, "-p", String.valueOf(port), "-d", db, "--single-transaction"));
+        }
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.environment().put(ENV_PG_PASS, dbPassword);
+
+        if (!isWindows) {
+            pb.redirectInput(sqlFile);
+        }
+        pb.inheritIO();
+
+        Process process = pb.start();
+        int exitCode = process.waitFor();
+
+        if (exitCode != 0) {
+            throw new InfrastructureException("psql process failed with exit code: " + exitCode);
+        }
+    }
 
     private void exportToExcel(String filePath) throws IOException {
         try (Workbook workbook = new XSSFWorkbook()) {
@@ -244,7 +391,7 @@ public class BackupService {
                         String name = path.getFileName().toString();
                         // Returns TRUE or FALSE based on filename extension. If true, path object
                         // is included in the resulting stream.
-                        return name.endsWith(EXT_XLSX);
+                        return name.endsWith(EXT_XLSX) || name.endsWith(".sql");
                     })
                     .map(path -> mapPathToDto(path, type))
                     .filter(Objects::nonNull)
@@ -273,7 +420,7 @@ public class BackupService {
                     name,
                     date,
                     Files.size(path),
-                    type.name() + "_EXCEL");
+                    type.name() + (name.endsWith(".sql") ? "_SQL" : "_EXCEL"));
         } catch (IOException e) {
             return null;
         }
@@ -308,7 +455,7 @@ public class BackupService {
         List<File> files;
         try (Stream<Path> stream = Files.list(dirPath)) {
             files = stream
-                    .filter(p -> p.toString().endsWith(EXT_XLSX))
+                    .filter(p -> p.toString().endsWith(EXT_XLSX) || p.toString().endsWith(".sql"))
                     .map(Path::toFile)
                     .sorted(Comparator.comparingLong(File::lastModified))
                     .toList();

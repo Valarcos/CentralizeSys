@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.List;
+import com.centralizesys.exception.InfrastructureException;
 
 @RestController
 @RequestMapping("/api/backups")
@@ -77,15 +78,38 @@ public class BackupController {
     @PostMapping("/restore/{filename}")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> restoreDatabase(@PathVariable String filename) {
-        return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_IMPLEMENTED)
-                .body("Restauración deshabilitada temporalmente (migración a PostgreSQL en proceso).");
+        try {
+            File file = backupService.getBackupFile(filename);
+            backupService.restoreDatabase(file);
+            return ResponseEntity.ok("Restauración iniciada con éxito. El servidor se reiniciará en 1 segundo.");
+        } catch (Exception e) {
+            throw new InfrastructureException("Fallo en la restauración: " + e.getMessage(), e);
+        }
     }
 
     @PostMapping(value = "/upload-restore", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> restoreFromUpload(
             @RequestPart("file") org.springframework.web.multipart.MultipartFile file) {
-        return ResponseEntity.status(org.springframework.http.HttpStatus.NOT_IMPLEMENTED)
-                .body("Carga de restauración deshabilitada temporalmente (migración a PostgreSQL en proceso).");
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.endsWith(".sql")) {
+            return ResponseEntity.badRequest().body("Solo se permiten archivos .sql");
+        }
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body("El archivo está vacío y no contiene instrucciones SQL");
+        }
+        try {
+            java.nio.file.Path tempDir = com.centralizesys.config.DataPathConfig.resolve("temp");
+            if (!java.nio.file.Files.exists(tempDir)) {
+                java.nio.file.Files.createDirectories(tempDir);
+            }
+            java.nio.file.Path tempPath = java.nio.file.Files.createTempFile(tempDir, "restore_", ".sql");
+            File tempFile = tempPath.toFile();
+            file.transferTo(tempFile);
+            backupService.restoreDatabase(tempFile);
+            return ResponseEntity.ok("Restauración iniciada con éxito. El servidor se reiniciará en 1 segundo.");
+        } catch (Exception e) {
+            throw new InfrastructureException("Fallo en la restauración: " + e.getMessage(), e);
+        }
     }
 }

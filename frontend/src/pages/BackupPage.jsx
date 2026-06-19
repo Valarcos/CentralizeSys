@@ -10,6 +10,11 @@ export default function BackupPage() {
     const [loading, setLoading] = useState(true);
     const [userRole, setUserRole] = useState('');
 
+    // Reboot UX State
+    const [isRebooting, setIsRebooting] = useState(false);
+    const [rebootMessage, setRebootMessage] = useState('');
+    const [errorModalMessage, setErrorModalMessage] = useState('');
+
     // Modal State
     const [selectedBackup, setSelectedBackup] = useState(null);
     const [uploadFile, setUploadFile] = useState(null);
@@ -42,7 +47,7 @@ export default function BackupPage() {
         const groups = {};
 
         backupList.forEach(file => {
-            // Filename format: centralizesys_daily_20231025_1430.db
+            // Filename format: centralizesys_daily_20231025_1430.sql
             // We want to group by the timestamp part: 20231025_1430
             // Regex to extract timestamp: _(\d{8}_\d{4})\.
             const match = file.filename.match(/_(\d{8}_\d{4})\./);
@@ -58,13 +63,13 @@ export default function BackupPage() {
                     dateFormatted: new Date(file.date).toLocaleDateString(),
                     timeFormatted: new Date(file.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     typeDisplay: type,
-                    dbFile: null,
+                    sqlFile: null,
                     excelFile: null
                 };
             }
 
-            if (file.filename.endsWith('.db')) {
-                groups[key].dbFile = file.filename;
+            if (file.filename.endsWith('.sql')) {
+                groups[key].sqlFile = file.filename;
             } else if (file.filename.endsWith('.xlsx')) {
                 groups[key].excelFile = file.filename;
             }
@@ -108,10 +113,10 @@ export default function BackupPage() {
         }
     };
 
-    const handleDownloadBoth = async (dbFile, excelFile) => {
+    const handleDownloadBoth = async (sqlFile, excelFile) => {
         toast.promise(
             Promise.all([
-                handleDownload(dbFile),
+                handleDownload(sqlFile),
                 new Promise(resolve => setTimeout(() => resolve(handleDownload(excelFile)), 1000)) // Small delay to prevent browser block
             ]),
             {
@@ -132,8 +137,8 @@ export default function BackupPage() {
 
     const initiateUploadRestore = (file) => {
         if (!file) return;
-        if (!file.name.endsWith('.db')) {
-            toast.error('Solo se permiten archivos .db');
+        if (!file.name.endsWith('.sql')) {
+            toast.error('Solo se permiten archivos .sql');
             return;
         }
         setUploadFile(file);
@@ -153,33 +158,61 @@ export default function BackupPage() {
             return;
         }
 
-        try {
-            const loadingToast = toast.loading('Restaurando base de datos...');
-            setShowRestoreConfirm(false);
+        setShowRestoreConfirm(false);
+        const loadingToast = toast.loading('Iniciando restauración...');
 
+        try {
+            let requestPromise;
             if (uploadFile) {
-                // Upload Restore
                 const formData = new FormData();
                 formData.append('file', uploadFile);
-                await api.post('/api/backups/upload-restore', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' }
+                requestPromise = api.post('/api/backups/upload-restore', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    timeout: 0 // Infinite timeout for long restore processes
                 });
             } else {
-                // List Restore
-                await api.post(`/api/backups/restore/${selectedBackup}`);
+                requestPromise = api.post(`/api/backups/restore/${selectedBackup}`, null, { timeout: 0 });
             }
 
+            await requestPromise;
+
             toast.dismiss(loadingToast);
-            toast.success('Restauración completada. El sistema se reiniciará.');
-            // Force logout or reload
+            setRebootMessage('Reiniciando Sistema...');
+            setIsRebooting(true);
+
             setTimeout(() => {
-                window.location.href = '/';
-            }, 2000);
+                localStorage.clear();
+                window.location.href = '/login';
+            }, 20000);
 
         } catch (error) {
             console.error('Error restoring database:', error);
-            toast.dismiss();
-            toast.error(error.response?.data?.message || 'Error al restaurar base de datos');
+            toast.dismiss(loadingToast);
+
+            let errMsg = 'Error al restaurar base de datos';
+            if (error.response && error.response.data) {
+                errMsg = typeof error.response.data === 'string'
+                    ? error.response.data
+                    : (error.response.data.message || error.message);
+            } else if (error.message) {
+                errMsg = error.message;
+            }
+
+            // Si el servidor rechaza activamente por un error de cliente (Ej. 400 Archivo vacío),
+            // NO se está reiniciando, así que mostramos el error de inmediato.
+            if (error.response && error.response.status >= 400 && error.response.status < 500) {
+                setErrorModalMessage(errMsg);
+                return;
+            }
+
+            // Si es 500 o error de red, asumimos que el servidor ejecutó el restore y se reinició (halt).
+            setRebootMessage('Reiniciando para recuperarse...');
+            setIsRebooting(true);
+
+            setTimeout(() => {
+                setIsRebooting(false);
+                setErrorModalMessage(errMsg);
+            }, 20000);
         }
     };
 
@@ -202,7 +235,7 @@ export default function BackupPage() {
                             <input
                                 type="file"
                                 id="upload-backup"
-                                accept=".db"
+                                accept=".sql"
                                 style={{ display: 'none' }}
                                 onChange={handleFileChange}
                             />
@@ -228,76 +261,76 @@ export default function BackupPage() {
                 ) : (
                     <table className="backups-table">
                         <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Tipo</th>
-                                <th>Descargas Disponibles</th>
-                                {userRole === 'ADMIN' && <th>Admin</th>}
-                            </tr>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Descargas Disponibles</th>
+                            {userRole === 'ADMIN' && <th>Admin</th>}
+                        </tr>
                         </thead>
                         <tbody>
-                            {groupedBackups.map((group) => (
-                                <tr key={group.id}>
-                                    <td data-label="Fecha">
-                                        <strong>{group.dateFormatted}</strong>
-                                        <div style={{ fontSize: '0.9em', color: '#666' }}>
-                                            {group.timeFormatted}
-                                        </div>
-                                    </td>
-                                    <td data-label="Tipo">
-                                        {group.typeDisplay}
-                                    </td>
-                                    <td data-label="Descargas">
-                                        <div className="download-buttons-group">
-                                            {/* Download Both */}
-                                            {group.dbFile && group.excelFile && (
-                                                <button
-                                                    onClick={() => handleDownloadBoth(group.dbFile, group.excelFile)}
-                                                    className="btn-large btn-download-all"
-                                                    title="Descargar ambos archivos"
-                                                >
-                                                    ⬇️ DESCARGAR TODO
-                                                </button>
-                                            )}
+                        {groupedBackups.map((group) => (
+                            <tr key={group.id}>
+                                <td data-label="Fecha">
+                                    <strong>{group.dateFormatted}</strong>
+                                    <div style={{ fontSize: '0.9em', color: '#666' }}>
+                                        {group.timeFormatted}
+                                    </div>
+                                </td>
+                                <td data-label="Tipo">
+                                    {group.typeDisplay}
+                                </td>
+                                <td data-label="Descargas">
+                                    <div className="download-buttons-group">
+                                        {/* Download Both */}
+                                        {group.sqlFile && group.excelFile && (
+                                            <button
+                                                onClick={() => handleDownloadBoth(group.sqlFile, group.excelFile)}
+                                                className="btn-large btn-download-all"
+                                                title="Descargar ambos archivos"
+                                            >
+                                                ⬇️ DESCARGAR TODO
+                                            </button>
+                                        )}
 
-                                            {/* Excel Button */}
-                                            {group.excelFile && (
-                                                <button
-                                                    onClick={() => handleDownload(group.excelFile)}
-                                                    className="btn-large btn-excel"
-                                                    title="Descargar Excel"
-                                                >
-                                                    📊 EXCEL
-                                                </button>
-                                            )}
+                                        {/* Excel Button */}
+                                        {group.excelFile && (
+                                            <button
+                                                onClick={() => handleDownload(group.excelFile)}
+                                                className="btn-large btn-excel"
+                                                title="Descargar Excel"
+                                            >
+                                                📊 EXCEL
+                                            </button>
+                                        )}
 
-                                            {/* DB Button */}
-                                            {group.dbFile && (
-                                                <button
-                                                    onClick={() => handleDownload(group.dbFile)}
-                                                    className="btn-large btn-db"
-                                                    title="Descargar Base de Datos"
-                                                >
-                                                    🗄️ BD
-                                                </button>
-                                            )}
-                                        </div>
+                                        {/* SQL Button */}
+                                        {group.sqlFile && (
+                                            <button
+                                                onClick={() => handleDownload(group.sqlFile)}
+                                                className="btn-large btn-db"
+                                                title="Descargar Copia SQL"
+                                            >
+                                                🗄️ SQL
+                                            </button>
+                                        )}
+                                    </div>
+                                </td>
+                                {userRole === 'ADMIN' && (
+                                    <td data-label="Admin">
+                                        {group.sqlFile && (
+                                            <button
+                                                onClick={() => initiateRestore(group.sqlFile)}
+                                                className="btn-large btn-restore"
+                                                title="Restaurar sistema a este punto"
+                                            >
+                                                🔄 Restaurar
+                                            </button>
+                                        )}
                                     </td>
-                                    {userRole === 'ADMIN' && (
-                                        <td data-label="Admin">
-                                            {group.dbFile && (
-                                                <button
-                                                    onClick={() => initiateRestore(group.dbFile)}
-                                                    className="btn-large btn-restore"
-                                                    title="Restaurar sistema a este punto"
-                                                >
-                                                    🔄 Restaurar
-                                                </button>
-                                            )}
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
+                                )}
+                            </tr>
+                        ))}
                         </tbody>
                     </table>
                 )}
@@ -358,6 +391,36 @@ export default function BackupPage() {
                                 disabled={restoreConfirmationInput !== 'RESTAURAR'}
                             >
                                 EJECUTAR RESTAURACIÓN
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Rebooting Overlay */}
+            {isRebooting && (
+                <div className="modal-overlay" style={{ zIndex: 9999 }}>
+                    <div className="modal-content" style={{ textAlign: 'center' }}>
+                        <h2>⏳ {rebootMessage}</h2>
+                        <p>Por favor espere. El servidor se está reiniciando y aplicando los cambios. No cierre esta ventana.</p>
+                        <div className="spinner" style={{ margin: '20px auto', width: '40px', height: '40px', border: '4px solid #f3f3f3', borderTop: '4px solid #3498db', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                        <style>{`
+                            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                        `}</style>
+                    </div>
+                </div>
+            )}
+
+            {/* Persistent Error Modal */}
+            {errorModalMessage && (
+                <div className="modal-overlay" style={{ zIndex: 10000 }}>
+                    <div className="modal-content danger">
+                        <h2>❌ Error Crítico en Restauración</h2>
+                        <p>No se pudo completar la restauración. El sistema se reinició para recuperarse.</p>
+                        <p><strong>Detalles:</strong> {errorModalMessage}</p>
+                        <div className="modal-actions">
+                            <button onClick={() => setErrorModalMessage('')} className="button secondary">
+                                Cerrar y Volver a Intentar
                             </button>
                         </div>
                     </div>

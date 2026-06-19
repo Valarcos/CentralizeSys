@@ -60,7 +60,7 @@ class BackupControllerTest {
             // Path updated to /api/backups
             mockMvc.perform(post("/api/backups/restore/" + filename)
                             .param("confirm", "true"))
-                    .andExpect(status().isNotImplemented());
+                    .andExpect(status().isOk());
 
         } finally {
             SecurityContextHolder.clearContext();

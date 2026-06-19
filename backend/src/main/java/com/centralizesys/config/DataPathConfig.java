@@ -72,10 +72,5 @@ public class DataPathConfig {
         return resolve(relativePath).toString();
     }
 
-    /**
-     * Returns the absolute database URL for SQLite.
-     */
-    public static String getDatabaseUrl() {
-        return "jdbc:sqlite:" + resolveString("data/centralizesys.db");
-    }
+
 }

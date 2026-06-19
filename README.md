@@ -205,16 +205,7 @@ Cree **dos túneles**: uno para el backend y otro para el frontend.
 
 ---
 
-## 📂 ¿Dónde están mis datos? (Respaldos)
 
-A pesar de instalar muchas cosas, todo lo importante para el negocio (Ventas de años, cuentas, stock de productos, etc) se guarda físicamente en **UN SOLO ARCHIVO**.
-
-Ese archivo está ubicado en:
-`sinpen_thesis/data/centralizesys.db`
-
-Puede simplemente copiar y pegar ese archivo `.db` en un pen-drive para hacer su propio backup de toda su empresa. El sistema también cuenta con un módulo de Respaldos donde usted puede exportar este archivo sin salir del navegador.
-
----
 
 ## 📝 Stack y Tecnologías
 
@@ -228,3 +219,14 @@ Proyecto final de Tesis Universitaria.
 **Desarrollador**: Marcos Achaval
 **Email**: marcosachavalmbaj@gmail.com
 **GitHub**: [Valarcos](https://github.com/Valarcos)
+
+---
+
+## ⚠️ Known risks/possible dev problems
+
+1. **The Docker Exec PATH Concession:**
+   Local development relies on `docker exec centralizesys_postgres` to run `pg_dump` and `psql` within the Java `BackupService`. Si el nombre del contenedor de la base de datos cambia en el `docker-compose`, el código Java (`BackupService.java`) debe ser actualizado manualmente para reflejar este nuevo nombre.
+2. **The Hybrid Schema Risk:**
+   Restaurar un respaldo antiguo sobre una versión nueva de la aplicación (ej. después de agregar nuevas tablas) requiere administración manual de base de datos. Se eliminó la limpieza automatizada (DROP SCHEMA) desde Java para evitar deadlocks fatales. Los administradores deben lidiar con discrepancias de esquemas manualmente si realizan *rollbacks* a través de migraciones mayores.
+3. **The Single Transaction Flag:**
+   El proceso de restauración utiliza `--single-transaction`. Es perfectamente seguro para la base de datos actual (pequeña), pero si el volumen de datos escala masivamente en el futuro, inyectar una reconstrucción completa en una sola transacción puede causar agotamiento de memoria del *Write-Ahead Log (WAL)* en PostgreSQL.

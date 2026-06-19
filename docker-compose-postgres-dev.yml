@@ -26,7 +26,8 @@ services:
     volumes:
       # We map a named volume "postgres_data" to the internal PostgreSQL data directory.
       - postgres_data:/var/lib/postgresql/data
-      # Let PostgreSQL natively initialize the schema
+      # Let PostgreSQL natively initialize the schema and user
+      - ./backend/src/main/resources/init-user.sql:/docker-entrypoint-initdb.d/00-init-user.sql
       - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
 
 # Declare the named volume so Docker knows to create and manage it on your Windows host.

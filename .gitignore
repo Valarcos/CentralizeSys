@@ -81,7 +81,9 @@ desktop.ini
 ######## CREDENTIALS & ENV FILES #######
 .env
 .env.*
+!*.example
 !frontend/.env
+!frontend/.env.production
 # Exception: frontend/.env only has VITE_API_URL (non-secret)
 # If you add secrets, use frontend/.env.local instead
 

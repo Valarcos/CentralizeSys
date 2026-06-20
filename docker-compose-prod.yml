@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: centralizesys_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - centralizesys_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: centralizesys_backend
+    restart: always
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS:-604800000}
+      - CORS_ALLOWED_ORIGINS=https://mariaclosys.com.ar,https://www.mariaclosys.com.ar
+      # Ensure Spring Boot parses X-Forwarded-For headers from Caddy for correct IP auditing
+      - SERVER_FORWARD_HEADERS_STRATEGY=native
+      # Configure Spring Boot to connect to the 'db' container
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${DB_NAME}
+      # Required Java memory limits for Ampere A1 Free Tier to avoid OOM killer
+      # Note: We must use JAVA_TOOL_OPTIONS instead of JAVA_OPTS because the JVM
+      # natively picks this up without needing to alter the Dockerfile ENTRYPOINT.
+      - JAVA_TOOL_OPTIONS=-Xms512m -Xmx1g
+    depends_on:
+      - db
+    networks:
+      - centralizesys_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: centralizesys_frontend
+    restart: always
+    depends_on:
+      - backend
+    networks:
+      - centralizesys_net
+
+  proxy:
+    image: caddy:2-alpine
+    container_name: centralizesys_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - centralizesys_net
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  centralizesys_net:
+    driver: bridge

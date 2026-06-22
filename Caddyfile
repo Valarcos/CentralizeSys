@@ -1,0 +1,11 @@
+mariaclosys.com.ar, www.mariaclosys.com.ar {
+	# Proxy all /api requests to the Spring Boot backend
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	# Proxy all other requests to the Nginx serving the React frontend
+	handle {
+		reverse_proxy frontend:80
+	}
+}

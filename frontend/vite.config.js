@@ -8,6 +8,13 @@ export default defineConfig({
         strictPort: false,
         host: true,
         allowedHosts: ['.trycloudflare.com'],
+        proxy: {
+            '/api': {
+                target: 'http://localhost:8080',
+                changeOrigin: true,
+                secure: false,
+            }
+        }
     },
     build: {
         outDir: 'dist',

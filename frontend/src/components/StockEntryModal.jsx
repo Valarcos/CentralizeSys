@@ -33,7 +33,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
         // Fetch Locations
         const fetchLocations = async () => {
             try {
-                const res = await api.get('/api/locations');
+                const res = await api.get('/locations');
                 setLocations(res.data);
                 // Default to empty so user must select
             } catch (err) {
@@ -52,7 +52,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                 return;
             }
             try {
-                const res = await api.get('/api/productos', { params: { search: searchQuery, size: 20 } });
+                const res = await api.get('/productos', { params: { search: searchQuery, size: 20 } });
                 setSearchResults(res.data.content);
             } catch (err) {
                 console.error(err);
@@ -196,7 +196,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                 }))
             };
 
-            await api.post('/api/compras', payload);
+            await api.post('/compras', payload);
             toast.success("Ingreso Registrado Correctamente");
             onSuccess();
         } catch (error) {

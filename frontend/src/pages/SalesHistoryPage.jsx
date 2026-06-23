@@ -68,7 +68,7 @@ export default function SalesHistoryPage() {
                 endDate
             };
 
-            const res = await api.get('/api/ventas', { params });
+            const res = await api.get('/ventas', { params });
             // New PageResponse structure
             setSales(res.data.content);
             setTotalPages(res.data.totalPages);
@@ -83,7 +83,7 @@ export default function SalesHistoryPage() {
 
     const handleOpenDetails = async (saleId) => {
         try {
-            const res = await api.get(`/api/ventas/${saleId}`);
+            const res = await api.get(`/ventas/${saleId}`);
             setSelectedSale(res.data);
         } catch (error) {
             console.error("Error fetching sale details", error);

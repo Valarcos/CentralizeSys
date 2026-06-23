@@ -15,7 +15,7 @@ export default function LocationManagementModal({ onClose, onLocationAdded }) {
     const fetchLocations = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/api/locations');
+            const response = await api.get('/locations');
             setLocations(response.data);
         } catch (error) {
             console.error('Error fetching locations:', error);
@@ -37,7 +37,7 @@ export default function LocationManagementModal({ onClose, onLocationAdded }) {
 
         try {
             setSubmitting(true);
-            const response = await api.post('/api/locations', { nombre: newLocationName });
+            const response = await api.post('/locations', { nombre: newLocationName });
             toast.success('Estantería agregada correctamente');
             setNewLocationName('');
             fetchLocations(); // Refresh list in modal

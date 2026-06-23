@@ -103,7 +103,7 @@ export default function VentaPage() {
     useEffect(() => {
         const fetchClients = async () => {
             try {
-                const res = await api.get('/api/ventas/clientes');
+                const res = await api.get('/ventas/clientes');
                 setAvailableClients(res.data);
             } catch (err) {
                 console.error("Error loading clients", err);
@@ -170,7 +170,7 @@ export default function VentaPage() {
         try {
             // Re-fetch all products
             // Issue #14 Fix: Correct endpoint is /api/productos, which returns a paginated response
-            const res = await api.get('/api/productos');
+            const res = await api.get('/productos');
             const productsList = res.data.content || [];
             if (productsList.length > 0) {
                 const groupedList = groupProducts(productsList);
@@ -261,7 +261,7 @@ export default function VentaPage() {
                 }))
             };
 
-            const response = await api.post('/api/ventas', saleData);
+            const response = await api.post('/ventas', saleData);
             toast.success("Venta registrada con éxito");
 
             // Check for alerts (Negative Stock warning from backend)
@@ -311,7 +311,7 @@ export default function VentaPage() {
     useEffect(() => {
         const fetchPaymentMethods = async () => {
             try {
-                const res = await api.get('/api/ventas/metodos-pago');
+                const res = await api.get('/ventas/metodos-pago');
                 setPaymentMethods(res.data);
             } catch (error) {
                 console.error("Error fetching payment methods:", error);
@@ -331,7 +331,7 @@ export default function VentaPage() {
                 // .cursorrules says "Search" does LIMIT 100.
                 if (searchQuery) params.search = searchQuery;
 
-                const response = await api.get('/api/productos', { params });
+                const response = await api.get('/productos', { params });
                 setProducts(groupProducts(response.data.content || []));
             } catch (error) {
                 console.error("Error fetching products:", error);

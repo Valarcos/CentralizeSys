@@ -54,7 +54,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
 
     const loadUbicaciones = async () => {
         try {
-            const response = await api.get('/api/locations');
+            const response = await api.get('/locations');
             setUbicaciones(response.data);
             // Auto-select first location if only one exists
             if (response.data.length === 1) {
@@ -83,7 +83,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
 
         setIsLoadingCode(true);
         try {
-            const res = await api.get(`/api/productos/familia/${encodeURIComponent(code)}`);
+            const res = await api.get(`/productos/familia/${encodeURIComponent(code)}`);
             const family = res.data;
 
             if (family && family.length > 0) {
@@ -203,11 +203,11 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
 
             let savedProduct;
             if (isEditing) {
-                const res = await api.put(`/api/productos/${product.id}`, payload);
+                const res = await api.put(`/productos/${product.id}`, payload);
                 savedProduct = res.data;
                 toast.success('Producto actualizado correctamente');
             } else {
-                const res = await api.post('/api/productos', payload);
+                const res = await api.post('/productos', payload);
                 savedProduct = res.data;
                 toast.success('Producto creado correctamente');
             }

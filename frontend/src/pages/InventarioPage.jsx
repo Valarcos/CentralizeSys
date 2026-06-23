@@ -63,7 +63,7 @@ export default function InventarioPage() {
                 params.size = 15; // Updated to 15 per user request
             }
 
-            const response = await api.get('/api/productos', { params });
+            const response = await api.get('/productos', { params });
 
             // Unified Response: Always PageResponse
             setProducts(response.data.content);
@@ -147,7 +147,7 @@ export default function InventarioPage() {
         if (!deletingProduct || isDeleting) return;
         try {
             setIsDeleting(true);
-            await api.delete(`/api/productos/${deletingProduct.id}`);
+            await api.delete(`/productos/${deletingProduct.id}`);
             toast.success('Producto eliminado correctamente');
             setShowDeleteModal(false);
             setDeletingProduct(null);

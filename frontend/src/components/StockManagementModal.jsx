@@ -34,8 +34,8 @@ export default function StockManagementModal({ product, onClose, onSuccess, allo
             try {
                 setLoading(true);
                 const [stockRes, locationsRes] = await Promise.all([
-                    api.get(`/api/stock/producto/${product.id}`),
-                    api.get('/api/locations')
+                    api.get(`/stock/producto/${product.id}`),
+                    api.get('/locations')
                 ]);
                 setStockLocations(stockRes.data);
                 setAllLocations(locationsRes.data);
@@ -57,7 +57,7 @@ export default function StockManagementModal({ product, onClose, onSuccess, allo
     // Refresh stock after adjustment
     const refreshStock = async () => {
         try {
-            const response = await api.get(`/api/stock/producto/${product.id}`);
+            const response = await api.get(`/stock/producto/${product.id}`);
             setStockLocations(response.data);
         } catch (error) {
             console.error('Error refreshing stock:', error);

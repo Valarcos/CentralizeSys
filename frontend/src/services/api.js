@@ -42,7 +42,17 @@ api.interceptors.response.use(
             localStorage.removeItem('jwt');
             localStorage.removeItem('userEmail');
             localStorage.removeItem('userName');
-            window.location.href = '/login';
+
+            // Persist the error message so it survives the hard page reload.
+            // LoginPage reads and clears this on mount to show a toast to the user.
+            sessionStorage.setItem('pendingAuthError', String(message));
+
+            // Guard: only redirect if NOT already on /login to prevent a silent
+            // self-reload loop (which was destroying the toast and wiping the form).
+            if (window.location.pathname !== '/login') {
+                console.error('[api.js] 401 received — redirecting to login. URI that triggered it:', error.config?.url);
+                window.location.href = '/login';
+            }
         }
 
         return Promise.reject(error);

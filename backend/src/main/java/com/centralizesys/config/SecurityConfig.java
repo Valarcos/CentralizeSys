@@ -1,6 +1,7 @@
 package com.centralizesys.config;
 
 import com.centralizesys.security.JwtAuthenticationFilter;
+import com.centralizesys.security.LoggingAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,9 +30,12 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final LoggingAuthenticationEntryPoint loggingAuthenticationEntryPoint;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          LoggingAuthenticationEntryPoint loggingAuthenticationEntryPoint) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.loggingAuthenticationEntryPoint = loggingAuthenticationEntryPoint;
     }
 
     /**
@@ -63,10 +67,10 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
 
-                // Return 401 Unauthorized instead of 403 Forbidden for unauthenticated requests
-                .exceptionHandling(e -> e.authenticationEntryPoint(
-                        (request, response, authException) -> response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized")
-                ))
+                // Return 401 Unauthorized instead of 403 Forbidden for unauthenticated requests.
+                // Uses LoggingAuthenticationEntryPoint to produce a structured WARN log entry
+                // in app.log for every rejected request (URI, IP, and reason are captured).
+                .exceptionHandling(e -> e.authenticationEntryPoint(loggingAuthenticationEntryPoint))
 
                 // FORCE Stateless: Spring will *never* create a session.
                 // All auth state must come from the JWT for every request.

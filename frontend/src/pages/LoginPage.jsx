@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -9,6 +9,17 @@ export default function LoginPage() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+
+    // Display any error message that was persisted by the 401 interceptor
+    // before it triggered a hard page redirect. This is the only mechanism
+    // that survives a full page reload and guarantees the user sees the failure reason.
+    useEffect(() => {
+        const pendingError = sessionStorage.getItem('pendingAuthError');
+        if (pendingError) {
+            sessionStorage.removeItem('pendingAuthError');
+            toast.error(pendingError);
+        }
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -26,7 +37,10 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            const response = await api.post('/api/auth/login', { email, password });
+            // IMPORTANT: baseURL is already '/api' (from .env.production).
+            // The path here must NOT repeat the '/api' prefix, or Caddy will
+            // route to '/api/api/auth/login', which Spring Security rejects as 401.
+            const response = await api.post('/auth/login', { email, password });
             const { token, email: userEmail, nombre, rol } = response.data;
 
             localStorage.setItem('jwt', token);

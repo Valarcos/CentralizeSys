@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import LogoutModal from '../components/LogoutModal';
+import api from '../services/api';
 import './AppLayout.css';
 
 export default function AppLayout() {
@@ -18,12 +19,18 @@ export default function AppLayout() {
         setUserRole(localStorage.getItem('userRole') || 'EMPLEADO');
     }, []);
 
-    const handleLogout = () => {
-        localStorage.removeItem('jwt');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userRole');
-        navigate('/login');
+    const handleLogout = async () => {
+        try {
+            await api.post('/auth/logout');
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            localStorage.removeItem('jwt');
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userRole');
+            navigate('/login');
+        }
     };
 
     const isActive = (path) => location.pathname.startsWith(path);

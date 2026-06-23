@@ -16,7 +16,7 @@ export default function DashboardPage() {
 
     const refreshNegativeStock = async () => {
         try {
-            const stockRes = await api.get('/api/productos/alerts');
+            const stockRes = await api.get('/productos/alerts');
             const data = stockRes.data && stockRes.data.length > 0 ? stockRes.data : [];
             setNegativeStockProducts(data);
             if (data.length === 0) {
@@ -34,10 +34,10 @@ export default function DashboardPage() {
         const fetchDashboardData = async () => {
             try {
                 const [stockRes, backupRes, reminderRes, systemRes] = await Promise.all([
-                    api.get('/api/productos/alerts'),
-                    api.get('/api/backups/last').catch(() => ({ data: null })),
-                    api.get('/api/deudores/reminder').catch(() => ({ data: false })),
-                    api.get('/api/system/alerts').catch(() => ({ data: { alerts: [] } }))
+                    api.get('/productos/alerts'),
+                    api.get('/backups/last').catch(() => ({ data: null })),
+                    api.get('/deudores/reminder').catch(() => ({ data: false })),
+                    api.get('/system/alerts').catch(() => ({ data: { alerts: [] } }))
                 ]);
 
                 // Negative Stock Alerts — banner shows whenever there are negative products

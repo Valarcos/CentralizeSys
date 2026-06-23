@@ -32,7 +32,7 @@ export default function BackupPage() {
     const fetchBackups = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/api/backups');
+            const response = await api.get('/backups');
             setBackups(response.data);
             processGrouping(response.data);
         } catch (error) {
@@ -85,7 +85,7 @@ export default function BackupPage() {
 
     const handleCreateBackup = async () => {
         try {
-            await api.post('/api/backups/create');
+            await api.post('/backups/create');
             toast.success('Respaldo creado correctamente');
             fetchBackups();
         } catch (error) {
@@ -96,7 +96,7 @@ export default function BackupPage() {
 
     const handleDownload = async (filename) => {
         try {
-            const response = await api.get(`/api/backups/download/${filename}`, {
+            const response = await api.get(`/backups/download/${filename}`, {
                 responseType: 'blob'
             });
 
@@ -166,12 +166,12 @@ export default function BackupPage() {
             if (uploadFile) {
                 const formData = new FormData();
                 formData.append('file', uploadFile);
-                requestPromise = api.post('/api/backups/upload-restore', formData, {
+                requestPromise = api.post('/backups/upload-restore', formData, {
                     headers: { 'Content-Type': 'multipart/form-data' },
                     timeout: 0 // Infinite timeout for long restore processes
                 });
             } else {
-                requestPromise = api.post(`/api/backups/restore/${selectedBackup}`, null, { timeout: 0 });
+                requestPromise = api.post(`/backups/restore/${selectedBackup}`, null, { timeout: 0 });
             }
 
             await requestPromise;

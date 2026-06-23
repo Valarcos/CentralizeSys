@@ -11,7 +11,7 @@ export default function SalesDetailModal({ sale, onClose, printMode = 'ticket', 
     useEffect(() => {
         const fetchPaymentMethods = async () => {
             try {
-                const res = await api.get('/api/ventas/metodos-pago');
+                const res = await api.get('/ventas/metodos-pago');
                 setPaymentMethods(res.data);
             } catch (error) {
                 console.error("Error fetching payment methods", error);
@@ -59,7 +59,7 @@ export default function SalesDetailModal({ sale, onClose, printMode = 'ticket', 
     const handlePrintDeuda = async () => {
         if (!sale || !debtorInfo) return;
         try {
-            const pagosRes = await api.get(`/api/deudores/${debtorInfo.id}/pagos`);
+            const pagosRes = await api.get(`/deudores/${debtorInfo.id}/pagos`);
             const pagos = pagosRes.data;
             const methods = paymentMethods;
 

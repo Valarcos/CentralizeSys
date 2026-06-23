@@ -75,10 +75,10 @@ export default function UserFormModal({ user, onSuccess, onCancel }) {
                 if (formData.password.trim()) updateData.password = formData.password;
                 if (formData.rol !== user.rol) updateData.rol = formData.rol;
 
-                await api.put(`/api/usuarios/${user.id}`, updateData);
+                await api.put(`/usuarios/${user.id}`, updateData);
                 toast.success('Usuario actualizado correctamente');
             } else {
-                await api.post('/api/usuarios/register', {
+                await api.post('/usuarios/register', {
                     nombre: formData.nombre,
                     email: formData.email,
                     password: formData.password

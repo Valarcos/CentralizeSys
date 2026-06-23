@@ -46,7 +46,7 @@ export default function DebtorsPage() {
 
     const fetchDebtors = async () => {
         try {
-            const response = await api.get('/api/deudores');
+            const response = await api.get('/deudores');
             setDebtors(response.data);
         } catch (error) {
             console.error(error);
@@ -58,7 +58,7 @@ export default function DebtorsPage() {
 
     const fetchPaymentMethods = async () => {
         try {
-            const res = await api.get('/api/ventas/metodos-pago');
+            const res = await api.get('/ventas/metodos-pago');
             setPaymentMethods(res.data);
         } catch (error) {
             console.error("Error loading payment methods:", error);
@@ -122,7 +122,7 @@ export default function DebtorsPage() {
                 observaciones: p.observaciones
             }));
 
-            await api.post(`/api/deudores/${selectedDebtor.id}/pagar`, payload);
+            await api.post(`/deudores/${selectedDebtor.id}/pagar`, payload);
 
             toast.success("Pago registrado con éxito");
             setShowPayModal(false);
@@ -144,7 +144,7 @@ export default function DebtorsPage() {
     const handleViewDetails = async (debtor) => {
         setIsLoadingSale(true);
         try {
-            const response = await api.get(`/api/ventas/${debtor.ventaId}`);
+            const response = await api.get(`/ventas/${debtor.ventaId}`);
             setViewSale(response.data);
             setViewDebtor(debtor);
         } catch (error) {
@@ -159,9 +159,9 @@ export default function DebtorsPage() {
         try {
             // Fetch sale details + debtor payment history in parallel
             const [saleRes, pagosRes, methodsRes] = await Promise.all([
-                api.get(`/api/ventas/${debtor.ventaId}`),
-                api.get(`/api/deudores/${debtor.id}/pagos`),
-                paymentMethods.length > 0 ? Promise.resolve({ data: paymentMethods }) : api.get('/api/ventas/metodos-pago')
+                api.get(`/ventas/${debtor.ventaId}`),
+                api.get(`/deudores/${debtor.id}/pagos`),
+                paymentMethods.length > 0 ? Promise.resolve({ data: paymentMethods }) : api.get('/ventas/metodos-pago')
             ]);
 
             const sale = saleRes.data;
@@ -216,60 +216,60 @@ export default function DebtorsPage() {
                 <div className="table-responsive">
                     <table className="history-table">
                         <thead>
-                            <tr>
-                                <th>Cliente</th>
-                                <th>ID Venta</th>
-                                <th>Fecha Deuda</th>
-                                <th>Monto Original</th>
-                                <th>Deuda Actual</th>
-                                <th>Último Pago</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>ID Venta</th>
+                            <th>Fecha Deuda</th>
+                            <th>Monto Original</th>
+                            <th>Deuda Actual</th>
+                            <th>Último Pago</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
                         </thead>
                         <tbody>
-                            {debtors.map(d => (
-                                <tr key={d.id}>
-                                    <td data-label="Cliente">{d.clienteNombre}</td>
-                                    <td data-label="ID Venta">#{d.ventaId}</td>
-                                    <td data-label="Fecha Deuda">{formatDate(d.fechaDeuda)}</td>
-                                    <td data-label="Monto Original" className="amount-cell">{formatCurrency(d.montoOriginal)}</td>
-                                    <td data-label="Deuda Actual" className="amount-cell" style={{ fontWeight: 'bold', color: '#dc2626' }}>
-                                        {formatCurrency(d.montoDeuda)}
-                                    </td>
-                                    <td data-label="Último Pago">{d.fechaUltimoPago ? formatDate(d.fechaUltimoPago) : '-'}</td>
-                                    <td data-label="Estado">
+                        {debtors.map(d => (
+                            <tr key={d.id}>
+                                <td data-label="Cliente">{d.clienteNombre}</td>
+                                <td data-label="ID Venta">#{d.ventaId}</td>
+                                <td data-label="Fecha Deuda">{formatDate(d.fechaDeuda)}</td>
+                                <td data-label="Monto Original" className="amount-cell">{formatCurrency(d.montoOriginal)}</td>
+                                <td data-label="Deuda Actual" className="amount-cell" style={{ fontWeight: 'bold', color: '#dc2626' }}>
+                                    {formatCurrency(d.montoDeuda)}
+                                </td>
+                                <td data-label="Último Pago">{d.fechaUltimoPago ? formatDate(d.fechaUltimoPago) : '-'}</td>
+                                <td data-label="Estado">
                                         <span className={`status-pill status-${d.estado?.toLowerCase()}`}>
                                             {d.estado}
                                         </span>
-                                    </td>
-                                    <td data-label="Acciones">
-                                        <div className="action-buttons">
-                                            <button
-                                                className="btn-details"
-                                                onClick={() => handleViewDetails(d)}
-                                                disabled={isLoadingSale}
-                                            >
-                                                👁️ Ver Detalle
+                                </td>
+                                <td data-label="Acciones">
+                                    <div className="action-buttons">
+                                        <button
+                                            className="btn-details"
+                                            onClick={() => handleViewDetails(d)}
+                                            disabled={isLoadingSale}
+                                        >
+                                            👁️ Ver Detalle
+                                        </button>
+                                        <button
+                                            className="btn-print"
+                                            onClick={() => handlePrintDebtor(d)}
+                                        >
+                                            🖨️ Imprimir Deuda
+                                        </button>
+                                        {d.montoDeuda > 0 && (
+                                            <button className="btn-pay" onClick={() => handleOpenPayment(d)}>
+                                                💰 Registrar Pago
                                             </button>
-                                            <button
-                                                className="btn-print"
-                                                onClick={() => handlePrintDebtor(d)}
-                                            >
-                                                🖨️ Imprimir Deuda
-                                            </button>
-                                            {d.montoDeuda > 0 && (
-                                                <button className="btn-pay" onClick={() => handleOpenPayment(d)}>
-                                                    💰 Registrar Pago
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            {debtors.length === 0 && (
-                                <tr><td colSpan="8" style={{ textAlign: 'center' }}>No hay deudores registrados.</td></tr>
-                            )}
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                        {debtors.length === 0 && (
+                            <tr><td colSpan="8" style={{ textAlign: 'center' }}>No hay deudores registrados.</td></tr>
+                        )}
                         </tbody>
                     </table>
                 </div>

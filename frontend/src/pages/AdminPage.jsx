@@ -19,7 +19,7 @@ export default function AdminPage() {
     const fetchUsers = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await api.get('/api/usuarios');
+            const response = await api.get('/usuarios');
             setUsers(response.data);
         } catch (error) {
             console.error('Error fetching users:', error);
@@ -59,7 +59,7 @@ export default function AdminPage() {
 
         try {
             setIsDeleting(true);
-            await api.delete(`/api/usuarios/${deletingUser.id}`);
+            await api.delete(`/usuarios/${deletingUser.id}`);
             toast.success('Usuario eliminado correctamente');
             setShowDeleteModal(false);
             setDeletingUser(null);

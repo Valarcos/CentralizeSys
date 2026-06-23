@@ -13,7 +13,7 @@ export default function StockWarningModal({ affectedProducts, onClose, onContinu
     useEffect(() => {
         if (editingProduct) {
             setLoadingLocs(true);
-            api.get(`/api/stock/producto/${editingProduct.id}`)
+            api.get(`/stock/producto/${editingProduct.id}`)
                 .then(res => {
                     setLocations(res.data);
                     // Issue #9 fix: use ubicacionId (FK to ubicaciones), NOT id (the stock_por_ubicacion row PK)
@@ -34,7 +34,7 @@ export default function StockWarningModal({ affectedProducts, onClose, onContinu
         }
 
         try {
-            await api.post('/api/stock/add', {
+            await api.post('/stock/add', {
                 productoId: editingProduct.id,
                 ubicacionId: parseInt(selectedLocation),
                 cantidad: parseInt(adjustQuantity)

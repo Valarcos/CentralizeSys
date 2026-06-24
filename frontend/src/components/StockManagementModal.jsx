@@ -79,7 +79,7 @@ export default function StockManagementModal({ product, onClose, onSuccess, allo
     const executeAdjust = async (qty, locationId, op) => {
         try {
             setAdjusting(true);
-            const endpoint = op === 'add' ? '/api/stock/add' : '/api/stock/subtract';
+            const endpoint = op === 'add' ? '/stock/add' : '/stock/subtract';
 
             await api.post(endpoint, {
                 productoId: product.id,

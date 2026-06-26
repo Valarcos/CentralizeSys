@@ -1,19 +1,28 @@
 .history-page {
-    padding: 2rem;
     background-color: var(--background-color);
+    /* Relies on AppLayout .main-content padding */
 }
 
 .history-header-column {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 0.5rem;
     margin-bottom: 1.5rem;
+}
+
+.history-header-column h1 {
+    margin-bottom: 0;
 }
 
 .date-filters-row {
     display: flex;
-    gap: 2rem;
-    align-items: center;
+    gap: 1rem;
+    align-items: flex-end; /* Aligns the button text to the input text baselines */
+    flex-wrap: wrap;
+}
+
+.date-filter {
+    margin-bottom: 0;
 }
 
 .pagination-row {
@@ -129,25 +138,45 @@
     color: var(--text-color);
 }
 
-.btn-details {
-    padding: 0.4rem 0.8rem;
-    background-color: var(--color-primary);
-    color: white;
+.btn-details,
+.btn-pay,
+.btn-print,
+.btn-delete {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+    min-height: 40px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    color: white;
+    font-weight: 600;
+    transition: background-color 0.2s, opacity 0.2s;
+    white-space: nowrap;
 }
 
-.btn-pay {
-    padding: 0.4rem 0.8rem;
-    background-color: var(--color-success);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
+.btn-details:disabled,
+.btn-pay:disabled,
+.btn-print:disabled,
+.btn-delete:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
+
+.btn-details { background-color: var(--color-primary); }
+.btn-details:hover:not(:disabled) { background-color: #003366; }
+
+.btn-pay { background-color: var(--color-success); }
+.btn-pay:hover:not(:disabled) { background-color: #005c32; }
+
+.btn-print { background-color: #3b82f6; }
+.btn-print:hover:not(:disabled) { background-color: #2563eb; }
+
+.btn-delete { background-color: var(--color-error); }
+.btn-delete:hover:not(:disabled) { background-color: #b91c1c; }
 
 .status-pill {
     padding: 0.25rem 0.5rem;
@@ -157,39 +186,33 @@
     text-transform: uppercase;
 }
 
-.status-pagado {
-    background-color: #d1fae5;
-    color: #065f46;
-}
+.status-pagado { background-color: #d1fae5; color: #065f46; }
+.status-parcial { background-color: #fef3c7; color: #92400e; }
+.status-pendiente { background-color: #fee2e2; color: #b91c1c; }
 
-.status-parcial {
-    background-color: #fef3c7;
-    color: #92400e;
-}
-
-.status-pendiente {
-    background-color: #fee2e2;
-    color: #b91c1c;
-}
-
-.btn-print {
-    padding: 0.6rem 1.2rem;
-    background-color: #3b82f6;
-    color: white;
-    border: 1px solid #2563eb;
-    border-radius: 6px;
-    font-size: 1rem;
-    cursor: pointer;
-    font-weight: bold;
+.action-buttons {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 0.5rem;
-    transition: background-color 0.2s;
+    align-items: stretch; /* Stretch rows to match the widest one */
+    width: fit-content;
+    margin: 0 auto; /* Center the buttons inside the cell */
 }
 
-.btn-print:hover {
-    background-color: #2563eb;
+.action-buttons-row {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 0.5rem;
+    width: 100%;
 }
+
+.action-buttons-row button {
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+}
+
 
 /* Responsive Table & Cards (Adapted from InventarioPage.css) */
 @media (max-width: 768px) {
@@ -304,9 +327,15 @@
 
     .action-buttons {
         display: flex;
-        justify-content: flex-end;
+        flex-direction: column;
         gap: 0.5rem;
         width: 100%;
+    }
+
+    .action-buttons-row {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
     }
 
     .amount-cell {

@@ -50,7 +50,7 @@ public class AuditoriaRepository {
         String sql = """
                     SELECT * FROM auditoria
                     WHERE fecha_hora BETWEEN :start AND :end
-                    ORDER BY fecha_hora DESC
+                    ORDER BY fecha_hora DESC, id DESC
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
@@ -61,7 +61,7 @@ public class AuditoriaRepository {
     }
 
     public List<Auditoria> findAll() {
-        String sql = "SELECT * FROM auditoria ORDER BY fecha_hora DESC";
+        String sql = "SELECT * FROM auditoria ORDER BY fecha_hora DESC, id DESC";
         return namedJdbcTemplate.query(sql, rowMapper);
     }
 }

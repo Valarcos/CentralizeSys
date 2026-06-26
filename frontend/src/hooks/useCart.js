@@ -136,6 +136,39 @@ export default function useCart() {
         return { isValid: true };
     }, [cartItems]);
 
+    const loadCartFromPendingSale = useCallback((sale, availableMethods) => {
+        setClientName(sale.clienteNombre || '');
+        setSaleState(sale.tipoVenta || 'MINORISTA');
+        setGlobalDiscount(sale.descuentoGlobal || 0);
+
+        const mappedItems = (sale.items || []).map(d => ({
+            product: {
+                id: d.productoId || d.id, // Fallback if needed
+                codigo: d.productoCodigo || d.codigoSnapshot || 'N/A',
+                descripcion: d.productoNombre || d.descripcionSnapshot || 'Desconocido',
+                cantidadStock: 9999, // Bypass initial strict check until real products load
+                precioCosto: d.costoSnapshot || 0,
+                precioMinorista: d.precioUnitario,
+                precioMayorista: d.precioUnitario
+            },
+            quantity: d.cantidad,
+            unitPrice: d.precioUnitario,
+            discount: d.descuentoValor || 0
+        }));
+        setCartItems(mappedItems);
+
+        const mappedPayments = (sale.pagos || []).map(p => {
+            const method = availableMethods.find(m => m.id === p.metodoPagoId);
+            return {
+                id: p.id,
+                methodId: p.metodoPagoId,
+                name: method ? method.descripcion : 'Pago Registrado',
+                amount: p.monto
+            };
+        });
+        setPayments(mappedPayments);
+    }, []);
+
     return {
         cartItems,
         clientName,
@@ -154,6 +187,7 @@ export default function useCart() {
         addPaymentMethod,
         removePaymentMethod,
         totals,
-        validateSale
+        validateSale,
+        loadCartFromPendingSale
     };
 }

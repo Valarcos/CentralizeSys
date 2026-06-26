@@ -1,6 +1,6 @@
 /* Admin Page Styles */
 .admin-page {
-    padding: var(--spacing-lg);
+    /* Relies on AppLayout .main-content padding */
 }
 
 .admin-header {

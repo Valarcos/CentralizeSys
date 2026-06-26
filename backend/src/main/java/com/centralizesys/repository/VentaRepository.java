@@ -44,7 +44,8 @@ public class VentaRepository {
                 rs.getDouble("total_venta"),
                 rs.getDouble("descuento_global"), // NEW
                 rs.getString("tipo_venta"), // NEW
-                usuarioId);
+                usuarioId,
+                rs.getString("estado"));
     };
 
     // We now map directly to the simplified numeric-only constructor.
@@ -205,5 +206,12 @@ public class VentaRepository {
     public List<String> findDistinctClientNames() {
         String sql = "SELECT DISTINCT cliente_nombre FROM ventas WHERE cliente_nombre IS NOT NULL AND cliente_nombre != '' ORDER BY cliente_nombre";
         return jdbcTemplate.queryForList(sql, String.class);
+    }
+
+    public void updateEstado(Long ventaId, String estado) {
+        String sql = "UPDATE ventas SET estado = :estado WHERE id = :id";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("estado", estado)
+                .addValue("id", ventaId));
     }
 }

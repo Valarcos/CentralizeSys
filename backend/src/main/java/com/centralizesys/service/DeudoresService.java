@@ -54,7 +54,7 @@ public class DeudoresService {
         double saldoFinal = Math.round(rawNewBalance * 100.0) / 100.0;
 
         // 3. DYNAMIC STATE RECALCULATION
-        DebtStatus nuevoEstado = calculateStatus(saldoFinal);
+        DebtStatus nuevoEstado = calculateStatus(saldoFinal, deuda.getMontoOriginal());
 
         // 4. Persist Updates
         repository.updateMontoAndEstado(id, saldoFinal, nuevoEstado.name());
@@ -84,22 +84,20 @@ public class DeudoresService {
      * This ensures the DB state never gets "stuck" in PAGADO if money is still
      * owed.
      */
-    private DebtStatus calculateStatus(Double currentDebt) {
+    private DebtStatus calculateStatus(Double currentDebt, Double originalDebt) {
         // Floating point safety check (0.01 margin)
         if (currentDebt <= 0.01) {
             return DebtStatus.PAGADO;
+        } else if (originalDebt != null && Math.abs(currentDebt - originalDebt) <= 0.01) {
+            return DebtStatus.PENDIENTE;
         } else {
-            // If we had the original total, we could distinguish PENDIENTE (0 paid)
-            // vs PARCIAL (some paid), but for now, anything > 0 is pending/partial.
-            // We default to PARCIAL as it implies "Not yet paid".
-            // You can add logic here: if currentDebt == originalDebt -> PENDIENTE.
             return DebtStatus.PARCIAL;
         }
     }
 
     /**
-     * Check if there are any active (non-PAGADO) debts.
-     * Used by frontend for 15-day reminder badge.
+     * Check if there are any active debts OR open pending sales.
+     * Used by the frontend dashboard reminder badge for the CobrosYPedidos page.
      */
     public boolean hasActiveDebts() {
         return repository.hasActiveDebts();
@@ -117,5 +115,41 @@ public class DeudoresService {
 
     public List<PagoDeuda> getPagos(Long id) {
         return repository.getPagosByDeudaId(id);
+    }
+
+    @Transactional
+    public void anularPago(Long pagoId) {
+        // 1. Fetch payment
+        PagoDeuda pago = repository.findPagoById(pagoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Pago", pagoId));
+
+        if (pago.getAnulado() != null && pago.getAnulado()) {
+            throw new BusinessRuleException("El pago ya ha sido anulado.");
+        }
+
+        // 2. Fetch debt
+        DeudaResponse deuda = repository.findById(pago.getDeudaId())
+                .orElseThrow(() -> new ResourceNotFoundException("Deuda", pago.getDeudaId()));
+
+        if ("ANULADA".equals(deuda.getEstado())) {
+            throw new BusinessRuleException("No se puede anular un pago de una deuda ya anulada.");
+        }
+
+        // 3. Revert Balance
+        double saldoActual = deuda.getMontoDeuda();
+        double rawNewBalance = saldoActual + pago.getMonto();
+        double saldoFinal = Math.round(rawNewBalance * 100.0) / 100.0;
+
+        // 4. Recalculate State
+        DebtStatus nuevoEstado = calculateStatus(saldoFinal, deuda.getMontoOriginal());
+
+        // 5. Update DB
+        repository.updatePagoAnulado(pagoId);
+        repository.updateMontoAndEstado(deuda.getId(), saldoFinal, nuevoEstado.name());
+
+        // 6. Audit
+        Long currentUserId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
+        auditoriaService.registrarAccion(currentUserId, "PAGO_DEUDA",
+                "Anulación de pago ID " + pagoId + " por $" + pago.getMonto() + ". Deuda ID: " + deuda.getId());
     }
 }

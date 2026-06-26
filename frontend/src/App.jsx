@@ -5,7 +5,8 @@ import DashboardPage from './pages/DashboardPage';
 import BackupPage from './pages/BackupPage';
 import AdminPage from './pages/AdminPage';
 import SalesHistoryPage from './pages/SalesHistoryPage';
-import DebtorsPage from './pages/DebtorsPage';
+import ReportesPage from './pages/ReportesPage';
+import CobrosYPedidosPage from './pages/CobrosYPedidosPage';
 import VentaPage from './pages/VentaPage';
 import InventarioPage from './pages/InventarioPage';
 
@@ -68,8 +69,9 @@ const router = createBrowserRouter([
             { path: 'backups', element: <BackupPage /> },
             { path: 'ventas', element: <VentaPage /> },
             { path: 'inventario', element: <InventarioPage /> },
-            { path: 'deudores', element: <DebtorsPage /> },
-            { path: 'reportes', element: <SalesHistoryPage /> },
+            { path: 'cobros-y-pedidos', element: <CobrosYPedidosPage /> },
+            { path: 'reportes', element: <ReportesPage /> },
+            { path: 'historial-ventas', element: <SalesHistoryPage /> },
             {
                 path: 'admin',
                 element: (

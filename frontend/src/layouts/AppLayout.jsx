@@ -52,11 +52,14 @@ export default function AppLayout() {
                         <NavLink to="/inventario" className={isActive('/inventario') ? 'active' : ''}>
                             📦 Inventario
                         </NavLink>
-                        <NavLink to="/deudores" className={isActive('/deudores') ? 'active' : ''}>
-                            👥 Deudores
+                        <NavLink to="/cobros-y-pedidos" className={isActive('/cobros-y-pedidos') ? 'active' : ''}>
+                            💰 Pendientes
                         </NavLink>
                         <NavLink to="/reportes" className={isActive('/reportes') ? 'active' : ''}>
                             📊 Reportes
+                        </NavLink>
+                        <NavLink to="/historial-ventas" className={isActive('/historial-ventas') ? 'active' : ''}>
+                            📖 Historial
                         </NavLink>
                         <NavLink to="/backups" className={isActive('/backups') ? 'active' : ''}>
                             💾 Respaldos
@@ -191,16 +194,19 @@ export default function AppLayout() {
                     >
                         <h2>Menú</h2>
                         <NavLink
-                            to="/deudores"
+                            to="/cobros-y-pedidos"
                             onClick={() => setShowMobileMenu(false)}
-                            className={isActive('/deudores') ? 'active' : ''}
+                            className={isActive('/cobros-y-pedidos') ? 'active' : ''}
                         >
-                            👥 Deudores
+                            💳 Pendientes
                         </NavLink>
-                        <NavLink to="/reportes" className={isActive('/reportes') ? 'active' : ''}>
+                        <NavLink to="/reportes" className={isActive('/reportes') ? 'active' : ''} onClick={() => setShowMobileMenu(false)}>
                             📊 Reportes
                         </NavLink>
-                        <NavLink to="/backups" className={isActive('/backups') ? 'active' : ''}>
+                        <NavLink to="/historial-ventas" className={isActive('/historial-ventas') ? 'active' : ''} onClick={() => setShowMobileMenu(false)}>
+                            📖 Historial
+                        </NavLink>
+                        <NavLink to="/backups" className={isActive('/backups') ? 'active' : ''} onClick={() => setShowMobileMenu(false)}>
                             💾 Respaldos
                         </NavLink>
                         {userRole === 'ADMIN' && (

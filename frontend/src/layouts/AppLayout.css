@@ -131,7 +131,9 @@
 /* Main Content Area */
 .main-content {
     flex: 1;
-    padding: var(--spacing-lg);
+    /* Reduced top padding to 1.2rem globally so all screens sit closer to the topbar.
+       Sides remain at var(--spacing-lg) (2rem) */
+    padding: 1.2rem var(--spacing-lg) var(--spacing-lg) var(--spacing-lg);
     padding-bottom: calc(var(--bottom-nav-height) + var(--spacing-lg));
 }
 

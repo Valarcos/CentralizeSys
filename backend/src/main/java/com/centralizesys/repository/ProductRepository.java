@@ -130,7 +130,7 @@ public class ProductRepository {
         String sql = """
                     SELECT * FROM productos
                     WHERE activo = true
-                    AND (codigo LIKE :termino OR descripcion LIKE :termino)
+                    AND (UPPER(codigo) LIKE UPPER(:termino) OR LOWER(descripcion) LIKE LOWER(:termino))
                     ORDER BY cantidad_stock DESC, id DESC
                     LIMIT 100
                 """;

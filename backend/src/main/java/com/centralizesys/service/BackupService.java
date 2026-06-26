@@ -49,6 +49,7 @@ public class BackupService {
 
     private static final Long RETENTION_DAYS_DAILY = 60L;
     private static final String FECHA = "Fecha";
+    private static final String BACKUP_CLEANUP = "BACKUP_CLEANUP";
 
     private final JdbcTemplate jdbcTemplate;
     private final AuditoriaService auditoriaService;
@@ -135,6 +136,10 @@ public class BackupService {
             // 3. Audit Success
             String message = String.format("Respaldo %s (Excel) completo.", type.name());
             auditoriaService.registrarAccion(userId, "BACKUP_EXITOSO", message);
+
+            if (type == BackupType.MANUAL) {
+                cleanupManualBackups();
+            }
 
         } catch (IOException | DataAccessException | IllegalArgumentException e) {
             auditoriaService.registrarAccion(userId, "BACKUP_FALLIDO", "Error: " + e.getMessage());
@@ -457,7 +462,14 @@ public class BackupService {
             files = stream
                     .filter(p -> p.toString().endsWith(EXT_XLSX) || p.toString().endsWith(".sql"))
                     .map(Path::toFile)
-                    .sorted(Comparator.comparingLong(File::lastModified))
+                    .sorted((f1, f2) -> {
+                        LocalDateTime d1 = parseDateFromFilename(f1.getName());
+                        LocalDateTime d2 = parseDateFromFilename(f2.getName());
+                        if (d1 == null && d2 == null) return Long.compare(f1.lastModified(), f2.lastModified());
+                        if (d1 == null) return -1;
+                        if (d2 == null) return 1;
+                        return d1.compareTo(d2);
+                    })
                     .toList();
         } catch (IOException e) {
             log.warn("Cleanup failed to list files", e);
@@ -493,7 +505,7 @@ public class BackupService {
         }
 
         if (deletedCount > 0) {
-            auditoriaService.registrarAccion(0L, "BACKUP_CLEANUP", "Deleted " + deletedCount + " old backups.");
+            auditoriaService.registrarAccion(0L, BACKUP_CLEANUP, "Deleted " + deletedCount + " old backups.");
         }
     }
 
@@ -527,25 +539,97 @@ public class BackupService {
 
     public void removeMidDayBackup() {
         LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
-        String datePart = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String midDaySuffix = "_" + datePart + "_1300";
-
         Path dir = Paths.get(pathStrategy.getDailyDir());
-        if (!Files.exists(dir))
-            return;
+        if (!Files.exists(dir)) return;
 
         try (Stream<Path> stream = Files.list(dir)) {
-            stream.filter(p -> p.getFileName().toString().contains(midDaySuffix))
-                    .forEach(this::deleteMidDayBackup);
+            List<File> todaysBackups = stream
+                    .filter(p -> p.toString().endsWith(EXT_XLSX) || p.toString().endsWith(".sql"))
+                    .map(Path::toFile)
+                    .filter(f -> {
+                        LocalDateTime fd = parseDateFromFilename(f.getName());
+                        return fd != null && fd.toLocalDate().equals(now.toLocalDate());
+                    })
+                    .toList();
+
+            Map<LocalDateTime, List<File>> grouped = new HashMap<>();
+            for (File f : todaysBackups) {
+                LocalDateTime fd = parseDateFromFilename(f.getName());
+                grouped.computeIfAbsent(fd, k -> new ArrayList<>()).add(f);
+            }
+
+            if (grouped.size() > 1) {
+                List<LocalDateTime> sortedTimes = new ArrayList<>(grouped.keySet());
+                Collections.sort(sortedTimes);
+                for (int i = 0; i < sortedTimes.size() - 1; i++) {
+                    for (File f : grouped.get(sortedTimes.get(i))) {
+                        deleteMidDayBackup(f.toPath());
+                    }
+                }
+            }
         } catch (IOException e) {
             log.warn("Mid-day cleanup failed", e);
         }
     }
 
+    private void cleanupManualBackups() {
+        Path dirPath = Paths.get(pathStrategy.getManualDir());
+        if (!Files.exists(dirPath)) return;
+
+        try (Stream<Path> stream = Files.list(dirPath)) {
+            processManualBackupFiles(stream);
+        } catch (IOException e) {
+            log.warn("Manual cleanup failed", e);
+        }
+    }
+
+    void processManualBackupFiles(Stream<Path> stream) {
+        List<File> files = stream
+                .filter(this::isBackupFile)
+                .map(Path::toFile)
+                .sorted(this::compareBackupFiles)
+                .toList();
+
+        deleteExcessManualBackups(files);
+    }
+
+    private boolean isBackupFile(Path p) {
+        String pathStr = p.toString();
+        return pathStr.endsWith(EXT_XLSX) || pathStr.endsWith(".sql");
+    }
+
+    private int compareBackupFiles(File f1, File f2) {
+        LocalDateTime d1 = parseDateFromFilename(f1.getName());
+        LocalDateTime d2 = parseDateFromFilename(f2.getName());
+        if (d1 == null && d2 == null) return Long.compare(f1.lastModified(), f2.lastModified());
+        if (d1 == null) return -1;
+        if (d2 == null) return 1;
+        return d1.compareTo(d2);
+    }
+
+    void deleteExcessManualBackups(List<File> files) {
+        if (files.size() > 40) {
+            int toDeleteCount = files.size() - 40;
+            for (int i = 0; i < toDeleteCount; i++) {
+                deleteSingleManualBackup(files.get(i));
+            }
+        }
+    }
+
+    private void deleteSingleManualBackup(File f) {
+        try {
+            Files.delete(f.toPath());
+            auditoriaService.registrarAccion(0L, BACKUP_CLEANUP, "Removed old manual backup: " + f.getName());
+        } catch (IOException e) {
+            log.warn("Failed to delete manual backup: {}", f.getName());
+        }
+    }
+
+
     private void deleteMidDayBackup(Path p) {
         try {
             Files.delete(p);
-            auditoriaService.registrarAccion(0L, "BACKUP_CLEANUP",
+            auditoriaService.registrarAccion(0L, BACKUP_CLEANUP,
                     "Removed Mid-Day Backup: " + p.getFileName());
         } catch (IOException e) {
             log.warn("Failed to delete mid-day backup: {}", p);

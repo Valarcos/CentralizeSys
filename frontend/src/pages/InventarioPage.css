@@ -1,6 +1,6 @@
 /* Inventario Page Styles */
 .inventario-page {
-    padding: var(--spacing-lg);
+    /* Relies on AppLayout .main-content padding */
 }
 
 .inventario-header {
@@ -147,23 +147,32 @@
 }
 
 /* Action Buttons */
-.actions-cell {
+.inventario-actions-cell {
+    vertical-align: middle;
+}
+
+.actions-container {
     display: flex;
-    gap: var(--spacing-sm);
-    flex-wrap: wrap;
+    gap: 0.5rem;
+    flex-wrap: nowrap; /* Force horizontal alignment */
+    align-items: center;
 }
 
 .action-btn {
-    padding: 0.5rem 0.75rem;
+    padding: 0.4rem 0.6rem;
     font-size: 0.9rem;
     min-height: 40px;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: 4px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s, opacity 0.2s, transform 0.2s;
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    justify-content: center;
+    gap: 0.3rem;
+    color: white;
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 .action-btn.edit {
@@ -297,7 +306,7 @@
         /* Hide label for name, it's the card title */
     }
 
-    .actions-cell {
+    .inventario-actions-cell {
         display: flex;
         justify-content: space-between;
         gap: var(--spacing-sm);
@@ -305,7 +314,7 @@
         margin-top: 0.5rem;
     }
 
-    .actions-cell::before {
+    .inventario-actions-cell::before {
         display: none;
     }
 
@@ -493,18 +502,18 @@
         display: none;
     }
 
-    .actions-cell {
+    .actions-container {
         display: flex;
         justify-content: flex-end;
         /* Align right */
-        gap: var(--spacing-sm);
+        gap: 0.5rem;
         padding-left: 0 !important;
         margin-top: 0.5rem;
-        flex-wrap: wrap;
-        /* Wrap if needed on tiny screens */
+        flex-wrap: nowrap;
+        overflow-x: auto; /* allow horizontal scrolling if it doesn't fit on tiny screens */
     }
 
-    .actions-cell::before {
+    .inventario-actions-cell::before {
         display: none;
     }
 

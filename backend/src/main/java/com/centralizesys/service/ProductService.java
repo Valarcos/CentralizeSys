@@ -75,7 +75,7 @@ public class ProductService {
 
     // Specific method to retrieve strict matches for logic/validation
     public List<Product> getVariantsByCode(String codigo) {
-        return repository.findAllByCodigo(codigo);
+        return repository.findAllByCodigo(codigo != null ? codigo.toUpperCase().trim() : null);
     }
 
     // Uses the "Smart Search" (Code OR Description)
@@ -88,6 +88,10 @@ public class ProductService {
         if (product.getCodigo() == null || product.getCodigo().isBlank()) {
             throw new BusinessRuleException("El código del producto (ART) es obligatorio.");
         }
+
+        // Enforce uppercase product codes for case-insensitive standardization
+        product.setCodigo(product.getCodigo().toUpperCase().trim());
+
         if (product.getDescripcion() == null || product.getDescripcion().isBlank()) {
             throw new BusinessRuleException("La descripción es obligatoria.");
         }
@@ -159,6 +163,10 @@ public class ProductService {
         // 1. Basic Validation
         validate(product);
         applyWholesalePriceDefault(product);
+
+        // Check for variant collisions BEFORE attempting the cascade update.
+        // This ensures a clean BusinessRuleException instead of a 500 DB Constraint Error
+        checkVariantCollision(product, id);
 
         // 2. Fetch the original state BEFORE any changes, using it as the source of truth
         //    for sibling lookup and change-detection.
@@ -275,6 +283,6 @@ public class ProductService {
      * Returns sorted oldest-first (id ASC) per findSiblingsByFamily contract.
      */
     public List<Product> getVariantFamily(String codigo) {
-        return repository.findSiblingsByFamily(codigo, null);
+        return repository.findSiblingsByFamily(codigo != null ? codigo.toUpperCase().trim() : null, null);
     }
 }

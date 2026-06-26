@@ -59,12 +59,14 @@ html,
 body {
     height: 100%;
     overflow-x: hidden;
+    scroll-padding-top: var(--top-nav-height);
+    scroll-behavior: smooth;
 }
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
-        'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
-        'Helvetica Neue', Arial, sans-serif;
+    'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
+    'Helvetica Neue', Arial, sans-serif;
     font-size: var(--font-size-base-mobile);
     color: var(--color-text);
     background-color: var(--color-background);

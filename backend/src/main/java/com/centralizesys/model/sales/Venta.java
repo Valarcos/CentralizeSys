@@ -18,4 +18,5 @@ public class Venta {
     private Double descuentoGlobal;
     private String tipoVenta; // NEW: Persisted 'MAYORISTA' or 'MINORISTA'
     private Long usuarioId; // For audit/security
+    private String estado; // ACTIVA, ANULADA
 }

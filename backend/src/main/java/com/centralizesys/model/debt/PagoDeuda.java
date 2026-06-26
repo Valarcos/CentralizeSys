@@ -18,6 +18,7 @@ public class PagoDeuda {
     private LocalDateTime fechaPago;
     private String observaciones;
     private Long usuarioId;
+    private Boolean anulado;
 
     // Helper field for reading human readable values from JOINs
     private String metodoPagoNombre;

@@ -394,3 +394,187 @@ export const generateDebtorReceipt = (debtorData) => {
         alert("Error al generar el PDF de deuda. Revise la consola.");
     }
 };
+
+// --- PENDING SALE (PEDIDO) RECEIPT PDF ---
+
+export const generatePendingSaleReceipt = (pedidoData) => {
+    try {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.width;
+
+        // --- HEADER ---
+        doc.setFontSize(18);
+        doc.setFont(undefined, 'bold');
+        doc.text("RECIBO DE PEDIDO / RESERVA", pageWidth / 2, 15, { align: 'center' });
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(10);
+        doc.text(`ID Pedido: #${pedidoData.id}`, 14, 25);
+        doc.text(`Fecha: ${formatDateYMD(pedidoData.fechaCreacion)}`, 14, 30);
+
+        // Print date
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(`Fecha de Impresión: ${formatDateYMD(new Date().toISOString())}`, 14, 35);
+        doc.setTextColor(0);
+        doc.setFontSize(10);
+
+        doc.text(`Cliente: ${pedidoData.clienteNombre}`, 14, 42);
+        doc.text(`Vendedor: ${pedidoData.vendedor || 'Sistema'}`, 14, 47);
+
+        // Estado
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(200, 120, 0); // Orange for PENDIENTE
+        doc.text(`Estado: ${pedidoData.estado}`, 14, 52);
+        doc.setFont(undefined, 'normal');
+        doc.setTextColor(0);
+
+        // --- TABLE 1: ITEMS ---
+        const itemsBody = pedidoData.items.map(item => {
+            const unitPrice = item.unitPrice || 0;
+            const discount = item.discount || 0;
+            const finalUnit = Math.max(0, unitPrice - discount);
+            const subtotal = finalUnit * item.quantity;
+
+            return [
+                item.codigo || 'N/A',
+                item.descripcion,
+                item.quantity,
+                formatMoney(unitPrice),
+                discount > 0 ? `-${formatMoney(discount)}` : '-',
+                formatMoney(subtotal)
+            ];
+        });
+
+        autoTable(doc, {
+            startY: 57,
+            head: [['Código', 'Descripción', 'Cant.', 'Precio', 'Desc.', 'Subtotal']],
+            body: itemsBody,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+            columnStyles: {
+                0: { cellWidth: 20 },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 12, halign: 'center' },
+                3: { cellWidth: 22, halign: 'right' },
+                4: { cellWidth: 22, halign: 'right' },
+                5: { cellWidth: 28, halign: 'right' }
+            },
+            styles: { fontSize: 9, cellPadding: 2 },
+        });
+
+        // --- TABLE 2: DISCOUNTS SUMMARY ---
+        const discountRows = [];
+
+        pedidoData.items.forEach(item => {
+            const discount = item.discount || 0;
+            if (discount > 0) {
+                discountRows.push([
+                    `${item.descripcion} (x${item.quantity})`,
+                    `-${formatMoney(discount * item.quantity)}`
+                ]);
+            }
+        });
+
+        if (pedidoData.globalDiscount > 0) {
+            discountRows.push([
+                'Descuento Global',
+                `-${formatMoney(pedidoData.globalDiscount)}`
+            ]);
+        }
+
+        if (discountRows.length > 0) {
+            let discountY = doc.lastAutoTable.finalY + 10;
+            autoTable(doc, {
+                startY: discountY,
+                head: [['Descuento', 'Monto']],
+                body: discountRows,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+                columnStyles: {
+                    0: { cellWidth: 'auto' },
+                    1: { cellWidth: 40, halign: 'right' }
+                },
+                styles: { fontSize: 9, cellPadding: 2 },
+            });
+        }
+
+        // --- TABLE 3: HISTORIAL DE PAGOS (Señas) ---
+        let pagosY = doc.lastAutoTable.finalY + 10;
+
+        const allPayments = (pedidoData.pagos || []).sort((a, b) => {
+            return new Date(a.date || 0) - new Date(b.date || 0);
+        });
+
+        const totalPagado = pedidoData.montoPagado || 0;
+
+        if (allPayments.length > 0) {
+            const pagosBody = allPayments.map(p => [
+                formatDateYMD(p.date),
+                p.name,
+                'Seña / Anticipo',
+                formatMoney(p.amount)
+            ]);
+
+            autoTable(doc, {
+                startY: pagosY,
+                head: [['Fecha', 'Método de Pago', 'Concepto', 'Monto']],
+                body: pagosBody,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 80, 160], textColor: 255 },
+                columnStyles: {
+                    0: { cellWidth: 30 },
+                    1: { cellWidth: 'auto' },
+                    2: { cellWidth: 30, fontStyle: 'italic' },
+                    3: { cellWidth: 30, halign: 'right' }
+                },
+                styles: { fontSize: 9, cellPadding: 2 },
+                foot: [['', '', 'TOTAL PAGADO', formatMoney(totalPagado)]],
+                footStyles: { fillColor: [220, 235, 250], textColor: [0, 0, 0], fontStyle: 'bold' },
+            });
+        } else {
+            doc.setFontSize(9);
+            doc.setTextColor(120);
+            doc.text("No se han registrado pagos anticipados.", 14, pagosY);
+            doc.setTextColor(0);
+        }
+
+        // --- DEBT SUMMARY BOX ---
+        const summaryY = (allPayments.length > 0 ? doc.lastAutoTable.finalY : pagosY) + 12;
+        const montoTotal = pedidoData.montoTotal || 0;
+        const saldoRestante = pedidoData.saldoRestante || 0;
+
+        const boxX = 14;
+        const boxW = pageWidth - 28;
+        const boxH = 32;
+
+        doc.setDrawColor(0);
+        doc.setLineWidth(0.5);
+        doc.rect(boxX, summaryY, boxW, boxH);
+
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text("RESUMEN DEL PEDIDO", boxX + 4, summaryY + 7);
+
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Valor Total del Pedido:`, boxX + 4, summaryY + 14);
+        doc.text(formatMoney(montoTotal), boxX + boxW - 4, summaryY + 14, { align: 'right' });
+
+        doc.setTextColor(0, 128, 0);
+        doc.text(`Total Anticipado (Seña):`, boxX + 4, summaryY + 21);
+        doc.text(formatMoney(totalPagado), boxX + boxW - 4, summaryY + 21, { align: 'right' });
+
+        doc.setFont(undefined, 'bold');
+        doc.setTextColor(200, 0, 0);
+        doc.setFontSize(12);
+        doc.text(`SALDO A PAGAR:`, boxX + 4, summaryY + 28);
+        doc.text(formatMoney(saldoRestante), boxX + boxW - 4, summaryY + 28, { align: 'right' });
+        doc.setTextColor(0);
+
+        doc.save(`Recibo_Pedido_${pedidoData.id}.pdf`);
+    } catch (error) {
+        console.error("Error generating pedido PDF:", error);
+        alert("Error al generar el PDF de pedido. Revise la consola.");
+    }
+};

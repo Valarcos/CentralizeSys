@@ -116,11 +116,18 @@ public abstract class BaseIntegrationTest {
     @SuppressWarnings({"SqlResolve", "SqlNoDataSourceInspection"})
     @BeforeEach
     protected void cleanTransactionalData() {
+        // Schema is already updated in schema.sql
+
         // 1. Delete dependent tables first (Foreign Key Order)
         // We MUST empty 'auditoria' because it references Users
         // In PostgreSQL, 'auditoria' has a BEFORE DELETE trigger that prevents DELETES.
         // TRUNCATE bypasses row-level DELETE triggers and is faster.
         jdbcTemplate.execute("TRUNCATE TABLE auditoria");
+
+        // Pending Sales Cycle
+        jdbcTemplate.execute("DELETE FROM pagos_venta_pendiente");
+        jdbcTemplate.execute("DELETE FROM detalles_venta_pendiente");
+        jdbcTemplate.execute("DELETE FROM ventas_pendientes");
 
         // Sales Cycle
         jdbcTemplate.execute("DELETE FROM pagos_deuda");

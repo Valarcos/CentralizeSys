@@ -72,4 +72,38 @@ class ProductServiceIntegrationTest extends BaseIntegrationTest {
                 "SELECT count(*) FROM stock_por_ubicacion WHERE producto_id = ?", Long.class, prodId);
         assertEquals(1, stockAfter, "Stock should NOT be deleted physically with Logical Deletion");
     }
+
+    @Test
+    @DisplayName("IT-04: Product code is enforced to uppercase on save")
+    void save_EnforcesUppercaseCode() {
+        Product p = new Product("prod-lower-123", "Lowercase Test", 10.0, 10.0, 20.0);
+        Product saved = productService.create(p);
+
+        assertEquals("PROD-LOWER-123", saved.getCodigo(), "Product code should be saved as uppercase");
+    }
+
+    @Test
+    @DisplayName("IT-05: Search is case-insensitive for description")
+    void search_CaseInsensitiveDescription() {
+        Product p = new Product("DESC-CASE-TEST", "Galletas de Chocolate", 10.0, 10.0, 20.0);
+        productService.create(p);
+
+        List<Product> results = productService.search("galletas de chocolate");
+        assertEquals(1, results.size(), "Should find product regardless of case");
+        assertEquals("Galletas de Chocolate", results.getFirst().getDescripcion(), "Original case should be preserved in the DB");
+    }
+
+    @Test
+    @DisplayName("IT-06: getVariantFamily works with lowercase queries")
+    void getVariantFamily_LowercaseQuery() {
+        Product p1 = new Product("FAMILY-UPPER", "Family Test 1", 10.0, 10.0, 20.0);
+        Product p2 = new Product("FAMILY-UPPER", "Family Test 2", 15.0, 15.0, 25.0);
+        productService.create(p1);
+        productService.create(p2);
+
+        // Query with lowercase
+        List<Product> family = productService.getVariantFamily("family-upper");
+        assertEquals(2, family.size(), "Should find all family members using lowercase code");
+        assertEquals("FAMILY-UPPER", family.getFirst().getCodigo(), "Database codes should remain uppercase");
+    }
 }

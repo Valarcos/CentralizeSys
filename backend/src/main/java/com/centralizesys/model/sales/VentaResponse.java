@@ -25,4 +25,5 @@ public class VentaResponse {
 
     // List of warning messages (e.g., "Stock negativo para ART-123")
     private List<String> alertas;
+    private String estado;
 }

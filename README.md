@@ -203,9 +203,60 @@ Cree **dos túneles**: uno para el backend y otro para el frontend.
    ```
 6. **¡Listo!** Envíe el segundo link generado por Cloudflare a su celular o PC remota. Todo el sistema correrá por internet encriptado hacia la base de datos de su negocio.
 
+## ☁️ DevOps y Operaciones en Producción (Cloud)
+
+El despliegue del sistema en servidores en la nube (Google Cloud, Oracle Cloud, VPS) requiere consideraciones críticas de infraestructura para evitar pérdida de datos o caídas de servicio. A continuación se detallan las configuraciones indispensables y un registro de resolución de problemas históricos.
+
+### 🛑 Advertencia Crítica sobre Direcciones IP y DNS (Donweb)
+Si usted apaga su servidor virtual (Instancia) en la nube para ahorrar costos, el proveedor (Google u Oracle) le quitará su Dirección IP Pública y le asignará una nueva al volver a encenderlo.
+- **Efecto:** Su dominio (ej. `mariaclosys.com.ar`) en su proveedor de DNS (como Donweb o Cloudflare) seguirá apuntando a la IP vieja, dejando su sistema completamente inaccesible ("Página no encontrada").
+- **Solución Obligatoria:** Debe reservar una **IP Pública Estática** (Reserved IP) en el panel de su proveedor de nube y asignarla a su máquina. Si no desea pagar el recargo por IP Estática (que se cobra incluso si la máquina está apagada), **no apague el servidor** o prepárese para entrar a Donweb diariamente a actualizar el Registro "A" de su dominio.
+
+### 🛡️ Prevención de Errores Comunes de Despliegue (Lecciones Aprendidas)
+1. **Pérdida de Backups en Docker:** La base de datos guarda los respaldos SQL en `/app/data`. Si el archivo `docker-compose-prod.yml` carece del mapeo de volumen `backend_data:/app/data`, **todos sus respaldos se borrarán permanentemente** cada vez que actualice el contenedor del backend. Asegúrese de que este volumen siempre esté definido.
+2. **Caché Persistente del Navegador (Error 503 tras actualizar):** Cuando despliega una nueva versión de la interfaz visual (Frontend), los navegadores de sus clientes mantendrán el código Javascript antiguo en su memoria caché de manera muy agresiva. Esto genera errores de ruta (ej. requests a `/api/api/`) si se modificaron. Tras actualizar el código en el servidor, **siempre indique a los usuarios realizar un Hard Refresh (Ctrl+F5)** o limpiar la caché de su navegador.
+3. **Auditoría de IPs Falsas tras Proxy:** Debido a que el sistema opera detrás de Caddy (Reverse Proxy), el backend registrará todos los intentos de inicio de sesión como provenientes de la IP de Caddy (ej. `172.18.0.x`), inutilizando los bloqueos por fuerza bruta. Esto se soluciona asegurando que la variable `SERVER_FORWARD_HEADERS_STRATEGY=native` esté presente en el bloque del `backend` en `docker-compose-prod.yml`.
+
 ---
 
+## 🚀 Guía de Migración hacia Oracle Cloud (Arquitectura ARM64)
 
+Si decide abandonar Google Cloud Platform y aprovechar la capa gratuita "Pay-as-you-go" de Oracle Cloud (Instancia Ampere A1), debe seguir estrictamente estos pasos para evitar los errores de arquitectura más comunes.
+*Atención: La cuota gratuita de Oracle se redujo recientemente de 24 GB de RAM a 12 GB, lo que refuerza la necesidad de gestionar la memoria de Java cuidadosamente.*
+
+**Paso 1: Respaldo Previo a la Migración**
+Antes de apagar su instancia de Google Cloud, descargue el último archivo `.sql` de la base de datos (puede hacerlo desde el panel de Respaldos del sistema o utilizando `pg_dump` manualmente en el servidor). Descárguelo a su computadora personal.
+
+**Paso 2: Creación de la Instancia en Oracle**
+1. Cree una instancia **Ampere A1 (Arquitectura ARM64)** con Oracle Linux o Ubuntu. Asigne al menos 2 OCPUs y 12 GB de RAM.
+2. **Seguridad de Red (VCN):** En Oracle, no basta con el firewall interno de Ubuntu. Debe ingresar a la Virtual Cloud Network (VCN) -> Security Lists -> Default Security List, y agregar reglas de entrada (Ingress Rules) para los puertos **80 (HTTP)** y **443 (HTTPS)** permitiendo el tráfico desde `0.0.0.0/0`.
+3. Reserve una IP Pública Estática en Oracle y actualice los DNS de Donweb para que apunten a esta nueva IP.
+
+**Paso 3: Clonación y Construcción Específica para ARM64**
+Debido a que el procesador de Oracle (Ampere) no es el clásico Intel/AMD (x86_64) que usa Google Cloud, **no intente migrar las imágenes Docker pre-compiladas**.
+1. Instale Git y Docker en la instancia de Oracle.
+2. Clone el repositorio: `git clone https://github.com/Valarcos/sinpen_thesis.git`
+3. Ingrese a la carpeta del proyecto. Verifique que `docker-compose-prod.yml` contiene la variable:
+   `JAVA_TOOL_OPTIONS=-Xms512m -Xmx1g`
+   *(Esto es crítico: evita que Java intente consumir los 12GB de RAM enteros, lo cual invocaría al "OOM Killer" del sistema operativo y tumbaría el servidor).*
+4. Reconstruya el sistema desde el código fuente directamente en el procesador ARM de Oracle:
+   ```bash
+   docker compose -f docker-compose-prod.yml build --no-cache
+   docker compose -f docker-compose-prod.yml up -d
+   ```
+
+**Paso 4: Restauración de Base de Datos**
+1. Transfiera su archivo `.sql` de respaldo (el que bajó en el Paso 1) al servidor de Oracle.
+2. Inyéctelo en la base de datos limpia de PostgreSQL corriendo el siguiente comando:
+   ```bash
+   docker exec -i centralizesys_db psql -U su_usuario -d su_base_de_datos < /ruta/al/backup.sql
+   ```
+   *(Nota: Asegúrese de que el nombre del contenedor `centralizesys_db` coincida exactamente con el de su archivo compose).*
+
+**Paso 5: Limpieza de Caché**
+Abra `https://mariaclosys.com.ar` y presione **Ctrl+F5**. El sistema ya debería estar operando desde Oracle Cloud sin pérdida de datos.
+
+---
 
 ## 📝 Stack y Tecnologías
 
@@ -230,3 +281,5 @@ Proyecto final de Tesis Universitaria.
    Restaurar un respaldo antiguo sobre una versión nueva de la aplicación (ej. después de agregar nuevas tablas) requiere administración manual de base de datos. Se eliminó la limpieza automatizada (DROP SCHEMA) desde Java para evitar deadlocks fatales. Los administradores deben lidiar con discrepancias de esquemas manualmente si realizan *rollbacks* a través de migraciones mayores.
 3. **The Single Transaction Flag:**
    El proceso de restauración utiliza `--single-transaction`. Es perfectamente seguro para la base de datos actual (pequeña), pero si el volumen de datos escala masivamente en el futuro, inyectar una reconstrucción completa en una sola transacción puede causar agotamiento de memoria del *Write-Ahead Log (WAL)* en PostgreSQL.
+4. **Lack of Remote Logger in Frontend:**
+   Actualmente el frontend (React) utiliza console.log y console.error para el manejo de excepciones y flujos de informaci�n en producci�n, lo que puede exponer l�gica interna y ensuciar la consola del navegador del cliente. Se registra como deuda t�cnica la implementaci�n de un logger remoto (ej. Sentry, Datadog o un endpoint propio) para remover estos logs crudos del entorno productivo, cumpliendo estrictamente con las normativas definidas en .cursorrules.

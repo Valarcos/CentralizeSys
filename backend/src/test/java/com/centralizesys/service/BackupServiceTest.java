@@ -151,4 +151,44 @@ class BackupServiceTest {
             SecurityContextHolder.clearContext();
         }
     }
+
+    @Test
+    @DisplayName("deleteExcessManualBackups deletes oldest files when limit of 40 files (20 backups) is exceeded")
+    void deleteExcessManualBackups_deletesOldestFiles() throws Exception {
+        // GIVEN
+        BackupService service = new BackupService(jdbcTemplate, auditoriaService, productRepository, ventaRepository,
+                compraRepository, deudoresRepository, auditoriaRepository, pathStrategy,
+                "jdbc:postgresql://localhost:5432/test", "testuser", "testpass");
+
+        java.util.List<File> files = new java.util.ArrayList<>();
+
+        // A single manual backup consists of 2 files (SQL + XLSX).
+        // We want to simulate 25 manual backups, which equals 50 files.
+        // The limit is 20 backups (40 files), so the oldest 5 backups (10 files) should be deleted.
+        for (int i = 0; i < 25; i++) {
+            File sqlFile = tempDir.resolve("backup_" + i + ".sql").toFile();
+            assertTrue(sqlFile.createNewFile(), "Failed to create SQL mock backup file");
+            files.add(sqlFile);
+
+            File xlsxFile = tempDir.resolve("backup_" + i + ".xlsx").toFile();
+            assertTrue(xlsxFile.createNewFile(), "Failed to create XLSX mock backup file");
+            files.add(xlsxFile);
+        }
+
+        // WHEN
+        service.deleteExcessManualBackups(files);
+
+        // THEN
+        // First 10 files (5 oldest backups * 2 files) should be deleted
+        for (int i = 0; i < 10; i++) {
+            assertFalse(files.get(i).exists(), "File " + i + " should be deleted");
+        }
+        // Remaining 40 files (20 backups * 2 files) should still exist
+        for (int i = 10; i < 50; i++) {
+            assertTrue(files.get(i).exists(), "File " + i + " should exist");
+        }
+
+        // Verify auditoriaService was called exactly 10 times (once per file deleted)
+        verify(auditoriaService, times(10)).registrarAccion(eq(0L), eq("BACKUP_CLEANUP"), anyString());
+    }
 }

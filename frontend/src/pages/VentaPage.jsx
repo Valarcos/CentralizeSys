@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useOutletContext, useBlocker } from 'react-router-dom';
+import { useOutletContext, useBlocker, useLocation, useNavigate } from 'react-router-dom';
 import useCart from '../hooks/useCart';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -69,7 +69,8 @@ export default function VentaPage() {
         removeFromCart,
         addPaymentMethod,
         removePaymentMethod,
-        totals
+        totals,
+        loadCartFromPendingSale
     } = useCart();
 
     // Variant picker state: tracks which family card is expanded
@@ -77,6 +78,11 @@ export default function VentaPage() {
 
     // ... existing state ...
     const [lastSale, setLastSale] = useState(null); // Stores successful sale data for receipt
+
+    // New: Editing Pending Sale State
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [editingPendingId, setEditingPendingId] = useState(null);
 
     // Issue #11 fix: only block navigation if cart has items AND sale is NOT yet completed
     const blocker = useBlocker(cartItems.length > 0 && !lastSale);
@@ -111,6 +117,17 @@ export default function VentaPage() {
         };
         fetchClients();
     }, []);
+
+    // Load Pending Sale if provided in state
+    useEffect(() => {
+        if (location.state?.pendingSaleToEdit && paymentMethods.length > 0) {
+            const sale = location.state.pendingSaleToEdit;
+            setEditingPendingId(sale.id);
+            loadCartFromPendingSale(sale, paymentMethods);
+            // Clear state so it doesn't reload on refresh
+            navigate(location.pathname, { replace: true, state: {} });
+        }
+    }, [location.state, paymentMethods, loadCartFromPendingSale, navigate]);
 
     // Stock Warning State
     const [affectedProducts, setAffectedProducts] = useState([]);
@@ -261,8 +278,29 @@ export default function VentaPage() {
                 }))
             };
 
-            const response = await api.post('/ventas', saleData);
-            toast.success("Venta registrada con éxito");
+            let response;
+            if (editingPendingId) {
+                // 1. Update Cart
+                await api.put(`/ventas-pendientes/${editingPendingId}`, saleData);
+
+                // 2. Register NEW payments
+                const newPayments = payments.filter(p => !p.id);
+                if (newPayments.length > 0) {
+                    const pagosPayload = newPayments.map(p => ({
+                        montoPago: p.amount,
+                        metodoPagoId: p.methodId,
+                        observaciones: ""
+                    }));
+                    await api.post(`/ventas-pendientes/${editingPendingId}/pagos`, pagosPayload);
+                }
+
+                // 3. Finalize
+                response = await api.post(`/ventas-pendientes/${editingPendingId}/finalizar`);
+                toast.success("Pedido finalizado con éxito");
+            } else {
+                response = await api.post('/ventas', saleData);
+                toast.success("Venta registrada con éxito");
+            }
 
             // Check for alerts (Negative Stock warning from backend)
             if (response.data.alertas && response.data.alertas.length > 0) {
@@ -291,6 +329,67 @@ export default function VentaPage() {
         } catch (error) {
             console.error("Sale Error:", error);
             const msg = error.response?.data?.message || "Error al procesar la venta";
+            toast.error(msg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleSaveAsPending = async () => {
+        if (isSubmitting) return;
+
+        if (!cartItems || cartItems.length === 0) {
+            toast.error("El carrito está vacío");
+            return;
+        }
+
+        if (!clientName.trim()) {
+            toast.error("Debe ingresar el Nombre del Cliente para guardar como pendiente");
+            return;
+        }
+
+        const issues = checkStockAvailability();
+        if (issues.length > 0) {
+            setAffectedProducts(issues);
+            setShowStockModal(true);
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+            const saleData = {
+                clienteNombre: clientName,
+                tipoVenta: saleType,
+                descuentoGlobal: globalDiscount,
+                items: cartItems.map(item => ({
+                    productoId: item.product.id,
+                    cantidad: item.quantity,
+                    valorDescuento: item.discount || 0
+                }))
+            };
+
+            let response;
+            if (editingPendingId) {
+                response = await api.put(`/ventas-pendientes/${editingPendingId}`, saleData);
+                // Also save new payments if any
+                const newPayments = payments.filter(p => !p.id);
+                if (newPayments.length > 0) {
+                    const pagosPayload = newPayments.map(p => ({
+                        montoPago: p.amount,
+                        metodoPagoId: p.methodId,
+                        observaciones: ""
+                    }));
+                    await api.post(`/ventas-pendientes/${editingPendingId}/pagos`, pagosPayload);
+                }
+                toast.success("Pedido pendiente actualizado exitosamente.");
+            } else {
+                response = await api.post('/ventas-pendientes', saleData);
+                toast.success("Pedido guardado como pendiente exitosamente.");
+            }
+            handleNewSale();
+        } catch (error) {
+            console.error("Pending Sale Error:", error);
+            const msg = error.response?.data?.message || "Error al guardar el pedido";
             toast.error(msg);
         } finally {
             setIsSubmitting(false);
@@ -673,7 +772,7 @@ export default function VentaPage() {
                             <div key={i} className="payment-row">
                                 <span style={{ flex: 2 }}>{p.name}</span>
                                 <span style={{ flex: 1, textAlign: 'right' }}>{formatCurrency(p.amount)}</span>
-                                <button className="remove-btn" onClick={() => removePaymentMethod(i)}>×</button>
+                                {!p.id && <button className="remove-btn" onClick={() => removePaymentMethod(i)}>×</button>}
                             </div>
                         ))}
                     </div>
@@ -740,14 +839,24 @@ export default function VentaPage() {
                             </div>
                         </div>
                     </div>
-                    <button
-                        className="pay-btn"
-                        disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid}
-                        onClick={handlePrePaymentCheck}
-                        style={{ opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid) ? 0.5 : 1 }}
-                    >
-                        {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
-                    </button>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                        <button
+                            className="pay-btn"
+                            disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid}
+                            onClick={handlePrePaymentCheck}
+                            style={{ flex: 2, opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid) ? 0.5 : 1 }}
+                        >
+                            {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
+                        </button>
+                        <button
+                            className="pay-btn"
+                            disabled={cartItems.length === 0 || !clientName.trim() || isSubmitting}
+                            onClick={handleSaveAsPending}
+                            style={{ flex: 1, backgroundColor: '#f59e0b', color: 'white', border: '1px solid #d97706', opacity: (cartItems.length === 0 || !clientName.trim() || isSubmitting) ? 0.5 : 1 }}
+                        >
+                            Guardar Pendiente
+                        </button>
+                    </div>
                 </div>
 
                 {/* MODALS */}

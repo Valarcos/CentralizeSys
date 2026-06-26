@@ -33,6 +33,7 @@ INSERT INTO usuarios (id, nombre, email, password_hash, rol, activo)
 VALUES (0, 'Sistema', 'sistema@centralizesys.internal', 'NO_LOGIN', 'EMPLEADO', TRUE)
 ON CONFLICT (id) DO NOTHING;;
 
+-- TODO: decidir qué hacer con este insert de mi contraseña en la tabla. Sería ideal que no exista.
 -- Usuario Administrador
 INSERT INTO usuarios (nombre, email, password_hash, rol)
 VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu', 'ADMIN')
@@ -100,6 +101,7 @@ CREATE TABLE IF NOT EXISTS ventas (
     total_venta REAL NOT NULL,
     descuento_global REAL DEFAULT 0,
     tipo_venta TEXT,
+    estado TEXT DEFAULT 'ACTIVA' CHECK(estado IN ('ACTIVA', 'ANULADA')),
     usuario_id INTEGER,
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );;
@@ -139,7 +141,7 @@ CREATE TABLE IF NOT EXISTS deudores (
     monto_deuda REAL NOT NULL,
     fecha_deuda TIMESTAMP NOT NULL,
     fecha_pago TIMESTAMP,
-    estado TEXT CHECK(estado IN ('PENDIENTE', 'PARCIAL', 'PAGADO')) DEFAULT 'PENDIENTE',
+    estado TEXT CHECK(estado IN ('PENDIENTE', 'PARCIAL', 'PAGADO', 'ANULADA')) DEFAULT 'PENDIENTE',
     FOREIGN KEY (venta_id) REFERENCES ventas(id)
 );;
 
@@ -150,6 +152,7 @@ CREATE TABLE IF NOT EXISTS pagos_deuda (
     metodo_pago_id INTEGER NOT NULL,
     monto REAL NOT NULL,
     fecha_pago TIMESTAMP NOT NULL,
+    anulado BOOLEAN NOT NULL DEFAULT FALSE,
     observaciones TEXT,
     usuario_id INTEGER,
     FOREIGN KEY (deuda_id) REFERENCES deudores(id),
@@ -320,3 +323,60 @@ CREATE TRIGGER trg_audit_no_delete
     BEFORE DELETE ON auditoria
     FOR EACH ROW
     EXECUTE FUNCTION fn_audit_no_mutation();;
+
+-- 16. Ventas Pendientes (Pedidos)
+CREATE TABLE IF NOT EXISTS ventas_pendientes (
+    id SERIAL PRIMARY KEY,
+    fecha TIMESTAMP NOT NULL,
+    cliente_nombre TEXT NOT NULL,
+    total_estimado REAL NOT NULL,
+    descuento_global REAL DEFAULT 0,
+    tipo_venta TEXT,
+    monto_pagado REAL NOT NULL DEFAULT 0, -- Accumulated deposit total across all active payments
+    estado TEXT CHECK(estado IN ('PENDIENTE', 'FINALIZADA', 'CANCELADA')) DEFAULT 'PENDIENTE',
+    usuario_id INTEGER,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+);;
+
+-- 17. Detalles de Venta Pendiente
+CREATE TABLE IF NOT EXISTS detalles_venta_pendiente (
+    id SERIAL PRIMARY KEY,
+    venta_pendiente_id INTEGER NOT NULL,
+    producto_id INTEGER,
+    cantidad INTEGER NOT NULL,
+    precio_lista REAL NOT NULL,
+    descuento_valor REAL DEFAULT 0,
+    precio_unitario REAL NOT NULL,
+    subtotal REAL NOT NULL,
+    descripcion_snapshot TEXT NOT NULL,
+    codigo_snapshot TEXT NOT NULL,
+    costo_snapshot REAL,
+    anulado BOOLEAN NOT NULL DEFAULT FALSE,
+    FOREIGN KEY (venta_pendiente_id) REFERENCES ventas_pendientes(id),
+    FOREIGN KEY (producto_id) REFERENCES productos(id)
+);;
+
+-- 18. Pagos Venta Pendiente
+CREATE TABLE IF NOT EXISTS pagos_venta_pendiente (
+    id SERIAL PRIMARY KEY,
+    venta_pendiente_id INTEGER NOT NULL,
+    metodo_pago_id INTEGER NOT NULL,
+    monto REAL NOT NULL,
+    fecha_pago TIMESTAMP NOT NULL,
+    anulado BOOLEAN NOT NULL DEFAULT FALSE,
+    usuario_id INTEGER,
+    FOREIGN KEY (venta_pendiente_id) REFERENCES ventas_pendientes(id),
+    FOREIGN KEY (metodo_pago_id) REFERENCES metodos_pago(id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+);;
+
+-- IDEMPOTENT MIGRATIONS
+-- These ALTER statements handle adding new columns to tables that may already exist
+-- in the database (e.g., production or test databases created before the schema update).
+-- PostgreSQL's ADD COLUMN IF NOT EXISTS ensures this is safe to run multiple times.
+
+-- Phase 5: Track accumulated deposit payments for pending sales.
+ALTER TABLE ventas_pendientes ADD COLUMN IF NOT EXISTS monto_pagado REAL NOT NULL DEFAULT 0;;
+
+-- Phase 5: Track logical deletion of items in pending sales during cart edits.
+ALTER TABLE detalles_venta_pendiente ADD COLUMN IF NOT EXISTS anulado BOOLEAN NOT NULL DEFAULT FALSE;;

@@ -97,7 +97,6 @@ class AuditoriaRepositoryTest extends BaseIntegrationTest {
 
         // Insert in order
         auditoriaRepository.save(userId, "FIRST", "First");
-        // Small delay to ensure different timestamps
         auditoriaRepository.save(userId, "SECOND", "Second");
         auditoriaRepository.save(userId, "THIRD", "Third");
 

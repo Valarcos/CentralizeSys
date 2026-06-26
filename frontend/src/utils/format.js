@@ -19,12 +19,28 @@ export const formatCurrency = (value) => {
  */
 export const formatDate = (dateString) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    // Adjust for timezone offset if necessary, or just parse string directly if YYYY-MM-DD
-    // Simple split for YYYY-MM-DD to avoid timezone issues:
-    if (dateString.includes('-')) {
-        const [year, month, day] = dateString.split('-');
-        return `${day}/${month}/${year}`;
+
+    let dateStr = dateString;
+    // If it's just a date string "YYYY-MM-DD", append time to force local parsing and avoid UTC offset issues
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        dateStr += 'T00:00:00';
     }
-    return date.toLocaleDateString('es-AR');
+    // If it has a space instead of T (like some SQL formats), replace it for Safari/JS compatibility
+    dateStr = dateStr.replace(' ', 'T');
+
+    const date = new Date(dateStr);
+
+    if (isNaN(date.getTime())) {
+        // Fallback for completely unrecognized formats
+        return dateString;
+    }
+
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+
+    return `${hours}:${minutes}:${seconds} - ${day}/${month}/${year}`;
 };

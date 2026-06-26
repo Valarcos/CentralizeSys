@@ -296,10 +296,12 @@ export default function InventarioPage() {
                                                 {product.cantidadStock} unidades
                                             </span>
                                     </td>
-                                    <td className="actions-cell">
-                                        <button onClick={() => handleStockClick(product)} className="action-btn stock">📦 Stock</button>
-                                        <button onClick={() => handleEditProduct(product)} className="action-btn edit">✏️ Editar</button>
-                                        <button onClick={() => handleDeleteClick(product)} className="action-btn delete">🗑️ Eliminar</button>
+                                    <td className="inventario-actions-cell">
+                                        <div className="actions-container">
+                                            <button onClick={() => handleStockClick(product)} className="action-btn stock">📦 Stock</button>
+                                            <button onClick={() => handleEditProduct(product)} className="action-btn edit">✏️ Editar</button>
+                                            <button onClick={() => handleDeleteClick(product)} className="action-btn delete">🗑️ Eliminar</button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -334,8 +336,8 @@ export default function InventarioPage() {
                 </>
             )}
             <div className="jump-buttons">
-                <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="jump-btn" aria-label="Ir arriba">↑</button>
-                <button onClick={() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })} className="jump-btn" aria-label="Ir abajo">↓</button>
+                <button onClick={() => document.querySelector('.inventario-page').scrollIntoView({ behavior: 'smooth', block: 'start' })} className="jump-btn" aria-label="Ir arriba">↑</button>
+                <button onClick={() => document.getElementById('inventario-bottom-marker').scrollIntoView({ behavior: 'smooth', block: 'end' })} className="jump-btn" aria-label="Ir abajo">↓</button>
             </div>
 
 
@@ -390,6 +392,7 @@ export default function InventarioPage() {
                     onSuccess={handlePurchaseSuccess}
                 />
             )}
+            <div id="inventario-bottom-marker" style={{ height: 1 }} />
         </div>
     );
 }

@@ -1,8 +1,6 @@
 .dashboard {
     max-width: 1200px;
     margin: 0 auto;
-    /* #1: Pull content up by 2/5 of the container's 2rem top padding (2rem × 2/5 = 0.8rem) */
-    margin-top: -0.8rem;
 }
 
 .dashboard h1 {

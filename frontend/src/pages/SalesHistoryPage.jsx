@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/format';
 import SalesDetailModal from '../components/SalesDetailModal';
+import CancellationModal from '../components/CancellationModal';
 import toast from 'react-hot-toast';
 import './SalesHistoryPage.css';
 
@@ -21,17 +22,13 @@ export default function SalesHistoryPage() {
     const [totalElements, setTotalElements] = useState(0);
     const [loading, setLoading] = useState(true);
     const [selectedSale, setSelectedSale] = useState(null);
+    const [saleToCancel, setSaleToCancel] = useState(null);
+
+
 
     useEffect(() => {
         loadSales();
-    }, [page]); // Reload when page changes. Date changes are manual via specific button or effect?
-    // Plan: Reload when page changes OR when user clicks "Filtrar" or auto-reload on date change if valid?
-    // User Req: "when the time period is chosen, the list should refresh"
-    // Let's reload on date change (debounced or valid) OR explicit button.
-    // Explicit button is safer for UX with two inputs. Let's add a "Buscar" button or use useEffect with validation.
-    // Let's use useEffect on dates but only if valid.
-
-    // Removed auto-fetch useEffect for dates to prevent disruptive toasts while selecting
+    }, [page]);
 
     const handleSearch = () => {
         if (validateDateRange(startDate, endDate, true)) {
@@ -90,6 +87,20 @@ export default function SalesHistoryPage() {
         }
     };
 
+    const confirmAnularVenta = async () => {
+        if (!saleToCancel) return;
+        try {
+            await api.post(`/ventas/${saleToCancel}/anular`);
+            toast.success("Venta anulada exitosamente.");
+            setSaleToCancel(null);
+            loadSales();
+        } catch (error) {
+            console.error("Error anular venta", error);
+            toast.error(error.response?.data?.message || "Error al anular la venta");
+            setSaleToCancel(null);
+        }
+    };
+
     return (
         <div className="history-page container">
             <div className="history-header-column">
@@ -115,7 +126,7 @@ export default function SalesHistoryPage() {
                             className="date-filter"
                         />
                     </div>
-                    <button onClick={handleSearch} className="primary" style={{ height: '38px', alignSelf: 'flex-end' }}>
+                    <button onClick={handleSearch} className="primary">
                         Filtrar
                     </button>
                 </div>
@@ -177,9 +188,18 @@ export default function SalesHistoryPage() {
                                     </td>
                                     <td data-label="Total" className="amount-cell">{formatCurrency(sale.totalVenta)}</td>
                                     <td data-label="Acciones">
-                                        <button className="btn-details" onClick={() => handleOpenDetails(sale.id)}>
-                                            Ver
-                                        </button>
+                                        <div className="action-buttons">
+                                            <div className="action-buttons-row">
+                                                <button className="btn-details" onClick={() => handleOpenDetails(sale.id)}>
+                                                    Ver
+                                                </button>
+                                                {sale.estado !== 'ANULADA' && (
+                                                    <button className="btn-delete" onClick={() => setSaleToCancel(sale.id)}>
+                                                        Anular
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -217,7 +237,6 @@ export default function SalesHistoryPage() {
                             </button>
                         </div>
                     )}
-
                 </>
             )}
 
@@ -227,6 +246,14 @@ export default function SalesHistoryPage() {
                     onClose={() => setSelectedSale(null)}
                 />
             )}
+
+            <CancellationModal
+                isOpen={!!saleToCancel}
+                title="Anular Venta"
+                message="¿Está seguro de que desea anular esta venta? Esta acción devolverá el stock y anulará los pagos/deudas. No se puede deshacer."
+                onConfirm={confirmAnularVenta}
+                onCancel={() => setSaleToCancel(null)}
+            />
         </div>
     );
 }

@@ -30,6 +30,8 @@ public class VentaService {
     private final DeudoresRepository deudoresRepository;
     private final AuditoriaService auditoriaService;
 
+    private static final String ANULADA = "ANULADA";
+
     public VentaService(VentaRepository ventaRepository,
                         ProductRepository productRepository,
                         StockRepository stockRepository,
@@ -99,7 +101,8 @@ public class VentaService {
                 venta.getTipoVenta(),
                 detalles,
                 pagos,
-                null // No alerts for historical view
+                null, // No alerts for historical view
+                venta.getEstado()
         );
     }
 
@@ -174,7 +177,8 @@ public class VentaService {
                 request.getTipoVenta() != null ? request.getTipoVenta().name() : "MINORISTA",
                 processedData.getDetalles(),
                 txInfo.getPagosPersistidos(),
-                stockAlerts);
+                stockAlerts,
+                "ACTIVA");
     }
 
     // --- HELPER CLASSES (Internal DTOs) ---
@@ -473,5 +477,48 @@ public class VentaService {
 
             deudoresRepository.save(ventaId, clienteNombre, deudaFinal);
         }
+    }
+
+    @Transactional
+    public void anularVentaHistorica(Long ventaId) {
+        // 1. Fetch Sale
+        Venta venta = ventaRepository.findById(ventaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Venta", ventaId));
+
+        if (ANULADA.equals(venta.getEstado())) {
+            throw new BusinessRuleException("La venta ya se encuentra anulada.");
+        }
+
+        // 2. Mark Sale as ANULADA
+        ventaRepository.updateEstado(ventaId, ANULADA);
+
+        // 3. Return Stock to Primary Location
+        List<DetalleVenta> detalles = ventaRepository.findDetallesByVentaId(ventaId);
+        if (!detalles.isEmpty()) {
+            List<com.centralizesys.model.product.Location> allLocations = stockRepository.findAllLocations();
+            if (allLocations.isEmpty()) {
+                throw new BusinessRuleException("No hay ubicaciones configuradas para retornar el stock.");
+            }
+            Long primaryLocationId = allLocations.getFirst().getId();
+
+            for (DetalleVenta detalle : detalles) {
+                // Ignore negative quantities (returns?) or just add back whatever was sold
+                stockRepository.addStock(detalle.getProductoId(), primaryLocationId, detalle.getCantidad());
+            }
+        }
+
+        // 4. Void associated Debt (if any)
+        deudoresRepository.findByVentaId(ventaId)
+                .ifPresent(deuda ->
+                    // Force state to ANULADA
+                    deudoresRepository.updateMontoAndEstado(deuda.getId(), deuda.getMontoDeuda(), ANULADA)
+                );
+
+        // 5. Audit Log
+        Long currentUserId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
+        auditoriaService.registrarAccion(
+                currentUserId,
+                "ANULAR_VENTA",
+                "Se anuló la venta ID " + ventaId + " y se retornó el stock a la ubicación principal.");
     }
 }

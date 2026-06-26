@@ -140,14 +140,14 @@ export default function DashboardPage() {
             {hasActiveDebts && (
                 <div
                     className="alert-card info clickable"
-                    onClick={() => navigate('/deudores')}
+                    onClick={() => navigate('/cobros-y-pedidos')}
                 >
                     <span className="alert-icon">💳</span>
                     <div className="alert-content">
-                        <strong>Cuentas por Cobrar Activas</strong>
-                        <p>Existen cuentas pendientes de cobro.</p>
+                        <strong>Cobros y Pedidos Pendientes</strong>
+                        <p>Existen cuentas por cobrar o ventas pendientes de pago.</p>
                     </div>
-                    <span className="alert-action">Ver Deudores →</span>
+                    <span className="alert-action">Ver Pendientes →</span>
                 </div>
             )}
 
@@ -188,13 +188,13 @@ export default function DashboardPage() {
 
                 <div
                     className="dashboard-card clickable"
-                    onClick={() => navigate('/deudores')}
+                    onClick={() => navigate('/cobros-y-pedidos')}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && navigate('/deudores')}
+                    onKeyDown={(e) => e.key === 'Enter' && navigate('/cobros-y-pedidos')}
                 >
-                    <h3>👥 Deudores</h3>
-                    <p>Gestionar cuentas por cobrar</p>
+                    <h3>💳 Pendientes</h3>
+                    <p>Gestionar deudas y ventas pendientes de pago</p>
                 </div>
 
                 <div
@@ -205,7 +205,18 @@ export default function DashboardPage() {
                     onKeyDown={(e) => e.key === 'Enter' && navigate('/reportes')}
                 >
                     <h3>📊 Reportes</h3>
-                    <p>Ver estadísticas y análisis</p>
+                    <p>Ver estadísticas y análisis financiero</p>
+                </div>
+
+                <div
+                    className="dashboard-card clickable"
+                    onClick={() => navigate('/historial-ventas')}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && navigate('/historial-ventas')}
+                >
+                    <h3>📖 Historial</h3>
+                    <p>Consultar el historial de ventas registradas</p>
                 </div>
 
                 <div

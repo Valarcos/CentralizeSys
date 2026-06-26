@@ -1,0 +1,274 @@
+.reportes-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    /* Relies on AppLayout .main-content padding */
+}
+
+.reportes-header {
+    /* Instruction 1: Remove margin-bottom — the controls row is now inline with the title area */
+    margin-bottom: 0.5rem;
+}
+
+/* Instruction 2: h1 inherits the global 1.75rem — no override needed here */
+
+/* ============================================================
+   Instruction 3: Controls row — toggles and date pickers share
+   the same horizontal container on desktop, stacked on mobile
+   ============================================================ */
+.reportes-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.granularity-toggles {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.toggle-btn-massive {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    font-weight: bold;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    background-color: white;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.toggle-btn-massive:hover {
+    background-color: #f8fafc;
+    border-color: #94a3b8;
+}
+
+.toggle-btn-massive.active {
+    background-color: #2563eb;
+    color: white;
+    border-color: #1d4ed8;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+/* Instruction 3: Date selector compact, no separate block */
+.date-selectors {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    /* Instruction 3: Remove the heavy padding and background */
+    background: none;
+    border: none;
+    padding: 0;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.date-selectors .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.date-selectors label {
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: #334155;
+    white-space: nowrap;
+}
+
+.date-selectors input,
+.date-selectors select {
+    /* Instruction 3: Remove excess padding on date picker */
+    padding: 0.4rem 0.6rem;
+    font-size: 0.95rem;
+    border: 2px solid #94a3b8;
+    border-radius: 6px;
+    min-width: 0;
+    width: auto;
+    margin-bottom: 0;
+}
+
+/* ============================================================
+   Sections
+   ============================================================ */
+.report-section {
+    /* Instruction 7: Reduce vertical space between sections */
+    margin-bottom: 1rem;
+}
+
+.report-section-title {
+    /* Instruction 1: Match h1 size (1.75rem) for consistency */
+    font-size: 1.75rem;
+    font-weight: bold;
+    /* Instruction 9: Match the gap to how Reporte de Caja title is from Rendimiento boxes */
+    margin-top: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 3px solid #e2e8f0;
+}
+
+.report-section.comercial .report-section-title {
+    color: #0f172a;
+    border-color: #3b82f6;
+}
+
+.report-section.caja .report-section-title {
+    color: #166534;
+    border-color: #22c55e;
+}
+
+/* ============================================================
+   Stats Grid — Instruction 8: cards must align values
+   and sub-values horizontally across the row
+   ============================================================ */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+    align-items: stretch;
+}
+
+/* Instruction 5: Reduce top/bottom padding on cards */
+/* Instruction 8: Use flex column with margin-top: auto on sub-value to align all values
+   at top and all sub-values at bottom within the same row */
+.stat-card {
+    background: white;
+    /* Instruction 5 */
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    border: 3px solid #e2e8f0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Instruction 4: Font size matches CobrosYPedidos table <th> style (0.85rem, uppercase) */
+.stat-card h3 {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Instruction 6: Numbers consistent in size with card text, but bold */
+/* Instruction 8: margin-top: auto pushes sub-value to bottom, aligning all sub-values */
+.stat-card .value {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f172a;
+    /* Instruction 8: pin value immediately below the title */
+    margin-bottom: auto;
+}
+
+.stat-card .sub-value {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 500;
+    /* Instruction 8: always sits at the bottom of the card flex column */
+    margin-top: auto;
+    padding-top: 0.3rem;
+}
+
+/* ============================================================
+   Specific Card Colors
+   ============================================================ */
+.card-revenue { border-color: #bfdbfe; background-color: #eff6ff; }
+.card-revenue h3 { color: #1d4ed8; }
+.card-revenue .value { color: #1e3a8a; }
+
+.card-cogs { border-color: #fecaca; background-color: #fef2f2; }
+.card-cogs h3 { color: #b91c1c; }
+.card-cogs .value { color: #7f1d1d; }
+
+.card-debt { border-color: #fef08a; background-color: #fefce8; }
+.card-debt h3 { color: #a16207; }
+.card-debt .value { color: #713f12; }
+
+.card-profit { border-color: #d8b4fe; background-color: #faf5ff; }
+.card-profit h3 { color: #7e22ce; }
+.card-profit .value { color: #581c87; }
+
+.card-cashin { border-color: #bbf7d0; background-color: #f0fdf4; }
+.card-cashin h3 { color: #15803d; }
+.card-cashin .value { color: #14532d; }
+
+.card-cashout { border-color: #fecaca; background-color: #fef2f2; }
+.card-cashout h3 { color: #b91c1c; }
+.card-cashout .value { color: #7f1d1d; }
+
+.card-net { border-color: #a7f3d0; background-color: #ecfdf5; border-width: 4px; }
+.card-net h3 { color: #047857; }
+.card-net .value { color: #064e3b; }
+
+.loading-state, .empty-state {
+    text-align: center;
+    padding: 2rem;
+    font-size: 1.2rem;
+    color: #64748b;
+    background: #f8fafc;
+    border-radius: 10px;
+    border: 2px dashed #cbd5e1;
+}
+
+/* ============================================================
+   Mobile Adjustments
+   ============================================================ */
+@media (max-width: 768px) {
+    .reportes-page {
+        padding: 0.5rem;
+        margin-top: 0;
+    }
+
+    .reportes-controls-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .granularity-toggles {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .toggle-btn-massive {
+        flex: 1;
+        text-align: center;
+        padding: 0.75rem 0.5rem;
+    }
+
+    .date-selectors {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .date-selectors .filter-group {
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .date-selectors input,
+    .date-selectors select {
+        width: 100%;
+    }
+
+    /* On mobile the horizontal alignment rule (instruction 8) doesn't apply —
+       cards stack vertically so natural flow is correct */
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}

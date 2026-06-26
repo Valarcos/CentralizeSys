@@ -59,6 +59,12 @@ public class VentaController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/{id}/anular")
+    public ResponseEntity<Void> anularVenta(@PathVariable Long id) {
+        ventaService.anularVentaHistorica(id);
+        return ResponseEntity.ok().build();
+    }
+
     // --- CONFIG / UTILS ---
 
     // GET /api/ventas/metodos-pago

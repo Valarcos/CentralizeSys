@@ -380,3 +380,47 @@ ALTER TABLE ventas_pendientes ADD COLUMN IF NOT EXISTS monto_pagado REAL NOT NUL
 
 -- Phase 5: Track logical deletion of items in pending sales during cart edits.
 ALTER TABLE detalles_venta_pendiente ADD COLUMN IF NOT EXISTS anulado BOOLEAN NOT NULL DEFAULT FALSE;;
+
+
+-- ==========================================
+-- FIX MIGRACIONES FASE 5 (Tablas Existentes)
+-- ==========================================
+
+-- 1. Agregar columnas faltantes a ventas existentes
+ALTER TABLE ventas ADD COLUMN IF NOT EXISTS tipo_venta TEXT;;
+ALTER TABLE ventas ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'ACTIVA' CHECK(estado IN ('ACTIVA', 'ANULADA'));;
+ALTER TABLE ventas ADD COLUMN IF NOT EXISTS usuario_id INTEGER;;
+
+-- 2. Agregar columnas faltantes a pagos_deuda existentes
+ALTER TABLE pagos_deuda ADD COLUMN IF NOT EXISTS anulado BOOLEAN NOT NULL DEFAULT FALSE;;
+
+-- 3. Inicialización de datos (Backfilling) para las filas que ya existen
+UPDATE ventas SET estado = 'ACTIVA' WHERE estado IS NULL;;
+UPDATE pagos_deuda SET anulado = FALSE WHERE anulado IS NULL;;
+
+-- 4. Actualizar restricción CHECK en deudores para permitir 'ANULADA'
+-- Como la restricción original se creó sin nombre, usamos este bloque DO seguro
+-- para buscarla, borrarla y volver a crearla con la opción extra.
+DO $$
+    DECLARE
+        rec RECORD;
+    BEGIN
+        FOR rec IN
+            SELECT oid, conname
+            FROM pg_constraint
+            WHERE conrelid = 'deudores'::regclass AND contype = 'c'
+            LOOP
+                IF pg_get_constraintdef(rec.oid) ILIKE '%estado%' THEN
+                    EXECUTE 'ALTER TABLE deudores DROP CONSTRAINT ' || rec.conname;
+                END IF;
+            END LOOP;
+    END $$;;
+ALTER TABLE deudores ADD CONSTRAINT deudores_estado_check CHECK (estado IN ('PENDIENTE', 'PARCIAL', 'PAGADO', 'ANULADA'));;
+
+-- 5. Agregar Foreign Key de forma segura a ventas (si no existe)
+DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ventas_usuario') THEN
+            ALTER TABLE ventas ADD CONSTRAINT fk_ventas_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id);
+        END IF;
+    END $$;;

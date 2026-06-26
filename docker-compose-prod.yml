@@ -35,6 +35,7 @@ services:
       - JAVA_TOOL_OPTIONS=-Xms512m -Xmx1g
     volumes:
       - backend_data:/app/data
+      - backend_backups:/app/backups
     depends_on:
       - db
     networks:
@@ -73,6 +74,7 @@ volumes:
   caddy_data:
   caddy_config:
   backend_data:
+  backend_backups:
 
 networks:
   centralizesys_net:

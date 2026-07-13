@@ -45,8 +45,19 @@ public class VentaRepository {
                 rs.getDouble("descuento_global"), // NEW
                 rs.getString("tipo_venta"), // NEW
                 usuarioId,
-                rs.getString("estado"));
+                rs.getString("estado"),
+                getNullableDouble(rs, "costo_total"));
     };
+
+    // Helper to gracefully handle columns that might not be selected in simple queries
+    private Double getNullableDouble(java.sql.ResultSet rs, String columnName) {
+        try {
+            double val = rs.getDouble(columnName);
+            return rs.wasNull() ? null : val;
+        } catch (java.sql.SQLException e) {
+            return null; // Column might not exist in the projection
+        }
+    }
 
     // We now map directly to the simplified numeric-only constructor.
     private final RowMapper<DetalleVenta> detalleMapper = (rs, rowNum) -> new DetalleVenta(
@@ -143,11 +154,22 @@ public class VentaRepository {
     // --- READ OPERATIONS ---
 
     public List<Venta> findAll() {
-        return jdbcTemplate.query("SELECT * FROM ventas ORDER BY fecha DESC, id DESC", ventaMapper);
+        String sql = """
+                SELECT v.*,
+                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total 
+                FROM ventas v 
+                ORDER BY fecha DESC, id DESC
+                """;
+        return jdbcTemplate.query(sql, ventaMapper);
     }
 
     public Optional<Venta> findById(Long id) {
-        String sql = "SELECT * FROM ventas WHERE id = :id";
+        String sql = """
+                SELECT v.*,
+                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total 
+                FROM ventas v 
+                WHERE id = :id
+                """;
         List<Venta> list = namedJdbcTemplate.query(sql, new MapSqlParameterSource("id", id), ventaMapper);
         return list.stream().findFirst();
     }
@@ -178,7 +200,9 @@ public class VentaRepository {
 
     public List<Venta> findVentasByFechaBetween(java.time.LocalDateTime startDate, LocalDateTime endDate, int limit, int offset) {
         String sql = """
-                    SELECT * FROM ventas
+                    SELECT v.*,
+                           (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total
+                    FROM ventas v
                     WHERE fecha BETWEEN :startDate AND :endDate
                     ORDER BY fecha DESC, id DESC
                     LIMIT :limit OFFSET :offset

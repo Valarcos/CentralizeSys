@@ -532,3 +532,36 @@
 .variant-accent {
     border-left: 4px solid #17a2b8;
 }
+
+/* --- TABLET RESPONSIVENESS (Req 4) --- */
+/* Cascade strategy: first reduce margins, then cell padding, before falling back to mobile card view.
+   At this range the table is still shown as a standard table (not card layout). */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .inventario-page {
+        /* Bring content to within 2px of screen edges */
+        margin: 0 2px;
+        padding: var(--spacing-sm) 4px;
+    }
+
+    .products-table-container {
+        /* Allow the container to reach near the edges */
+        margin: 0 2px;
+    }
+
+    .products-table th,
+    .products-table td {
+        /* Reduce cell padding to reclaim horizontal space */
+        padding: 0.5rem;
+        font-size: 0.95rem;
+    }
+
+    .products-table th {
+        font-size: 1rem;
+    }
+
+    .action-btn {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.85rem;
+        min-height: 36px;
+    }
+}

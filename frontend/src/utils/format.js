@@ -4,12 +4,12 @@
  * @returns {string} Formatted currency string
  */
 export const formatCurrency = (value) => {
-    if (value === undefined || value === null) return '$0.00';
-    return new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        minimumFractionDigits: 2
+    if (value === undefined || value === null) return '$ 0,00';
+    const numStr = new Intl.NumberFormat('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
     }).format(value);
+    return `$ ${numStr}`;
 };
 
 /**

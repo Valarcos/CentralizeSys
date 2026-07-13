@@ -229,7 +229,8 @@ public class PendingSaleService {
                 detalles,
                 pagosActivos,
                 stockAlerts,
-                PENDIENTE
+                PENDIENTE,
+                pendingSale.getCostoTotal() != null ? pendingSale.getCostoTotal() : 0.0
         );
     }
 
@@ -366,7 +367,8 @@ public class PendingSaleService {
                 detalles,
                 migratedPagos,
                 Collections.emptyList(), // No stock alerts on finalization (stock was reserved at creation)
-                "ACTIVA"
+                "ACTIVA",
+                pendingSale.getCostoTotal() != null ? pendingSale.getCostoTotal() : 0.0
         );
     }
 

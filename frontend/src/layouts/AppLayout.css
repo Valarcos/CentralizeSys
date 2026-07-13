@@ -19,9 +19,10 @@
 
 .nav-content {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     width: 100%;
+    gap: 3rem; /* Space between Brand, Links, and User Section */
 }
 
 .brand {
@@ -29,12 +30,14 @@
     font-weight: 700;
     color: white;
     margin: 0;
+    white-space: nowrap;
 }
 
 .nav-user-section {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    white-space: nowrap;
 }
 
 .user-greeting {
@@ -46,7 +49,7 @@
     background-color: white;
     color: var(--color-primary);
     font-weight: 600;
-    padding: var(--spacing-sm) var(--spacing-lg);
+    padding: 0.5rem 1rem;
     border: none;
     min-height: 42px;
 }
@@ -58,18 +61,19 @@
 /* Desktop Navigation Links */
 .nav-links {
     display: flex;
-    gap: var(--spacing-sm);
+    gap: 0.25rem; /* Reduced gap between links */
     align-items: center;
 }
 
 .nav-links a {
     color: white;
     text-decoration: none;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.8rem; /* Significantly reduced from 1rem 1.5rem */
+    border-radius: var(--border-radius);
     font-weight: 500;
-    font-size: 1rem;
+    font-size: 0.95rem;
     transition: background-color 0.2s ease;
+    white-space: nowrap;
 }
 
 .nav-links a:hover {
@@ -84,6 +88,34 @@
 .nav-links a:focus {
     outline: 3px solid var(--color-warning);
     outline-offset: 2px;
+}
+
+/* Dynamic Navbar Sizing for Laptops/Tablets */
+@media (min-width: 769px) and (max-width: 1280px) {
+    .nav-content {
+        gap: 1.5rem;
+    }
+    .nav-links {
+        gap: 0.1rem;
+    }
+    .nav-links a {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.85rem;
+    }
+    .brand {
+        font-size: 1.4rem;
+    }
+    .nav-user-section {
+        gap: 0.5rem;
+    }
+    .user-greeting {
+        font-size: 0.9rem;
+    }
+    .logout-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
+        min-height: 36px;
+    }
 }
 
 /* Mobile Compact Top Bar */
@@ -137,14 +169,22 @@
     padding-bottom: calc(var(--bottom-nav-height) + var(--spacing-lg));
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1440px) {
+    .main-content {
+        /* Expand table to touch screen edges on laptops */
+        padding-left: 2px;
+        padding-right: 2px;
+    }
+}
+
+@media (max-width: 1024px) {
     .main-content {
         padding: var(--spacing-xs);
         padding-bottom: calc(var(--bottom-nav-height) + var(--spacing-xs));
     }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
     .main-content {
         padding-bottom: var(--spacing-lg);
     }

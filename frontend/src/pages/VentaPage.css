@@ -125,6 +125,24 @@
     border-bottom: 1px solid var(--border-color);
 }
 
+/* Groups the title + product counter on the left side of the header */
+.ticket-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+/* Dynamic product count badge */
+.total-products-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background-color: #e9ecef;
+    padding: 0.1rem 0.5rem;
+    border-radius: 12px;
+    white-space: nowrap;
+}
+
 .sale-type-toggle {
     display: flex;
     background-color: #f0f0f0;
@@ -510,6 +528,11 @@
         flex-shrink: 0;
     }
 
+    .total-products-label {
+        font-size: 0.72rem;
+        padding: 0.1rem 0.4rem;
+    }
+
     .sale-type-toggle {
         flex: 1;
         min-width: 0;
@@ -795,4 +818,40 @@
 
 .variant-row:hover .variant-add-btn {
     background-color: #138496;
+}
+
+/* --- Req 2: Product code label on catalog cards ---
+   Matches the SalesDetailModal's <small className="text-muted"> pattern for visual consistency.
+   Positioned immediately below the product <h3> name. 'Cod: 1' is acceptable for generic products. */
+.product-code-label {
+    display: block;
+    font-size: 0.78rem;
+    color: #6c757d;
+    /* text-muted equivalent */
+    margin-bottom: 0.25rem;
+    font-weight: 400;
+    line-height: 1.2;
+}
+
+/* --- Req 1: Non-disruptive qty validation warning ---
+   Shown only AFTER the user blurs an invalid quantity input (onBlur).
+   NOT shown while the user is actively typing (prevents flashing/annoying UX). */
+.qty-invalid-warning {
+    display: block;
+    color: #d97706;
+    /* Amber \u2014 visible but non-alarming */
+    font-size: 0.78rem;
+    font-weight: 500;
+    margin-top: 0.2rem;
+    padding-left: 0.2rem;
+}
+
+@media (max-width: 768px) {
+    .product-code-label {
+        font-size: 0.72rem;
+    }
+
+    .qty-invalid-warning {
+        font-size: 0.72rem;
+    }
 }

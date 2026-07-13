@@ -215,7 +215,7 @@
 
 
 /* Responsive Table & Cards (Adapted from InventarioPage.css) */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .history-page {
         padding: 0.5rem;
     }
@@ -594,4 +594,427 @@
         box-sizing: border-box;
         overflow: hidden;
     }
+}
+
+
+/* Responsive Table & Cards (Adapted from InventarioPage.css) */
+@media (max-width: 1024px) {
+    .history-page {
+        padding: 0.5rem;
+    }
+
+    .history-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .date-filter {
+        width: 100%;
+    }
+
+    .table-responsive {
+        border-radius: 0;
+        box-shadow: none;
+        overflow: visible;
+    }
+
+    .history-table,
+    .history-table thead,
+    .history-table tbody,
+    .history-table th,
+    .history-table td,
+    .history-table tr {
+        display: block;
+    }
+
+    /* Hide table headers (but keep accessible) */
+    .history-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .history-table tr {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .history-table td {
+        display: block;
+        text-align: right;
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .history-table td:last-child {
+        border-bottom: none;
+        padding-top: 1rem;
+        margin-top: 0.5rem;
+        border-top: 1px solid #eee;
+    }
+
+    .history-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #6c757d;
+        text-align: left;
+        position: absolute;
+        top: 0.5rem;
+        left: 0.5rem;
+        width: 45%;
+        padding-right: 10px;
+        white-space: nowrap;
+    }
+
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .action-buttons-row {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+    }
+
+    .amount-cell {
+        font-size: 1.1rem;
+        color: var(--color-primary);
+    }
+
+    .history-header-column h1 {
+        margin-bottom: 0.25rem;
+        font-size: 1.5rem;
+    }
+
+    .date-filters-row {
+        gap: 0.5rem;
+        justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        width: 48%;
+    }
+
+    .date-filters-row button {
+        width: 100%;
+        margin-top: 0.25rem;
+        height: 48px !important;
+    }
+
+    .date-filter {
+        width: 100%;
+        padding: 0.4rem;
+    }
+
+    .date-filter::-webkit-calendar-picker-indicator {
+        margin-left: 5px;
+        padding: 0;
+        cursor: pointer;
+    }
+}
+
+/* --- Req 3a: EXTREME NARROW SCREEN (=480px) � Progressive Space Squeezing --- */
+@media (max-width: 480px) {
+    .history-page.container {
+        margin: 0 !important;
+        padding: 0 2px !important;
+    }
+
+    .table-responsive {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 0.25rem !important;
+        font-size: 0.82rem !important;
+    }
+
+    .history-table th {
+        font-size: 0.75rem !important;
+        letter-spacing: 0;
+    }
+
+    /* Req 3b: 2-column action button grid */
+    .action-buttons-row {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.4rem !important;
+    }
+
+    .action-buttons-row > :last-child:nth-child(odd) {
+        grid-column: span 2;
+    }
+
+    .btn-details,
+    .btn-pay,
+    .btn-print,
+    .btn-delete {
+        font-size: 0.78rem !important;
+        padding: 0.3rem 0.4rem !important;
+        min-height: 36px !important;
+    }
+
+    .label-cancelada {
+        font-size: 0.72rem !important;
+        padding: 0.3rem 0.4rem !important;
+        min-height: 36px !important;
+    }
+}
+
+/* Modal Styles for Sales Detail */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.sales-detail-modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    width: 95%;
+    max-width: 1200px;
+    overflow: hidden;
+}
+
+.sales-detail-modal-content .modal-header {
+    background-color: var(--color-primary);
+    color: white;
+    padding: 1rem 2rem;
+    margin: -2rem -2rem 1rem -2rem;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sales-detail-modal-content .modal-header h2 {
+    color: white;
+    margin: 0;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+    flex-shrink: 0;
+}
+
+.modal-table-container {
+    margin-top: 1rem;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 150px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}
+
+.history-table thead th {
+    position: sticky;
+    top: 0;
+    background-color: var(--color-primary);
+    color: white;
+    z-index: 5;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 1024px) {
+    .sales-detail-modal-content {
+        width: 100% !important;
+        max-width: none !important;
+        height: 100% !important;
+        max-height: 100vh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        padding: 0.5rem !important;
+    }
+
+    .sales-detail-modal-content .modal-header {
+        margin: -0.5rem -0.5rem 0.5rem -0.5rem;
+        padding: 1rem;
+        background-color: var(--color-primary);
+        color: white;
+        border-radius: 0;
+        border-bottom: none;
+        flex-shrink: 0;
+        display: block;
+    }
+
+    .sales-detail-modal-content .modal-header h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0;
+        color: white;
+    }
+
+    .sale-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem !important;
+        font-size: 0.95rem;
+        margin-top: 0.3rem;
+        margin-bottom: 0.3rem !important;
+        padding-bottom: 0 !important;
+        flex-shrink: 0;
+    }
+
+    .sale-info p {
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.1 !important;
+    }
+
+    .modal-table-container {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        border: none;
+    }
+
+    .history-table td {
+        padding: 0.4rem 0.25rem;
+        padding-left: 35%;
+        font-size: 0.95rem;
+    }
+
+    .history-table td::before {
+        width: 30%;
+        font-size: 0.85rem;
+        top: 0.4rem;
+    }
+
+    .product-name-cell {
+        word-break: break-word;
+        line-height: 1.2;
+    }
+
+    .modal-actions {
+        margin-top: 0.5rem;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        gap: 1rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid #eee;
+        flex-shrink: 0;
+    }
+
+    .modal-actions button {
+        flex: 1;
+        margin-left: 0 !important;
+        font-size: 1rem;
+        padding: 0.5rem;
+        min-height: 48px;
+    }
+
+    .btn-print {
+        width: auto !important;
+        justify-content: center;
+    }
+
+    .modal-content {
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+}
+
+.row-anulada {
+    background-color: #f8d7da !important;
+}
+.row-anulada td {
+    color: #721c24;
+}
+/* Ensure table takes up all available safe space natively */
+.table-responsive {
+    width: 100%;
+}
+
+/* --- LAPTOP/TABLET COMPRESSION RESPONSIVENESS --- */
+/* Cascade strategy: margins first (to 2px), then cell padding (to 0.5rem).
+   Standard table layout is preserved up to 1025px — mobile card view triggers at <= 1024px. */
+@media (min-width: 1025px) and (max-width: 1440px) {
+    .history-page {
+        margin: 0 2px;
+    }
+
+    .table-responsive {
+        margin: 0 2px;
+    }
+
+    .history-table th,
+    .history-table td {
+        padding: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .history-table th {
+        font-size: 0.8rem;
+        letter-spacing: 0.3px;
+    }
+
+    .btn-details,
+    .btn-pay,
+    .btn-print,
+    .btn-delete {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.82rem;
+        min-height: 36px;
+    }
+}
+
+/* Filter button colors for CobrosYPedidos */
+.filter-btn-cheque {
+    background-color: #ccfbf1 !important;
+    color: #0d9488 !important;
+    border: 1px solid #99f6e4 !important;
+    opacity: 0.6;
+}
+.filter-btn-cheque.active {
+    background-color: #ccfbf1 !important;
+    color: #0d9488 !important;
+    border: 2px solid #0d9488 !important;
+    font-weight: 800 !important;
+    opacity: 1;
+}
+
+.filter-btn-sena {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fecaca !important;
+    opacity: 0.6;
+}
+.filter-btn-sena.active {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 2px solid #b91c1c !important;
+    font-weight: 800 !important;
+    opacity: 1;
 }

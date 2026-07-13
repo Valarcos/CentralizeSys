@@ -25,14 +25,21 @@ public class ReportRepository {
 
     public List<Map<String, Object>> getGananciasMensuales(int year) {
         String sql = """
+            WITH DetallesAgrupados AS (
+                SELECT
+                    venta_id,
+                    COALESCE(SUM(costo_snapshot * cantidad), 0.0) as cogs_venta
+                FROM detalles_venta
+                GROUP BY venta_id
+            )
             SELECT
                 DATE_TRUNC('month', v.fecha) as mes,
                 SUM(v.total_venta) as ingresos_totales,
-                SUM(d.costo_snapshot * d.cantidad) as cogs,
-                (SUM(v.total_venta) - SUM(d.costo_snapshot * d.cantidad)) as ganancia_neta,
-                ((SUM(v.total_venta) - SUM(d.costo_snapshot * d.cantidad)) / NULLIF(SUM(v.total_venta), 0)) * 100 as margen_porcentaje
+                SUM(d.cogs_venta) as cogs,
+                (SUM(v.total_venta) - SUM(d.cogs_venta)) as ganancia_neta,
+                ((SUM(v.total_venta) - SUM(d.cogs_venta)) / NULLIF(SUM(v.total_venta), 0)) * 100 as margen_porcentaje
             FROM ventas v
-            JOIN detalles_venta d ON v.id = d.venta_id
+            LEFT JOIN DetallesAgrupados d ON v.id = d.venta_id
             WHERE v.estado != 'ANULADA' 
               AND EXTRACT(YEAR FROM v.fecha) = :year
             GROUP BY DATE_TRUNC('month', v.fecha)
@@ -45,14 +52,21 @@ public class ReportRepository {
 
     public Map<String, Object> getGananciaPorMes(int year, int month) {
         String sql = """
+            WITH DetallesAgrupados AS (
+                SELECT
+                    venta_id,
+                    COALESCE(SUM(costo_snapshot * cantidad), 0.0) as cogs_venta
+                FROM detalles_venta
+                GROUP BY venta_id
+            )
             SELECT
                 SUM(v.total_venta) as ingresos_totales,
-                SUM(d.costo_snapshot * d.cantidad) as cogs,
-                (SUM(v.total_venta) - SUM(d.costo_snapshot * d.cantidad)) as ganancia_neta,
-                ((SUM(v.total_venta) - SUM(d.costo_snapshot * d.cantidad)) / NULLIF(SUM(v.total_venta), 0)) * 100 as margen_porcentaje
+                SUM(d.cogs_venta) as cogs,
+                (SUM(v.total_venta) - SUM(d.cogs_venta)) as ganancia_neta,
+                ((SUM(v.total_venta) - SUM(d.cogs_venta)) / NULLIF(SUM(v.total_venta), 0)) * 100 as margen_porcentaje
             FROM ventas v
-            JOIN detalles_venta d ON v.id = d.venta_id
-            WHERE v.estado != 'ANULADA' 
+            LEFT JOIN DetallesAgrupados d ON v.id = d.venta_id
+            WHERE v.estado != 'ANULADA'
               AND EXTRACT(YEAR FROM v.fecha) = :year
               AND EXTRACT(MONTH FROM v.fecha) = :month
         """;
@@ -118,12 +132,20 @@ public class ReportRepository {
     private com.centralizesys.model.sales.ReportesEstadisticasDTO.RendimientoComercial queryRendimientoComercial(String dateFilter, MapSqlParameterSource params) {
         // Revenue and COGS from active sales
         String revenueSql = """
+            WITH DetallesAgrupados AS (
+                SELECT
+                    venta_id,
+                    COALESCE(SUM(costo_snapshot * cantidad), 0.0) AS cogs_venta,
+                    COALESCE(SUM(cantidad), 0) AS qty_vendida
+                FROM detalles_venta
+                GROUP BY venta_id
+            )
             SELECT
                 COALESCE(SUM(v.total_venta), 0.0)        AS ingresos_ventas,
-                COALESCE(SUM(d.costo_snapshot * d.cantidad), 0.0) AS costo_total_vendido,
-                COALESCE(SUM(d.cantidad), 0)              AS productos_vendidos
+                COALESCE(SUM(d.cogs_venta), 0.0) AS costo_total_vendido,
+                COALESCE(SUM(d.qty_vendida), 0)              AS productos_vendidos
             FROM ventas v
-            JOIN detalles_venta d ON v.id = d.venta_id
+            LEFT JOIN DetallesAgrupados d ON v.id = d.venta_id
             WHERE v.estado != 'ANULADA'
         """ + dateFilter.replace(FECHA_FIELD, "v.fecha");
 

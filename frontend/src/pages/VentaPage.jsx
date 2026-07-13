@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useOutletContext, useBlocker, useLocation, useNavigate } from 'react-router-dom';
 import useCart from '../hooks/useCart';
 import api from '../services/api';
@@ -143,6 +143,21 @@ export default function VentaPage() {
     // Overpayment Modal State (Issue #8)
     const [showOverpaidModal, setShowOverpaidModal] = useState(false);
     const [overpaidMaxAllowed, setOverpaidMaxAllowed] = useState(0);
+
+    // Req 4: Ref for payment amount input — enables auto-focus + select when a method is chosen.
+    const paymentAmountRef = useRef(null);
+
+    // Req 1: Local display buffer for quantity inputs.
+    // useCart's updateQuantity guards against values < 1, so storing '' in cart state is not possible.
+    // This Map (productId -> displayString) acts as an independent controlled-input buffer.
+    // hasInvalidQty reads from this map to determine if any input is currently in an empty/zero state.
+    // CRITICAL EXCEPTION: Discount inputs (item.discount, globalDiscount) are excluded by design —
+    // an empty or zero discount is 100% valid per business rules and MUST NOT block the sale.
+    const [localQtyValues, setLocalQtyValues] = useState({});
+
+    // Req 1: Tracks the ID of the last quantity-input that was blurred while in an invalid state.
+    // Only one warning label renders at a time, preventing visual pollution when multiple fields exist.
+    const [lastInvalidFieldId, setLastInvalidFieldId] = useState(null);
 
     // Issue #7 + #9: Warn when payments exceed total (due to discount or sale type change)
     useEffect(() => {
@@ -558,7 +573,12 @@ export default function VentaPage() {
     };
 
     const formatCurrency = (amount) => {
-        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(amount);
+        if (amount === undefined || amount === null) return '$ 0,00';
+        const numStr = new Intl.NumberFormat('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount);
+        return `$ ${numStr}`;
     };
 
     // Calculate remaining amount to pay
@@ -577,7 +597,27 @@ export default function VentaPage() {
         } else {
             setPaymentAmount('');
         }
+        // Req 4: After auto-filling the amount, focus and select the input so the user can
+        // immediately overwrite the value on all devices (desktop & mobile).
+        setTimeout(() => {
+            paymentAmountRef.current?.focus();
+            paymentAmountRef.current?.select();
+        }, 0);
     };
+
+    // Req 1: Determines whether any cart item has an invalid quantity in the local display buffer.
+    // We check localQtyValues (the per-input display state) rather than cartItems because
+    // useCart's updateQuantity rejects empty/zero values and won't store them in cart state.
+    // CRITICAL EXCEPTION: Discount fields are intentionally excluded (empty discount = $0, which is valid).
+    const hasInvalidQty = cartItems.some(item => {
+        const localVal = localQtyValues[item.product.id];
+        // If the local buffer has an entry for this item, check if it's empty or zero
+        if (localVal !== undefined) {
+            return localVal === '' || Number(localVal) <= 0;
+        }
+        // No local buffer entry means the cart holds the canonical value (always valid, >= 1)
+        return false;
+    });
 
     // --- RENDER ---
     if (lastSale) {
@@ -593,7 +633,7 @@ export default function VentaPage() {
                             onClick={handlePrintReceipt}
                             style={{ padding: '1rem 2rem', fontSize: '1.2rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                         >
-                            🖨️ Imprimir Ticket
+                            🖨️ Imprimir Presupuesto
                         </button>
                         <button
                             onClick={handleNewSale}
@@ -634,6 +674,9 @@ export default function VentaPage() {
                                     onClick={() => handleFamilyCardClick(product)}
                                 >
                                     <h3>{product.descripcion}</h3>
+                                    {/* Req 2: Show product code below the name, matching SalesDetailModal's text-muted style.
+                                        'Cod: 1' is acceptable for generic products per .cursorrules spec. */}
+                                    <small className="product-code-label">Cod: {product.codigo}</small>
                                     {product._isGrouped && (
                                         <span className="variant-badge">{product._siblings.length} variantes</span>
                                     )}
@@ -676,7 +719,12 @@ export default function VentaPage() {
 
             <div className={`ticket-panel theme-${saleType.toLowerCase()} ${activeTab === 'ticket' ? 'active' : ''}`}>
                 <div className="ticket-header">
-                    <h2>Ticket</h2>
+                    <div className="ticket-header-left">
+                        <h2>Carrito de venta</h2>
+                        <span className="total-products-label">
+                            Total Productos: {cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+                        </span>
+                    </div>
                     <div className="sale-type-toggle">
                         <button className={`toggle-btn ${saleType === 'MINORISTA' ? 'active' : ''}`} onClick={() => handleSaleTypeChange('MINORISTA')}>Minorista</button>
                         <button className={`toggle-btn ${saleType === 'MAYORISTA' ? 'active' : ''}`} onClick={() => handleSaleTypeChange('MAYORISTA')}>Mayorista</button>
@@ -691,6 +739,7 @@ export default function VentaPage() {
                         placeholder={!clientName ? "Ingrese Cliente - Requerido" : "Cliente"}
                         value={clientName}
                         onChange={(e) => setClientName(e.target.value)}
+                        tabIndex="1"
                     />
                     <datalist id="client-suggestions">
                         {availableClients.map((client, index) => (
@@ -729,38 +778,107 @@ export default function VentaPage() {
                             {/* Row 3: Qty Controls + Total + Remove */}
                             <div className="cart-row cart-row-actions">
                                 <div className="cart-item-qty">
-                                    <button className="qty-btn" onClick={() => {
-                                        const result = updateQuantity(item.product.id, item.quantity - 1);
-                                        if (result === 'zero_blocked') {
-                                            toast('Para eliminar producto tocar su botón ×', { icon: 'ℹ️', duration: 2000 });
+                                    {/* Req 1: [-] button disabled when local display value is empty/0 */}
+                                    <button
+                                        className="qty-btn"
+                                        disabled={
+                                            (localQtyValues[item.product.id] !== undefined &&
+                                                (localQtyValues[item.product.id] === '' || Number(localQtyValues[item.product.id]) <= 1)) ||
+                                            item.quantity <= 1
                                         }
-                                    }}>-</button>
+                                        onClick={() => {
+                                            const result = updateQuantity(item.product.id, item.quantity - 1);
+                                            if (result === 'zero_blocked') {
+                                                toast('Para eliminar producto tocar su botón ×', { icon: 'ℹ️', duration: 2000 });
+                                            } else {
+                                                // Sync local buffer with new valid value
+                                                setLocalQtyValues(prev => {
+                                                    const next = { ...prev };
+                                                    delete next[item.product.id];
+                                                    return next;
+                                                });
+                                            }
+                                        }}
+                                    >-</button>
                                     <input
                                         type="text"
                                         inputMode="numeric"
                                         className="qty-input"
-                                        value={item.quantity}
+                                        // Req 1: Use localQtyValues as display buffer so empty string can be shown while editing.
+                                        // item.quantity (always >= 1) is only used when no local override exists.
+                                        value={localQtyValues[item.product.id] !== undefined
+                                            ? localQtyValues[item.product.id]
+                                            : item.quantity
+                                        }
                                         onChange={(e) => {
-                                            const val = parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
-                                            if (!isNaN(val) && val >= 1) {
-                                                updateQuantity(item.product.id, val);
+                                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                                            if (raw === '') {
+                                                // Req 1: Store empty string locally — do NOT force a value while editing.
+                                                // hasInvalidQty detects this via localQtyValues and blocks action buttons.
+                                                setLocalQtyValues(prev => ({ ...prev, [item.product.id]: '' }));
+                                            } else {
+                                                const val = parseInt(raw, 10);
+                                                if (!isNaN(val) && val >= 1) {
+                                                    updateQuantity(item.product.id, val);
+                                                    // Clear local buffer once a valid int is committed
+                                                    setLocalQtyValues(prev => {
+                                                        const next = { ...prev };
+                                                        delete next[item.product.id];
+                                                        return next;
+                                                    });
+                                                }
                                             }
                                         }}
                                         onBlur={(e) => {
-                                            if (!e.target.value || parseInt(e.target.value, 10) < 1) {
-                                                updateQuantity(item.product.id, 1);
+                                            // Req 1: On blur, show a non-disruptive warning ONLY if the field remains invalid.
+                                            // We do NOT auto-revert to 1 — the user must correct it manually.
+                                            const val = e.target.value;
+                                            if (!val || parseInt(val, 10) <= 0) {
+                                                setLastInvalidFieldId(item.product.id);
+                                            } else {
+                                                // Field is valid: clear any warning for this item
+                                                setLastInvalidFieldId(prev => prev === item.product.id ? null : prev);
+                                                // Also clear local buffer if a valid value was committed
+                                                setLocalQtyValues(prev => {
+                                                    const next = { ...prev };
+                                                    delete next[item.product.id];
+                                                    return next;
+                                                });
                                             }
                                         }}
                                         onKeyDown={blockNonIntegerKeys}
                                         onPaste={sanitizeIntegerPaste}
                                     />
-                                    <button className="qty-btn" onClick={() => updateQuantity(item.product.id, item.quantity + 1)}>+</button>
+                                    {/* Req 1: [+] button disabled when local display value is empty/zero */}
+                                    <button
+                                        className="qty-btn"
+                                        disabled={
+                                            localQtyValues[item.product.id] !== undefined &&
+                                            (localQtyValues[item.product.id] === '' || Number(localQtyValues[item.product.id]) <= 0)
+                                        }
+                                        onClick={() => {
+                                            updateQuantity(item.product.id, item.quantity + 1);
+                                            // Sync local buffer
+                                            setLocalQtyValues(prev => {
+                                                const next = { ...prev };
+                                                delete next[item.product.id];
+                                                return next;
+                                            });
+                                        }}
+                                    >+</button>
                                 </div>
                                 <div className="cart-item-total">
                                     {formatCurrency((Math.max(0, item.unitPrice - (item.discount || 0))) * item.quantity)}
                                 </div>
                                 <button className="remove-btn" onClick={() => removeFromCart(item.product.id)}>×</button>
                             </div>
+                            {/* Req 1: Non-disruptive warning — only shown under the LAST field that was blurred invalid.
+                                Appears after blur (onBlur), NOT while typing. Prevents flashing alerts mid-edit. */}
+                            {lastInvalidFieldId === item.product.id && (
+                                <small className="qty-invalid-warning">
+                                    Para continuar operacion, ingrese valor mayor a 0
+                                </small>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -783,13 +901,15 @@ export default function VentaPage() {
                             className="payment-select"
                             value={selectedMethodId}
                             onChange={handleMethodSelect}
+                            tabIndex="2"
                         >
-                            <option value="">Agregar Pago...</option>
+                            <option value="" disabled>Elegir Método</option>
                             {availableMethods.map(m => (
                                 <option key={m.id} value={m.id}>{m.descripcion}</option>
                             ))}
                         </select>
                         <input
+                            ref={paymentAmountRef}
                             type="text"
                             inputMode="decimal"
                             className="payment-amount"
@@ -804,8 +924,10 @@ export default function VentaPage() {
                                 blockNonNumericKeys(e);
                             }}
                             onPaste={sanitizeNumericPaste}
+                            onFocus={(e) => e.target.select()}
+                            tabIndex="3"
                         />
-                        <button onClick={handleAddPayment} className="add-payment-btn">+</button>
+                        <button onClick={handleAddPayment} className="add-payment-btn" tabIndex="4">+</button>
                     </div>
 
                     <div className="totals-area">
@@ -840,19 +962,22 @@ export default function VentaPage() {
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                        {/* Req 1: FINALIZAR disabled when any cart item has an invalid (empty or 0) quantity.
+                           Discount fields are explicitly excluded from this check per business rules. */}
                         <button
                             className="pay-btn"
-                            disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid}
+                            disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty}
                             onClick={handlePrePaymentCheck}
-                            style={{ flex: 2, opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid) ? 0.5 : 1 }}
+                            style={{ flex: 2, opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty) ? 0.5 : 1 }}
                         >
                             {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
                         </button>
+                        {/* Req 1: GUARDAR PENDIENTE also blocked when any qty is invalid */}
                         <button
                             className="pay-btn"
-                            disabled={cartItems.length === 0 || !clientName.trim() || isSubmitting}
+                            disabled={cartItems.length === 0 || !clientName.trim() || isSubmitting || hasInvalidQty}
                             onClick={handleSaveAsPending}
-                            style={{ flex: 1, backgroundColor: '#f59e0b', color: 'white', border: '1px solid #d97706', opacity: (cartItems.length === 0 || !clientName.trim() || isSubmitting) ? 0.5 : 1 }}
+                            style={{ flex: 1, backgroundColor: '#f59e0b', color: 'white', border: '1px solid #d97706', opacity: (cartItems.length === 0 || !clientName.trim() || isSubmitting || hasInvalidQty) ? 0.5 : 1 }}
                         >
                             Guardar Pendiente
                         </button>

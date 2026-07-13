@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useBlocker, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/format';
 import toast from 'react-hot-toast';
 import SalesDetailModal from '../components/SalesDetailModal';
 import CancellationModal from '../components/CancellationModal';
+import FinalizeConfirmationModal from '../components/FinalizeConfirmationModal';
 import { generateDebtorReceipt, generatePendingSaleReceipt } from '../utils/pdfGenerator';
 import { blockNonNumericKeys, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './SalesHistoryPage.css'; // Reusing CSS for table responsive cards
@@ -22,12 +23,20 @@ export default function CobrosYPedidosPage() {
     const [isLoadingSale, setIsLoadingSale] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Confirmation Modals
+    const [itemToFinalize, setItemToFinalize] = useState(null);
+    const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+
     // Multi-Payment State
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [payments, setPayments] = useState([]); // Array of { methodId, methodName, amount, note }
     const [selectedMethodId, setSelectedMethodId] = useState('');
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentNote, setPaymentNote] = useState('');
+
+    // Req 4: Ref for the payment amount input — used to auto-focus and select text
+    // when a payment method is chosen, making it easy to overwrite the auto-filled value.
+    const paymentAmountRef = useRef(null);
 
     const navigate = useNavigate();
     const [itemToCancel, setItemToCancel] = useState(null);
@@ -278,10 +287,18 @@ export default function CobrosYPedidosPage() {
             return;
         }
 
+        setItemToFinalize(item);
+        setShowFinalizeModal(true);
+    };
+
+    const confirmFinalizePedido = async () => {
+        if (!itemToFinalize) return;
         setIsSubmitting(true);
         try {
-            await api.post(`/ventas-pendientes/${item.id_referencia}/finalizar`);
+            await api.post(`/ventas-pendientes/${itemToFinalize.id_referencia}/finalizar`);
             toast.success("Pedido finalizado con éxito.");
+            setShowFinalizeModal(false);
+            setItemToFinalize(null);
             fetchItems();
         } catch (error) {
             console.error(error);
@@ -338,7 +355,11 @@ export default function CobrosYPedidosPage() {
                 <h1>Cobros y Pedidos</h1>
             </div>
 
-            {/* Filter Tabs */}
+            {/* Filter Tabs
+               ARCHITECTURE NOTE (Req 3c/3d): The UI labels below are intentionally different
+               from the backend domain values ('FIADO', 'PEDIDO'). This is a FRONTEND-ONLY rename
+               per business requirements. The filterType state, API calls, and DB schema
+               must continue using the original domain strings. DO NOT change the onClick values. */}
             <div className="sale-type-toggle" style={{ marginBottom: '20px', justifyContent: 'center' }}>
                 <button
                     className={`toggle-btn ${filterType === 'ALL' ? 'active' : ''}`}
@@ -346,17 +367,19 @@ export default function CobrosYPedidosPage() {
                 >
                     TODOS
                 </button>
+                {/* UI label: "Cheque" — Domain value: 'FIADO' (unchanged in state/API/DB) */}
                 <button
-                    className={`toggle-btn ${filterType === 'FIADO' ? 'active' : ''}`}
+                    className={`toggle-btn filter-btn-cheque ${filterType === 'FIADO' ? 'active' : ''}`}
                     onClick={() => setFilterType('FIADO')}
                 >
-                    📕 DEUDAS (FIADOS)
+                    📋 Cheque
                 </button>
+                {/* UI label: "Seña" — Domain value: 'PEDIDO' (unchanged in state/API/DB) */}
                 <button
-                    className={`toggle-btn ${filterType === 'PEDIDO' ? 'active' : ''}`}
+                    className={`toggle-btn filter-btn-sena ${filterType === 'PEDIDO' ? 'active' : ''}`}
                     onClick={() => setFilterType('PEDIDO')}
                 >
-                    📒 PEDIDOS PENDIENTES
+                    📝 Seña
                 </button>
             </div>
 
@@ -370,6 +393,7 @@ export default function CobrosYPedidosPage() {
                             <th>Cliente</th>
                             <th>Fecha</th>
                             <th>Tipo</th>
+                            <th>Costo Total</th>
                             <th>Monto Total</th>
                             <th>Monto Pagado</th>
                             <th>Saldo Restante</th>
@@ -383,10 +407,23 @@ export default function CobrosYPedidosPage() {
                                 <td data-label="Cliente">{item.cliente_nombre}</td>
                                 <td data-label="Fecha">{formatDate(item.fecha_creacion)}</td>
                                 <td data-label="Tipo">
-                                    <span className={`status-pill ${item.tipo === 'FIADO' ? 'status-parcial' : 'status-pendiente'}`} style={{ backgroundColor: item.tipo === 'PEDIDO' ? '#eab308' : undefined, color: item.tipo === 'PEDIDO' ? '#fff' : undefined }}>
-                                        {item.tipo}
-                                    </span>
+                                    {/*
+                                      ARCHITECTURE NOTE (Req 3c/3d): UI display labels are intentionally
+                                      different from domain values. 'FIADO' displays as 'Cheque' (teal).
+                                      'PEDIDO' displays as 'Seña' (red). The `item.tipo` value itself
+                                      is never changed — it is used for all API routing decisions.
+                                    */}
+                                    {item.tipo === 'FIADO' ? (
+                                        <span className="status-pill" style={{ backgroundColor: '#ccfbf1', color: '#0d9488', fontWeight: 700 }}>
+                                            Cheque
+                                        </span>
+                                    ) : (
+                                        <span className="status-pill" style={{ backgroundColor: '#fee2e2', color: '#b91c1c', fontWeight: 700 }}>
+                                            Seña
+                                        </span>
+                                    )}
                                 </td>
+                                <td data-label="Costo Total" className="amount-cell">{formatCurrency(item.costo_total)}</td>
                                 <td data-label="Monto Total" className="amount-cell">{formatCurrency(item.monto_total)}</td>
                                 <td data-label="Monto Pagado" className="amount-cell">{formatCurrency(item.monto_pagado)}</td>
                                 <td data-label="Saldo Restante" className="amount-cell" style={{ fontWeight: 'bold', color: item.saldo_restante > 0 ? '#dc2626' : '#16a34a' }}>
@@ -466,7 +503,7 @@ export default function CobrosYPedidosPage() {
                             </tr>
                         ))}
                         {displayedItems.length === 0 && (
-                            <tr><td colSpan="8" style={{ textAlign: 'center' }}>No hay cobros ni pedidos registrados.</td></tr>
+                            <tr><td colSpan="9" style={{ textAlign: 'center' }}>No hay cobros ni pedidos registrados.</td></tr>
                         )}
                         </tbody>
                     </table>
@@ -478,10 +515,14 @@ export default function CobrosYPedidosPage() {
                 <div className="modal-overlay">
                     <div className="modal-content" style={{ maxWidth: '600px' }}>
                         <div style={{ backgroundColor: 'var(--color-primary)', color: 'white', padding: '0.8rem 1rem', margin: '-1rem -1rem 0.8rem -1rem', borderRadius: '8px 8px 0 0' }}>
-                            <h3 style={{ margin: 0, color: 'white' }}>Registrar Pago ({selectedItem.tipo})</h3>
+                            <h3 style={{ margin: 0, color: 'white' }}>
+                                {/* Req 3c/3d: UI label uses renamed display name; domain value stays in selectedItem.tipo */}
+                                Registrar Pago ({selectedItem.tipo === 'FIADO' ? 'Cheque' : 'Seña'})
+                            </h3>
                         </div>
                         <p>Cliente: <strong>{selectedItem.cliente_nombre}</strong></p>
-                        <p>Total {selectedItem.tipo === 'FIADO' ? 'Deuda' : 'Pedido'}: <strong>${selectedItem.saldo_restante.toFixed(2)}</strong></p>
+                        {/* Req 3c/3d: Display label uses renamed term; routing logic uses original domain value */}
+                        <p>Total {selectedItem.tipo === 'FIADO' ? 'Cheque' : 'Seña'}: <strong>${selectedItem.saldo_restante.toFixed(2)}</strong></p>
                         <p>Restante a Pagar: <strong style={{ color: remainingDebt === 0 ? 'green' : 'red' }}>${remainingDebt.toFixed(2)}</strong></p>
 
                         <div className="payment-form" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
@@ -490,6 +531,12 @@ export default function CobrosYPedidosPage() {
                                 onChange={(e) => {
                                     setSelectedMethodId(e.target.value);
                                     if (remainingDebt > 0 && !paymentAmount) setPaymentAmount(remainingDebt.toFixed(2));
+                                    // Req 4: Auto-focus and select the amount input when method is chosen
+                                    // so the user can immediately type over the auto-filled value.
+                                    setTimeout(() => {
+                                        paymentAmountRef.current?.focus();
+                                        paymentAmountRef.current?.select();
+                                    }, 0);
                                 }}
                                 style={{ padding: '8px' }}
                             >
@@ -500,6 +547,7 @@ export default function CobrosYPedidosPage() {
                             </select>
 
                             <input
+                                ref={paymentAmountRef}
                                 type="text"
                                 inputMode="decimal"
                                 placeholder="Monto"
@@ -507,6 +555,8 @@ export default function CobrosYPedidosPage() {
                                 onChange={(e) => setPaymentAmount(enforceMoneyFormat(e.target.value))}
                                 onKeyDown={blockNonNumericKeys}
                                 onPaste={sanitizeNumericPaste}
+                                onFocus={(e) => e.target.select()}
+                                autoFocus
                                 style={{ padding: '8px' }}
                             />
                         </div>
@@ -568,6 +618,16 @@ export default function CobrosYPedidosPage() {
                     : "⚠️ CANCELADO: El stock reservado será devuelto al inventario. Esta acción no se puede deshacer."}
                 onConfirm={confirmCancelPedido}
                 onCancel={() => setItemToCancel(null)}
+                isSubmitting={isSubmitting}
+            />
+
+            <FinalizeConfirmationModal
+                isOpen={showFinalizeModal}
+                onConfirm={confirmFinalizePedido}
+                onCancel={() => {
+                    setShowFinalizeModal(false);
+                    setItemToFinalize(null);
+                }}
                 isSubmitting={isSubmitting}
             />
         </div>

@@ -52,7 +52,8 @@ public class PendingSaleController {
                 items,
                 Collections.emptyList(),
                 Collections.emptyList(),
-                sale.getEstado()
+                sale.getEstado(),
+                sale.getCostoTotal() != null ? sale.getCostoTotal() : 0.0
         );
         return ResponseEntity.ok(response);
     }

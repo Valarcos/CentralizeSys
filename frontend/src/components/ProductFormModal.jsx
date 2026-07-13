@@ -256,6 +256,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                 disabled={isVariant}
                                 placeholder={isVariant ? 'Código pre-asignado' : 'Ej: ART-001'}
                                 aria-invalid={!!errors.codigo}
+                                tabIndex="1"
                             />
                             {errors.codigo && (
                                 <span className="error-message">{errors.codigo}</span>
@@ -282,6 +283,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                 disabled={isLoadingCode || (isExistingFamily && isSmartLookupEnabled)}
                                 placeholder="Nombre del producto"
                                 aria-invalid={!!errors.descripcion}
+                                tabIndex="2"
                             />
                             {errors.descripcion && (
                                 <span className="error-message">{errors.descripcion}</span>
@@ -306,6 +308,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                     disabled={isLoadingCode || (!codeEvaluated && isSmartLookupEnabled)}
                                     placeholder="0.00"
                                     aria-invalid={!!errors.precioCosto}
+                                    tabIndex="3"
                                 />
                                 {errors.precioCosto && (
                                     <span className="error-message">{errors.precioCosto}</span>
@@ -327,6 +330,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                     onPaste={sanitizeNumericPaste}
                                     disabled={isLoadingCode || isVariant || (isExistingFamily && isSmartLookupEnabled)}
                                     placeholder="Igual al minorista si vacío"
+                                    tabIndex="4"
                                 />
                                 {errors.precioMayorista && (
                                     <span className="error-message">{errors.precioMayorista}</span>
@@ -349,6 +353,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                     disabled={isLoadingCode || isVariant || (isExistingFamily && isSmartLookupEnabled)}
                                     placeholder="0.00"
                                     aria-invalid={!!errors.precioMinorista}
+                                    tabIndex="5"
                                 />
                                 {errors.precioMinorista && (
                                     <span className="error-message">{errors.precioMinorista}</span>
@@ -380,6 +385,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                                 value={formData.ubicacionId}
                                                 onChange={handleChange}
                                                 aria-invalid={!!errors.ubicacionId}
+                                                tabIndex="6"
                                             >
                                                 <option value="">-- Seleccione ubicación --</option>
                                                 {ubicaciones.map(ub => (
@@ -409,6 +415,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                             onPaste={sanitizeIntegerPaste}
                                             placeholder="Ingrese cantidad"
                                             aria-invalid={!!errors.cantidad}
+                                            tabIndex="7"
                                         />
                                         {errors.cantidad && (
                                             <span className="error-message">{errors.cantidad}</span>
@@ -425,6 +432,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                             onClick={onCancel}
                             className="secondary"
                             disabled={saving}
+                            tabIndex="8"
                         >
                             Cancelar
                         </button>
@@ -435,6 +443,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                                 || isLoadingCode
                                 || (isSmartLookupEnabled && !codeEvaluated)
                                 || (loadingUbicaciones && !isEditing && !isPurchaseContext)}
+                            tabIndex="9"
                         >
                             {saving ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Crear Producto')}
                         </button>

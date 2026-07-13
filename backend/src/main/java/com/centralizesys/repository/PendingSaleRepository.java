@@ -43,7 +43,8 @@ public class PendingSaleRepository {
                 rs.getDouble("descuento_global"),
                 rs.getString("tipo_venta"),
                 usuarioId,
-                rs.getString("estado"));
+                rs.getString("estado"),
+                null);
     };
 
     private final RowMapper<DetalleVenta> pendingDetalleMapper = (rs, rowNum) -> new DetalleVenta(

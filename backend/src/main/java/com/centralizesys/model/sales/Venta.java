@@ -19,4 +19,5 @@ public class Venta {
     private String tipoVenta; // NEW: Persisted 'MAYORISTA' or 'MINORISTA'
     private Long usuarioId; // For audit/security
     private String estado; // ACTIVA, ANULADA
+    private Double costoTotal; // Dynamically calculated
 }

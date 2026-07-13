@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { LOGO_BASE64, LOGO_FORMAT } from './logoBase64';
 
 // --- HELPERS ---
 
@@ -29,6 +30,40 @@ const formatDateYMD = (dateStr) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+/**
+ * Formats a date string as DD/MM/YYYY — the user-facing format required for PDFs.
+ * Reuses the same safe-parsing approach as formatDateYMD to avoid UTC offset bugs.
+ */
+const formatDateDDMMYYYY = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const match = String(dateStr).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+    // Fallback: parse with local time forced
+    const safe = String(dateStr).includes('T') ? dateStr : dateStr + 'T12:00:00';
+    const d = new Date(safe);
+    if (isNaN(d.getTime())) return String(dateStr);
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+};
+
+/**
+ * Draws the company logo in the upper-right corner of the given jsPDF document.
+ * The image is drawn BEFORE any tables/text so it acts as a background layer —
+ * jsPDF renders in draw order, meaning subsequent text/tables appear on top.
+ * This is a no-op if LOGO_BASE64 is empty (see logoBase64.js).
+ *
+ * @param {jsPDF} doc - The active jsPDF document instance.
+ */
+const addLogoToDoc = (doc) => {
+    if (!LOGO_BASE64) return;
+    const pageWidth = doc.internal.pageSize.width;
+    // Logo dimensions and position (upper-right corner, 8mm from edges)
+    const logoWidth = 40;
+    const logoHeight = 20;
+    const logoX = pageWidth - logoWidth - 8;
+    const logoY = 5;
+    doc.addImage(LOGO_BASE64, LOGO_FORMAT, logoX, logoY, logoWidth, logoHeight);
+};
+
 // --- SALE RECEIPT PDF ---
 
 /**
@@ -40,23 +75,26 @@ export const generateReceipt = (saleData) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
 
+        // --- LOGO (drawn first so it renders as background layer) ---
+        addLogoToDoc(doc);
+
         // --- HEADER ---
         doc.setFontSize(18);
-        doc.text("TICKET DE VENTA", pageWidth / 2, 15, { align: 'center' });
+        doc.text("VENTA", pageWidth / 2, 15, { align: 'center' });
 
         doc.setFontSize(10);
         doc.text(`Venta ID: #${saleData.id}`, 14, 25);
-        doc.text(`Fecha de Venta: ${formatDateYMD(saleData.date)}`, 14, 30);
+        doc.text(`Fecha de Venta: ${formatDateDDMMYYYY(saleData.date)}`, 14, 30);
 
         // PDF print date (smaller, gray)
         doc.setFontSize(8);
         doc.setTextColor(120);
-        doc.text(`Fecha de Impresión: ${formatDateYMD(new Date().toISOString())}`, 14, 35);
+        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(new Date().toISOString())}`, 14, 35);
         doc.setTextColor(0);
         doc.setFontSize(10);
 
         doc.text(`Cliente: ${saleData.client || 'Consumidor Final'}`, 14, 42);
-        doc.text(`Vendedor: ${saleData.user || 'Sistema'}`, 14, 47);
+        doc.text(`Vendedor: ${saleData.vendedor || saleData.user || 'Sistema'}`, 14, 47);
         doc.text(`Tipo Venta: ${saleData.saleType}`, 14, 52);
 
         // --- TABLE 1: ITEMS ---
@@ -157,8 +195,10 @@ export const generateReceipt = (saleData) => {
         doc.setFont(undefined, 'bold');
         doc.text(`TOTAL VENTA: ${formatMoney(saleData.total)}`, pageWidth - 14, finalY, { align: 'right' });
 
-        // Save
-        doc.save(`Ticket_Venta_${saleData.id}.pdf`);
+        // Dynamic filename: Venta- [Client] - dd-mm-YYYY.pdf
+        const clientName = saleData.client || 'Consumidor Final';
+        const dateStr = formatDateDDMMYYYY(saleData.date).replace(/\//g, '-');
+        doc.save(`Venta- ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating PDF:", error);
         alert("Error al generar el PDF. Revise la consola.");
@@ -191,25 +231,28 @@ export const generateDebtorReceipt = (debtorData) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
 
+        // --- LOGO (drawn first so it renders as background layer) ---
+        addLogoToDoc(doc);
+
         // --- HEADER ---
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
-        doc.text("COMPROBANTE DE DEUDA", pageWidth / 2, 15, { align: 'center' });
+        doc.text("CHEQUE", pageWidth / 2, 15, { align: 'center' });
 
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
         doc.text(`ID Venta: #${debtorData.ventaId}`, 14, 25);
-        doc.text(`Fecha de Venta: ${formatDateYMD(debtorData.saleDate)}`, 14, 30);
+        doc.text(`Fecha de Venta: ${formatDateDDMMYYYY(debtorData.saleDate)}`, 14, 30);
 
         // Print date (smaller, gray)
         doc.setFontSize(8);
         doc.setTextColor(120);
-        doc.text(`Fecha de Impresión: ${formatDateYMD(new Date().toISOString())}`, 14, 35);
+        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(new Date().toISOString())}`, 14, 35);
         doc.setTextColor(0);
         doc.setFontSize(10);
 
         doc.text(`Cliente: ${debtorData.clienteNombre}`, 14, 42);
-        doc.text(`Vendedor: ${debtorData.user || 'Sistema'}`, 14, 47);
+        doc.text(`Vendedor: ${debtorData.vendedor || debtorData.user || 'Sistema'}`, 14, 47);
         doc.text(`Tipo Venta: ${debtorData.saleType || 'ESTÁNDAR'}`, 14, 52);
 
         // Estado with color coding
@@ -323,7 +366,7 @@ export const generateDebtorReceipt = (debtorData) => {
 
         if (allPayments.length > 0) {
             const pagosBody = allPayments.map(p => [
-                formatDateYMD(p.date),
+                formatDateDDMMYYYY(p.date),
                 p.method,
                 p.type,
                 formatMoney(p.amount)
@@ -388,7 +431,9 @@ export const generateDebtorReceipt = (debtorData) => {
         doc.setTextColor(0);
 
         // Save
-        doc.save(`Comprobante_Deuda_Venta_${debtorData.ventaId}.pdf`);
+        const clientName = debtorData.clienteNombre || 'Consumidor Final';
+        const dateStr = formatDateDDMMYYYY(debtorData.fechaDeuda || debtorData.saleDate || new Date().toISOString()).replace(/\//g, '-');
+        doc.save(`Cheque- ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating debtor PDF:", error);
         alert("Error al generar el PDF de deuda. Revise la consola.");
@@ -402,25 +447,28 @@ export const generatePendingSaleReceipt = (pedidoData) => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.width;
 
+        // --- LOGO (drawn first so it renders as background layer) ---
+        addLogoToDoc(doc);
+
         // --- HEADER ---
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
-        doc.text("RECIBO DE PEDIDO / RESERVA", pageWidth / 2, 15, { align: 'center' });
+        doc.text("PRESUPUESTO", pageWidth / 2, 15, { align: 'center' });
 
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
         doc.text(`ID Pedido: #${pedidoData.id}`, 14, 25);
-        doc.text(`Fecha: ${formatDateYMD(pedidoData.fechaCreacion)}`, 14, 30);
+        doc.text(`Fecha: ${formatDateDDMMYYYY(pedidoData.fechaCreacion)}`, 14, 30);
 
         // Print date
         doc.setFontSize(8);
         doc.setTextColor(120);
-        doc.text(`Fecha de Impresión: ${formatDateYMD(new Date().toISOString())}`, 14, 35);
+        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(new Date().toISOString())}`, 14, 35);
         doc.setTextColor(0);
         doc.setFontSize(10);
 
         doc.text(`Cliente: ${pedidoData.clienteNombre}`, 14, 42);
-        doc.text(`Vendedor: ${pedidoData.vendedor || 'Sistema'}`, 14, 47);
+        doc.text(`Vendedor: ${pedidoData.vendedor || pedidoData.user || 'Sistema'}`, 14, 47);
 
         // Estado
         doc.setFont(undefined, 'bold');
@@ -510,7 +558,7 @@ export const generatePendingSaleReceipt = (pedidoData) => {
 
         if (allPayments.length > 0) {
             const pagosBody = allPayments.map(p => [
-                formatDateYMD(p.date),
+                formatDateDDMMYYYY(p.date),
                 p.name,
                 'Seña / Anticipo',
                 formatMoney(p.amount)
@@ -572,7 +620,9 @@ export const generatePendingSaleReceipt = (pedidoData) => {
         doc.text(formatMoney(saldoRestante), boxX + boxW - 4, summaryY + 28, { align: 'right' });
         doc.setTextColor(0);
 
-        doc.save(`Recibo_Pedido_${pedidoData.id}.pdf`);
+        const clientName = pedidoData.clienteNombre || 'Consumidor Final';
+        const dateStr = formatDateDDMMYYYY(pedidoData.fechaCreacion || new Date().toISOString()).replace(/\//g, '-');
+        doc.save(`Presupuesto - ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating pedido PDF:", error);
         alert("Error al generar el PDF de pedido. Revise la consola.");

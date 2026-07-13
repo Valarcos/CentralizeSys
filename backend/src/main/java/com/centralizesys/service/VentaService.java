@@ -102,7 +102,8 @@ public class VentaService {
                 detalles,
                 pagos,
                 null, // No alerts for historical view
-                venta.getEstado()
+                venta.getEstado(),
+                venta.getCostoTotal()
         );
     }
 
@@ -178,7 +179,8 @@ public class VentaService {
                 processedData.getDetalles(),
                 txInfo.getPagosPersistidos(),
                 stockAlerts,
-                "ACTIVA");
+                "ACTIVA",
+                processedData.getDetalles().stream().mapToDouble(d -> d.getCostoSnapshot() * d.getCantidad()).sum());
     }
 
     // --- HELPER CLASSES (Internal DTOs) ---
@@ -510,8 +512,8 @@ public class VentaService {
         // 4. Void associated Debt (if any)
         deudoresRepository.findByVentaId(ventaId)
                 .ifPresent(deuda ->
-                    // Force state to ANULADA
-                    deudoresRepository.updateMontoAndEstado(deuda.getId(), deuda.getMontoDeuda(), ANULADA)
+                        // Force state to ANULADA
+                        deudoresRepository.updateMontoAndEstado(deuda.getId(), deuda.getMontoDeuda(), ANULADA)
                 );
 
         // 5. Audit Log

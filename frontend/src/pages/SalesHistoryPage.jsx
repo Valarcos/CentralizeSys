@@ -171,13 +171,17 @@ export default function SalesHistoryPage() {
                                 <th>Fecha</th>
                                 <th>Cliente</th>
                                 <th>Tipo</th>
+                                <th>Costo Total</th>
                                 <th>Total</th>
                                 <th>Acciones</th>
                             </tr>
                             </thead>
                             <tbody>
+                            {/* Req 5: ANULADA rows receive a muted background class for clear visual distinction.
+                                 "Ver" button always remains functional for auditing. The "Anular" button is replaced
+                                 by a passive read-only label when the sale is already cancelled. */}
                             {sales.map(sale => (
-                                <tr key={sale.id}>
+                                <tr key={sale.id} className={sale.estado === 'ANULADA' ? 'row-anulada' : ''}>
                                     <td data-label="ID">#{sale.id}</td>
                                     <td data-label="Fecha">{formatDate(sale.fecha)}</td>
                                     <td data-label="Cliente">{sale.clienteNombre || 'Consumidor Final'}</td>
@@ -186,6 +190,7 @@ export default function SalesHistoryPage() {
                                                 {sale.tipoVenta || 'ESTÁNDAR'}
                                             </span>
                                     </td>
+                                    <td data-label="Costo Total" className="amount-cell">{formatCurrency(sale.costoTotal)}</td>
                                     <td data-label="Total" className="amount-cell">{formatCurrency(sale.totalVenta)}</td>
                                     <td data-label="Acciones">
                                         <div className="action-buttons">
@@ -193,7 +198,9 @@ export default function SalesHistoryPage() {
                                                 <button className="btn-details" onClick={() => handleOpenDetails(sale.id)}>
                                                     Ver
                                                 </button>
-                                                {sale.estado !== 'ANULADA' && (
+                                                {sale.estado === 'ANULADA' ? (
+                                                    <span className="label-cancelada">CANCELADA</span>
+                                                ) : (
                                                     <button className="btn-delete" onClick={() => setSaleToCancel(sale.id)}>
                                                         Anular
                                                     </button>
@@ -205,7 +212,7 @@ export default function SalesHistoryPage() {
                             ))}
                             {sales.length === 0 && (
                                 <tr>
-                                    <td colSpan="6" style={{ textAlign: 'center' }}>No se encontraron ventas en este período.</td>
+                                    <td colSpan="7" style={{ textAlign: 'center' }}>No se encontraron ventas en este período.</td>
                                 </tr>
                             )}
                             </tbody>

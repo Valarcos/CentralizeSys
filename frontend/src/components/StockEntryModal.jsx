@@ -162,7 +162,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
     const handleSubmit = async () => {
         if (isSubmitting) return;
 
-        if (!provider || !invoiceNo) {
+        if (!provider || invoiceNo === null || invoiceNo === undefined || String(invoiceNo).trim() === '') {
             toast.error("Complete Proveedor y Nro Comprobante");
             return;
         }

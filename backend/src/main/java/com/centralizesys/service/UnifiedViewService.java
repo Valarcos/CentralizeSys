@@ -24,6 +24,7 @@ public class UnifiedViewService {
                 d.cliente_nombre,
                 v.fecha as fecha_creacion,
                 v.total_venta as monto_total,
+                (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total,
                 (v.total_venta - d.monto_deuda) as monto_pagado,
                 d.monto_deuda as saldo_restante,
                 d.estado
@@ -40,6 +41,7 @@ public class UnifiedViewService {
                 p.cliente_nombre,
                 p.fecha as fecha_creacion,
                 p.total_estimado as monto_total,
+                (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE) as costo_total,
                 COALESCE((SELECT SUM(monto) FROM pagos_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE), 0) as monto_pagado,
                 p.total_estimado - COALESCE((SELECT SUM(monto) FROM pagos_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE), 0) as saldo_restante,
                 p.estado

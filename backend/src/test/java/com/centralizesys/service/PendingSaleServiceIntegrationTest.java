@@ -129,6 +129,10 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
         Integer pagosCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM pagos_venta WHERE venta_id = ?", Integer.class, finalizedSale.getId());
         assertEquals(1, pagosCount);
+
+        java.time.LocalDateTime migratedFechaPago = jdbcTemplate.queryForObject(
+                "SELECT fecha_pago FROM pagos_venta WHERE venta_id = ? LIMIT 1", java.time.LocalDateTime.class, finalizedSale.getId());
+        org.junit.jupiter.api.Assertions.assertNotNull(migratedFechaPago, "fecha_pago should have been migrated, but was null.");
     }
 
     // =========================================================================
@@ -244,6 +248,50 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
         String estado = jdbcTemplate.queryForObject(
                 "SELECT estado FROM ventas_pendientes WHERE id = ?", String.class, pendingId);
         assertEquals("FINALIZADA", estado);
+    }
+
+    @Test
+    void shouldPreserveDistinctDatesForMultipleDepositsWhenFinalized() {
+        // 1. Arrange
+        Long userId = createTestUser();
+        Long productId = createTestProduct("MIGRATE-DATES", 100.0, 50L);
+        Long pendingId = helperCreatePendingSale(userId, productId, 3L, "Dates Client"); // Total $300
+
+        // Deposit 1: Paid yesterday
+        jdbcTemplate.update(
+                "INSERT INTO pagos_venta_pendiente (venta_pendiente_id, metodo_pago_id, monto, fecha_pago, anulado, usuario_id) " +
+                        "VALUES (?, 1, 100.0, NOW() - INTERVAL '1 day', false, ?)", pendingId, userId);
+        jdbcTemplate.update("UPDATE ventas_pendientes SET monto_pagado = 100.0 WHERE id = ?", pendingId);
+
+        // Deposit 2: Paid today
+        jdbcTemplate.update(
+                "INSERT INTO pagos_venta_pendiente (venta_pendiente_id, metodo_pago_id, monto, fecha_pago, anulado, usuario_id) " +
+                        "VALUES (?, 1, 200.0, NOW(), false, ?)", pendingId, userId);
+        jdbcTemplate.update("UPDATE ventas_pendientes SET monto_pagado = 300.0 WHERE id = ?", pendingId);
+
+        // Fetch original dates
+        List<java.time.LocalDateTime> originalDates = jdbcTemplate.query(
+                "SELECT fecha_pago FROM pagos_venta_pendiente WHERE venta_pendiente_id = ? ORDER BY monto ASC",
+                (rs, rowNum) -> rs.getObject("fecha_pago", java.time.LocalDateTime.class), pendingId);
+
+        // 2. Act
+        VentaResponse finalizedSale = pendingSaleService.finalizarVenta(pendingId);
+
+        // 3. Assert
+        List<java.time.LocalDateTime> migratedDates = jdbcTemplate.query(
+                "SELECT fecha_pago FROM pagos_venta WHERE venta_id = ? ORDER BY monto ASC",
+                (rs, rowNum) -> rs.getObject("fecha_pago", java.time.LocalDateTime.class), finalizedSale.getId());
+
+        assertEquals(2, migratedDates.size());
+
+        // Truncate to seconds to avoid precision issues in comparison if any
+        java.time.LocalDateTime expected1 = originalDates.getFirst().withNano(0);
+        java.time.LocalDateTime migrated1 = migratedDates.getFirst().withNano(0);
+        assertEquals(expected1, migrated1, "Yesterday's date must be preserved exactly.");
+
+        java.time.LocalDateTime expected2 = originalDates.get(1).withNano(0);
+        java.time.LocalDateTime migrated2 = migratedDates.get(1).withNano(0);
+        assertEquals(expected2, migrated2, "Today's date must be preserved exactly.");
     }
 
     @Test

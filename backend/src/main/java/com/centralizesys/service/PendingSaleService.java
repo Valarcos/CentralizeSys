@@ -333,7 +333,7 @@ public class PendingSaleService {
 
         // 5. Migrate Payments — re-link all active pagos_venta_pendiente to the new Venta
         List<PagoVenta> migratedPagos = pagosActivos.stream()
-                .map(p -> new PagoVenta(null, newVentaId, p.getMetodoPagoId(), p.getMonto()))
+                .map(p -> new PagoVenta(null, newVentaId, p.getMetodoPagoId(), p.getMonto(), p.getFechaPago()))
                 .toList();
         ventaRepository.savePagos(migratedPagos);
 

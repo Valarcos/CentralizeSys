@@ -185,7 +185,7 @@ public class PendingSaleRepository {
      */
     public List<PagoVenta> findPagosActivosByVentaPendienteId(Long ventaPendienteId) {
         String sql = """
-                    SELECT id, venta_pendiente_id AS venta_id, metodo_pago_id, monto
+                    SELECT id, venta_pendiente_id AS venta_id, metodo_pago_id, monto, fecha_pago
                     FROM pagos_venta_pendiente
                     WHERE venta_pendiente_id = :ventaPendienteId
                       AND anulado = false
@@ -196,7 +196,8 @@ public class PendingSaleRepository {
                         rs.getLong("id"),
                         rs.getLong("venta_id"),
                         rs.getLong("metodo_pago_id"),
-                        rs.getDouble(MONTO)));
+                        rs.getDouble(MONTO),
+                        rs.getObject("fecha_pago", LocalDateTime.class)));
     }
 
     public Double getMontoPagoActivo(Long pagoId, Long ventaPendienteId) {

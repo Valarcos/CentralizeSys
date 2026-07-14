@@ -40,7 +40,7 @@ public class ReportRepository {
                 ((SUM(v.total_venta) - SUM(d.cogs_venta)) / NULLIF(SUM(v.total_venta), 0)) * 100 as margen_porcentaje
             FROM ventas v
             LEFT JOIN DetallesAgrupados d ON v.id = d.venta_id
-            WHERE v.estado != 'ANULADA' 
+            WHERE v.estado != 'ANULADA'
               AND EXTRACT(YEAR FROM v.fecha) = :year
             GROUP BY DATE_TRUNC('month', v.fecha)
             ORDER BY mes ASC
@@ -204,7 +204,7 @@ public class ReportRepository {
                 FROM pagos_venta pv
                 JOIN ventas v ON pv.venta_id = v.id
                 WHERE v.estado != 'ANULADA'
-            """ + buildJoinDateFilter("v.fecha", dateFilter) + """
+            """ + buildJoinDateFilter("pv.fecha_pago", dateFilter) + """
                 UNION ALL
                 SELECT pd.monto AS monto_total
                 FROM pagos_deuda pd
@@ -213,7 +213,8 @@ public class ReportRepository {
                 UNION ALL
                 SELECT pvp.monto AS monto_total
                 FROM pagos_venta_pendiente pvp
-                WHERE pvp.anulado = false
+                JOIN ventas_pendientes vp ON pvp.venta_pendiente_id = vp.id
+                WHERE pvp.anulado = false AND vp.estado = 'PENDIENTE'
             """ + buildJoinDateFilter("pvp.fecha_pago", dateFilter) + """
             ) AS all_cash_in
         """;

@@ -199,4 +199,40 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
         assertEquals(testProductId, read.getItems().getFirst().getProductoId());
         assertEquals(200.0, read.getItems().getFirst().getSubtotal());
     }
+
+    @Test
+    @DisplayName("IT-07: Edge Case - Standard sale properly sets CURRENT_TIMESTAMP for fecha_pago")
+    void transaction_SetsCurrentTimestampForFechaPago_OnStandardSale() {
+        // Arrange
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(1L);
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Timestamp Client");
+        request.setItems(List.of(item));
+        request.setUsuarioId(testUserId);
+
+        VentaRequest.PagoRequest pago = new VentaRequest.PagoRequest();
+        pago.setMetodoPagoId(1L);
+        pago.setMonto(100.0);
+        request.setPagos(List.of(pago));
+
+        // Act
+        VentaResponse response = ventaService.registrarVenta(request);
+
+        // Assert
+        assertNotNull(response.getId());
+
+        // We specifically check the database directly because the response might just map whatever the DB returned
+        java.time.LocalDateTime dbDate = jdbcTemplate.queryForObject(
+                "SELECT fecha_pago FROM pagos_venta WHERE venta_id = ? LIMIT 1",
+                java.time.LocalDateTime.class, response.getId());
+
+        assertNotNull(dbDate, "fecha_pago should NOT be null, COALESCE should have set it to CURRENT_TIMESTAMP");
+
+        // Assert that the date is approximately now (within 1 minute)
+        assertTrue(dbDate.isAfter(java.time.LocalDateTime.now().minusMinutes(1)));
+        assertTrue(dbDate.isBefore(java.time.LocalDateTime.now().plusMinutes(1)));
+    }
 }

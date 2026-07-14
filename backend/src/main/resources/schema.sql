@@ -424,3 +424,7 @@ DO $$
             ALTER TABLE ventas ADD CONSTRAINT fk_ventas_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id);
         END IF;
     END $$;;
+
+-- 6. Agregar fecha_pago a pagos_venta (Resolución de Double-Counting en Flujo de Caja)
+ALTER TABLE pagos_venta ADD COLUMN IF NOT EXISTS fecha_pago TIMESTAMP;;
+UPDATE pagos_venta SET fecha_pago = (SELECT fecha FROM ventas WHERE ventas.id = pagos_venta.venta_id) WHERE fecha_pago IS NULL;;

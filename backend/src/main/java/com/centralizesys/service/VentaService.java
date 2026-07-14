@@ -365,7 +365,7 @@ public class VentaService {
         if (request.getPagos() != null && !request.getPagos().isEmpty()) {
             List<PagoVenta> pagosEntities = new ArrayList<>();
             for (VentaRequest.PagoRequest p : request.getPagos()) {
-                pagosEntities.add(new PagoVenta(null, ventaId, p.getMetodoPagoId(), p.getMonto()));
+                pagosEntities.add(new PagoVenta(null, ventaId, p.getMetodoPagoId(), p.getMonto(), null));
             }
             ventaRepository.savePagos(pagosEntities);
             info.setPagosPersistidos(pagosEntities);

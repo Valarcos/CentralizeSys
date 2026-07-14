@@ -15,6 +15,8 @@
     position: sticky;
     top: 0;
     z-index: 100;
+    /* Minimum safe zones: content never closer than 4px to screen edge */
+    padding: 0 4px;
 }
 
 .nav-content {
@@ -90,10 +92,28 @@
     outline-offset: 2px;
 }
 
-/* Dynamic Navbar Sizing for Laptops/Tablets */
-@media (min-width: 769px) and (max-width: 1280px) {
+/* ─── Navbar Responsive Breakpoints ─────────────────────────────────────────
+   These zones MUST stay in sync with the table breakpoints in SalesHistoryPage.css
+   Zone 1: 1281px – 1440px  → slight compression (large laptop/1440p monitor)
+   Zone 2: 1025px – 1280px  → moderate compression (MacBook Air territory)
+   Zone 3:  769px – 1024px  → maximum compression, right before mobile flip
+────────────────────────────────────────────────────────────────────────────── */
+
+/* Zone 1: Large Laptops (1281px – 1440px) — slight compression */
+@media (min-width: 1281px) and (max-width: 1440px) {
     .nav-content {
-        gap: 1.5rem;
+        gap: 2rem;
+    }
+    .nav-links a {
+        padding: 0.5rem 0.7rem;
+        font-size: 0.92rem;
+    }
+}
+
+/* Zone 2: MacBook Air / 1080p Laptop (1025px – 1280px) — moderate compression */
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .nav-content {
+        gap: 1.2rem;
     }
     .nav-links {
         gap: 0.1rem;
@@ -115,6 +135,34 @@
         padding: 0.4rem 0.8rem;
         font-size: 0.85rem;
         min-height: 36px;
+    }
+}
+
+/* Zone 3: Small Laptop / Large Tablet (769px – 1024px) — maximum desktop compression */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .nav-content {
+        gap: 0.6rem;
+    }
+    .nav-links {
+        gap: 0;
+    }
+    .nav-links a {
+        padding: 0.3rem 0.4rem;
+        font-size: 0.78rem;
+    }
+    .brand {
+        font-size: 1.2rem;
+    }
+    .nav-user-section {
+        gap: 0.4rem;
+    }
+    .user-greeting {
+        font-size: 0.82rem;
+    }
+    .logout-btn {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+        min-height: 32px;
     }
 }
 
@@ -169,14 +217,24 @@
     padding-bottom: calc(var(--bottom-nav-height) + var(--spacing-lg));
 }
 
-@media (max-width: 1440px) {
+/* Main content padding synced with 3-zone breakpoint system */
+/* Zone 1: Large Laptops — reduce sides slightly but keep comfortable */
+@media (min-width: 1281px) and (max-width: 1440px) {
     .main-content {
-        /* Expand table to touch screen edges on laptops */
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+/* Zone 2: MacBook Air / 1080p — near-zero side padding */
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .main-content {
         padding-left: 2px;
         padding-right: 2px;
     }
 }
 
+/* Mobile */
 @media (max-width: 1024px) {
     .main-content {
         padding: var(--spacing-xs);
@@ -184,7 +242,7 @@
     }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1025px) {
     .main-content {
         padding-bottom: var(--spacing-lg);
     }
@@ -245,7 +303,7 @@
     display: flex;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1025px) {
     .desktop-only {
         display: flex;
     }

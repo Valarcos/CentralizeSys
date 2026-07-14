@@ -253,4 +253,64 @@ class ReportServiceIntegrationTest extends BaseIntegrationTest {
         // The most accurate test would clear the DB first, but since it's an integration test suite running together,
         // we assert it doesn't crash and the cash flow is tracked.
     }
+
+    @Test
+    void shouldNotDoubleCountDepositsWhenPendingSaleIsFinalized() {
+        // This test proves the core fix for the Double-Counting bug in Flujo de Caja
+
+        // 1. Arrange: Create a Pending Sale
+        Long userId = createTestUser();
+        Long productId = createTestProduct("STAT-NO-DOUBLE", 100.0, 50L);
+        jdbcTemplate.update("UPDATE productos SET precio_costo = 40.0 WHERE id = ?", productId);
+
+        jdbcTemplate.update(
+                "INSERT INTO ventas_pendientes (cliente_nombre, total_estimado, monto_pagado, fecha, estado, usuario_id) " +
+                        "VALUES ('No Double Count Client', 500.0, 0.0, NOW(), 'PENDIENTE', ?)", userId);
+        Long pendingId = jdbcTemplate.queryForObject(
+                "SELECT id FROM ventas_pendientes WHERE cliente_nombre = 'No Double Count Client'", Long.class);
+
+        // Make a deposit dated YESTERDAY
+        jdbcTemplate.update(
+                "INSERT INTO pagos_venta_pendiente (venta_pendiente_id, metodo_pago_id, monto, fecha_pago, anulado, usuario_id) " +
+                        "VALUES (?, 1, 200.0, NOW() - INTERVAL '1 day', false, ?)", pendingId, userId);
+        jdbcTemplate.update("UPDATE ventas_pendientes SET monto_pagado = 200.0 WHERE id = ?", pendingId);
+
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+        // Check BEFORE finalization: Today's cash flow should NOT include this 200.0
+        com.centralizesys.model.sales.ReportesEstadisticasDTO statsBefore = reportService.getEstadisticas(now.getYear(), now.getMonthValue(), now.getDayOfMonth());
+        double cashFlowBefore = statsBefore.getFlujoDeCaja().getIngresosEfectivo();
+        double revenueBefore = statsBefore.getRendimientoComercial().getIngresosVentas();
+
+        // 2. Act: Finalize the sale TODAY
+        // The system will create a Venta and copy the PagoVenta.
+        // The bug was that the finalized sale payment appeared as TODAY's cash flow because fecha_pago defaulted to today,
+        // or because the query UNION ALL didn't filter the pending deposit.
+        // We simulate the exact database state of a finalized pending sale:
+
+        jdbcTemplate.update("UPDATE ventas_pendientes SET estado = 'FINALIZADA' WHERE id = ?", pendingId);
+
+        jdbcTemplate.update(
+                "INSERT INTO ventas (fecha, cliente_nombre, total_venta, usuario_id, estado) " +
+                        "VALUES (NOW(), 'No Double Count Client', 500.0, ?, 'ACTIVA')", userId);
+        Long ventaId = jdbcTemplate.queryForObject(
+                "SELECT id FROM ventas WHERE cliente_nombre = 'No Double Count Client' ORDER BY id DESC LIMIT 1", Long.class);
+
+        // Migrate payment WITH original date (Simulating PendingSaleService fix)
+        jdbcTemplate.update(
+                "INSERT INTO pagos_venta (venta_id, metodo_pago_id, monto, fecha_pago) " +
+                        "VALUES (?, 1, 200.0, NOW() - INTERVAL '1 day')", ventaId);
+
+        // 3. Assert
+        com.centralizesys.model.sales.ReportesEstadisticasDTO statsAfter = reportService.getEstadisticas(now.getYear(), now.getMonthValue(), now.getDayOfMonth());
+        double cashFlowAfter = statsAfter.getFlujoDeCaja().getIngresosEfectivo();
+        double revenueAfter = statsAfter.getRendimientoComercial().getIngresosVentas();
+
+        // Accrual Revenue should increase by 500 today because the sale was finalized today
+        assertEquals(revenueBefore + 500.0, revenueAfter, 0.001, "Revenue should reflect the finalized sale today.");
+
+        // Cash Flow for today should NOT change, because the $200 deposit was paid yesterday!
+        // This assertion proves the double-counting bug is gone.
+        assertEquals(cashFlowBefore, cashFlowAfter, 0.001, "Cash flow today must not include yesterday's migrated payment.");
+    }
 }

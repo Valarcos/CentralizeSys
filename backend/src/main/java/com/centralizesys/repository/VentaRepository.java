@@ -77,7 +77,8 @@ public class VentaRepository {
             rs.getLong("id"),
             rs.getLong(VENTA_ID_COLUMN),
             rs.getLong("metodo_pago_id"),
-            rs.getDouble("monto"));
+            rs.getDouble("monto"),
+            rs.getObject("fecha_pago", LocalDateTime.class));
 
     // --- SAVE OPERATIONS ---
 
@@ -146,7 +147,7 @@ public class VentaRepository {
     public void savePagos(List<PagoVenta> pagos) {
         if (pagos.isEmpty())
             return;
-        String sql = "INSERT INTO pagos_venta (venta_id, metodo_pago_id, monto) VALUES (:ventaId, :metodoPagoId, :monto)";
+        String sql = "INSERT INTO pagos_venta (venta_id, metodo_pago_id, monto, fecha_pago) VALUES (:ventaId, :metodoPagoId, :monto, COALESCE(:fechaPago, CURRENT_TIMESTAMP))";
         SqlParameterSource[] batch = SqlParameterSourceUtils.createBatch(pagos);
         namedJdbcTemplate.batchUpdate(sql, batch);
     }
@@ -156,7 +157,7 @@ public class VentaRepository {
     public List<Venta> findAll() {
         String sql = """
                 SELECT v.*,
-                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total 
+                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total
                 FROM ventas v 
                 ORDER BY fecha DESC, id DESC
                 """;
@@ -166,7 +167,7 @@ public class VentaRepository {
     public Optional<Venta> findById(Long id) {
         String sql = """
                 SELECT v.*,
-                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total 
+                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total
                 FROM ventas v 
                 WHERE id = :id
                 """;

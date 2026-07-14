@@ -1,6 +1,53 @@
+/* =============================================================================
+   SalesHistoryPage.css
+   Shared by: SalesHistoryPage.jsx and CobrosYPedidosPage.jsx
+   Structure:
+     1. Base page & header
+     2. Table (desktop, standard)
+     3. Table status pills & row overrides
+     4. Action buttons
+     5. Filter buttons (CobrosYPedidos)
+     6. Desktop compression zones (synchronized with AppLayout.css)
+     7. Mobile card layout (≤ 1024px) — switches from table to stacked cards
+     8. Extreme narrow (≤ 480px)
+     9. Modal styles
+    10. Sticky header
+    11. Mobile modal adjustments (≤ 768px)
+   =============================================================================*/
+
+
+/* =============================================================================
+   1. BASE PAGE & HEADER
+   ============================================================================= */
+
+/*
+ * Override the global .container class constraints specifically for page wrappers
+ * that contain a full-width table. Without this, the container's max-width: 1200px
+ * and side padding create a padded box that both the header AND the table sit inside,
+ * making it impossible to independently center the table relative to the viewport.
+ *
+ * Strategy: remove max-width and side padding from .history-page itself.
+ * Then add the comfortable padding back ONLY to the header elements above the table.
+ */
 .history-page {
     background-color: var(--background-color);
-    /* Relies on AppLayout .main-content padding */
+    /* Remove container's max-width and side padding from this page wrapper */
+    max-width: none !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    /* Keep container's vertical centering behavior but drop width constraint */
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+}
+
+/* Re-apply comfortable horizontal padding to the header section only,
+   so the title and filter buttons are not flush against the screen edge. */
+.history-header-column,
+.history-header,
+.history-page > :not(.table-responsive):not(p) {
+    padding-left: var(--spacing-md);
+    padding-right: var(--spacing-md);
 }
 
 .history-header-column {
@@ -17,7 +64,7 @@
 .date-filters-row {
     display: flex;
     gap: 1rem;
-    align-items: flex-end; /* Aligns the button text to the input text baselines */
+    align-items: flex-end;
     flex-wrap: wrap;
 }
 
@@ -34,7 +81,6 @@
 
 .bottom-pagination {
     justify-content: flex-end;
-    /* Bottom pagination aligned right */
     margin-top: 1rem;
 }
 
@@ -64,27 +110,19 @@
     text-align: center;
 }
 
-/* Mobile Adjustments */
-@media (max-width: 768px) {
-    .date-filters-row {
-        flex-direction: row;
-        /* Keep horizontal on mobile per request */
-        width: 100%;
-        overflow-x: auto;
-    }
 
-    .pagination-row {
-        flex-direction: column;
-        align-items: flex-end;
-        /* Align right on mobile like Inventory */
-        gap: 1rem;
-    }
+/* =============================================================================
+   2. TABLE — DESKTOP STANDARD LAYOUT
+   ============================================================================= */
 
-    .total-label {
-        align-self: flex-start;
-        /* Label on top-left of pagination block */
-        margin-bottom: 0.5rem;
-    }
+.table-responsive {
+    width: 100%;
+    /*
+     * Safety net: if the table content still can't fit after CSS compression,
+     * the table scrolls INTERNALLY rather than breaking the page layout.
+     * This prevents the page from ever having a horizontal scroll.
+     */
+    overflow-x: auto;
 }
 
 .history-table {
@@ -93,7 +131,6 @@
     background: white;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
-    /* overflow: hidden; Removed to prevent cutting off content */
 }
 
 .history-table th,
@@ -101,9 +138,7 @@
     padding: 1rem;
     text-align: left;
     border-bottom: 1px solid #dee2e6;
-    /* Darker border */
     border-right: 1px solid #f0f0f0;
-    /* Subtle vertical separation */
 }
 
 .history-table td:last-child,
@@ -113,10 +148,8 @@
 
 .history-table th {
     background-color: var(--color-primary);
-    /* Distinctive header background */
     font-weight: bold;
     color: white;
-    /* White text for contrast */
     text-transform: uppercase;
     font-size: 0.85rem;
     letter-spacing: 0.5px;
@@ -124,19 +157,58 @@
 
 .history-table tr:nth-child(even) {
     background-color: #f8f9fa;
-    /* Light alternating background */
 }
 
 .history-table tr:hover {
     background-color: #e9ecef;
-    /* Slightly darker hover effect */
     transition: background-color 0.2s ease;
+}
+
+/* Sticky header for desktop */
+.history-table thead th {
+    position: sticky;
+    top: 0;
+    background-color: var(--color-primary);
+    color: white;
+    z-index: 5;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .amount-cell {
     font-weight: bold;
     color: var(--text-color);
+    /* Keep $ symbol and number on the same line at all desktop sizes */
+    white-space: nowrap;
 }
+
+
+/* =============================================================================
+   3. TABLE STATUS PILLS & ROW OVERRIDES
+   ============================================================================= */
+
+.status-pill {
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-pagado  { background-color: #d1fae5; color: #065f46; }
+.status-parcial { background-color: #fef3c7; color: #92400e; }
+.status-pendiente { background-color: #fee2e2; color: #b91c1c; }
+
+.row-anulada {
+    background-color: #f8d7da !important;
+}
+.row-anulada td {
+    color: #721c24;
+}
+
+
+/* =============================================================================
+   4. ACTION BUTTONS
+   ============================================================================= */
 
 .btn-details,
 .btn-pay,
@@ -178,25 +250,13 @@
 .btn-delete { background-color: var(--color-error); }
 .btn-delete:hover:not(:disabled) { background-color: #b91c1c; }
 
-.status-pill {
-    padding: 0.25rem 0.5rem;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: bold;
-    text-transform: uppercase;
-}
-
-.status-pagado { background-color: #d1fae5; color: #065f46; }
-.status-parcial { background-color: #fef3c7; color: #92400e; }
-.status-pendiente { background-color: #fee2e2; color: #b91c1c; }
-
 .action-buttons {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    align-items: stretch; /* Stretch rows to match the widest one */
+    align-items: stretch;
     width: fit-content;
-    margin: 0 auto; /* Center the buttons inside the cell */
+    margin: 0 auto;
 }
 
 .action-buttons-row {
@@ -214,7 +274,103 @@
 }
 
 
-/* Responsive Table & Cards (Adapted from InventarioPage.css) */
+/* =============================================================================
+   5. FILTER BUTTONS (CobrosYPedidos)
+   ============================================================================= */
+
+.filter-btn-cheque {
+    background-color: #ccfbf1 !important;
+    color: #0d9488 !important;
+    border: 1px solid #99f6e4 !important;
+    opacity: 0.6;
+}
+.filter-btn-cheque.active {
+    background-color: #ccfbf1 !important;
+    color: #0d9488 !important;
+    border: 2px solid #0d9488 !important;
+    font-weight: 800 !important;
+    opacity: 1;
+}
+
+.filter-btn-sena {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fecaca !important;
+    opacity: 0.6;
+}
+.filter-btn-sena.active {
+    background-color: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 2px solid #b91c1c !important;
+    font-weight: 800 !important;
+    opacity: 1;
+}
+
+
+/* =============================================================================
+   6. DESKTOP COMPRESSION ZONES
+   Synchronized with AppLayout.css navbar breakpoints.
+   Goal: progressively compress the table as screen shrinks, while staying in
+   standard table layout. Card layout only triggers at ≤ 1024px (Section 7).
+
+   These zones also respond correctly to browser zoom:
+     130% zoom on 1920px ≈ 1477px  → Zone 1
+     140% zoom on 1920px ≈ 1371px  → Zone 1
+     180% zoom on 1920px ≈ 1067px  → Zone 2
+
+   Zone 1: 1281px – 1440px  → moderate compression (cell padding, font, buttons)
+   Zone 2: 1025px – 1280px  → strong compression (further reduction)
+   ============================================================================= */
+
+/* Zone 1: Large Laptops + 130–140% zoom (1281px – 1440px) */
+@media (min-width: 1281px) and (max-width: 1440px) {
+    .history-table th,
+    .history-table td {
+        padding: 0.6rem 0.5rem;
+        font-size: 0.92rem;
+    }
+    .history-table th {
+        font-size: 0.83rem;
+        letter-spacing: 0.3px;
+    }
+    .btn-details,
+    .btn-pay,
+    .btn-print,
+    .btn-delete {
+        padding: 0.35rem 0.5rem;
+        font-size: 0.85rem;
+        min-height: 36px;
+    }
+}
+
+/* Zone 2: MacBook Air / 1080p + 180% zoom (1025px – 1280px) — stronger compression */
+@media (min-width: 1025px) and (max-width: 1280px) {
+    .history-table th,
+    .history-table td {
+        padding: 0.4rem 0.3rem;
+        font-size: 0.84rem;
+    }
+    .history-table th {
+        font-size: 0.75rem;
+        letter-spacing: 0.1px;
+    }
+    .btn-details,
+    .btn-pay,
+    .btn-print,
+    .btn-delete {
+        padding: 0.25rem 0.35rem;
+        font-size: 0.77rem;
+        min-height: 32px;
+    }
+}
+
+
+/* =============================================================================
+   7. MOBILE CARD LAYOUT (≤ 1024px)
+   At this breakpoint and below, the standard <table> structure is converted
+   into stacked vertical cards — one card per row.
+   ============================================================================= */
+
 @media (max-width: 1024px) {
     .history-page {
         padding: 0.5rem;
@@ -236,6 +392,7 @@
         overflow: visible;
     }
 
+    /* Convert table into block elements for card layout */
     .history-table,
     .history-table thead,
     .history-table tbody,
@@ -245,13 +402,14 @@
         display: block;
     }
 
-    /* Hide table headers (but keep accessible) */
+    /* Hide table headers visually but keep accessible */
     .history-table thead tr {
         position: absolute;
         top: -9999px;
         left: -9999px;
     }
 
+    /* Each row becomes a card */
     .history-table tr {
         background-color: white;
         border: 1px solid #dee2e6;
@@ -261,65 +419,34 @@
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
+    /* Each cell becomes a labeled row within the card */
     .history-table td {
-        /* Behave like a "row" */
+        display: block;
+        text-align: right;
         border: none;
         border-bottom: 1px solid #eee;
         position: relative;
-        padding-left: 50%;
-        /* Make space for label */
         padding-top: 0.5rem;
         padding-bottom: 0.5rem;
-        text-align: right;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        padding-left: 50%;
     }
 
     .history-table td:last-child {
         border-bottom: none;
-        justify-content: flex-end;
-        /* Actions align right */
         padding-top: 1rem;
         margin-top: 0.5rem;
         border-top: 1px solid #eee;
     }
 
+    /* data-label as inline label on the left */
     .history-table td::before {
-        /* Now like a table header */
         content: attr(data-label);
         font-weight: 600;
         color: #6c757d;
         text-align: left;
-        /* Positioning handled by flex (justify-content: space-between) */
-        /* But to be safe/consistent with Inventory pattern: */
-        width: 45%;
-        /* existing flex handles placement, but we keep this if not using absolute positioning like Inventory?
-           Inventory used absolute positioning for ::before.
-           Let's stick to Flexbox which is cleaner if possible,
-           but Inventory code used absolute. Let's try Flex first as it's cleaner.
-           Actually, Inventory uses absolute left:0.
-           Let's use the exact Inventory approach for consistency. */
-    }
-
-    /* Reverting to Inventory-like Absolute positioning for labels if Flex fails?
-       No, Inventory uses:
-       td { position: relative; padding-left: 50%; text-align: right; }
-       td::before { position: absolute; left: 0; width: 45%; ... }
-
-       Let's stick to the Inventory Code Pattern exactly for safety.
-    */
-    .history-table td {
-        display: block;
-        /* Reset back to block for absolute positioning to work predictably */
-        text-align: right;
-    }
-
-    .history-table td::before {
         position: absolute;
         top: 0.5rem;
         left: 0.5rem;
-        /* Padding adjustment */
         width: 45%;
         padding-right: 10px;
         white-space: nowrap;
@@ -343,54 +470,100 @@
         color: var(--color-primary);
     }
 
-    /* Mobile Header & Title Adjustments */
     .history-header-column h1 {
         margin-bottom: 0.25rem;
-        /* Reduced from default spacing */
         font-size: 1.5rem;
-        /* Ensure it's compact */
     }
 
-    /* Mobile Date Filters Fix */
     .date-filters-row {
         gap: 0.5rem;
-        /* Reduced from 2rem */
         justify-content: space-between;
         flex-wrap: wrap;
-        /* Allow wrapping for button */
     }
 
     .filter-group {
         display: flex;
         flex-direction: column;
         width: 48%;
-        /* Split width */
     }
 
-    /* Make button full width and last */
     .date-filters-row button {
         width: 100%;
         margin-top: 0.25rem;
         height: 48px !important;
-        /* Ensure touch target */
     }
 
     .date-filter {
         width: 100%;
         padding: 0.4rem;
-        /* Kept font-size inherited (large) per request */
     }
 
-    /* Date Picker styling specifically for Mobile to reduce space */
     .date-filter::-webkit-calendar-picker-indicator {
         margin-left: 5px;
-        /* Minimal space */
         padding: 0;
         cursor: pointer;
     }
+
+    .pagination-row {
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 1rem;
+    }
+
+    .total-label {
+        align-self: flex-start;
+        margin-bottom: 0.5rem;
+    }
 }
 
-/* Modal Styles for Sales Detail */
+
+/* =============================================================================
+   8. EXTREME NARROW SCREEN (≤ 480px)
+   ============================================================================= */
+
+@media (max-width: 480px) {
+    .history-page {
+        margin: 0 !important;
+        padding: 0 2px !important;
+    }
+
+    .table-responsive {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* 2-column action button grid */
+    .action-buttons-row {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.4rem !important;
+    }
+
+    .action-buttons-row > :last-child:nth-child(odd) {
+        grid-column: span 2;
+    }
+
+    .btn-details,
+    .btn-pay,
+    .btn-print,
+    .btn-delete {
+        font-size: 0.78rem !important;
+        padding: 0.3rem 0.4rem !important;
+        min-height: 36px !important;
+    }
+
+    .label-cancelada {
+        font-size: 0.72rem !important;
+        padding: 0.3rem 0.4rem !important;
+        min-height: 36px !important;
+    }
+}
+
+
+/* =============================================================================
+   9. MODAL STYLES (Sales Detail)
+   ============================================================================= */
+
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -404,24 +577,19 @@
     z-index: 1000;
 }
 
-/* Updated Class Name to match JSX and fix conflict */
 .sales-detail-modal-content {
     background: white;
     padding: 2rem;
     border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-
     /* Fixed Height & Scroll Layout */
     max-height: 85vh;
-    /* Prevent cutoff, leave room for margins */
     display: flex;
     flex-direction: column;
-
     width: 95%;
     max-width: 1200px;
-    /* User preferred wide width */
-    overflow: hidden;
     /* Main container doesn't scroll, inner table does */
+    overflow: hidden;
 }
 
 /* Modal Header Banner Style */
@@ -429,7 +597,7 @@
     background-color: var(--color-primary);
     color: white;
     padding: 1rem 2rem;
-    /* Edge-to-edge: Negative margin to counteract modal padding */
+    /* Edge-to-edge: negative margin to counteract modal padding */
     margin: -2rem -2rem 1rem -2rem;
     border-radius: 8px 8px 0 0;
     display: flex;
@@ -451,36 +619,23 @@
     padding-top: 1rem;
     border-top: 1px solid #eee;
     flex-shrink: 0;
-    /* Don't shrink buttons */
 }
 
 /* Scrollable Table Container */
 .modal-table-container {
     margin-top: 1rem;
     flex: 1;
-    /* Take remaining space */
     overflow-y: auto;
-    /* Scroll internally */
     min-height: 150px;
-    /* Minimum effective height */
     border: 1px solid #eee;
-    /* Visual boundary for scroll area */
     border-radius: 4px;
 }
 
-/* Sticky Headers for PC */
-.history-table thead th {
-    position: sticky;
-    top: 0;
-    background-color: var(--color-primary);
-    /* Dark Primary */
-    color: white;
-    /* Contrast text */
-    z-index: 5;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
 
-/* Mobile Modal Adjustments */
+/* =============================================================================
+   11. MOBILE MODAL ADJUSTMENTS (≤ 768px)
+   ============================================================================= */
+
 @media (max-width: 768px) {
     .sales-detail-modal-content {
         width: 100% !important;
@@ -493,17 +648,15 @@
     }
 
     .sales-detail-modal-content .modal-header {
-        /* Mobile Edge-to-edge: Counteract 0.5rem padding */
+        /* Mobile edge-to-edge: counteract 0.5rem padding */
         margin: -0.5rem -0.5rem 0.5rem -0.5rem;
         padding: 1rem;
         background-color: var(--color-primary);
         color: white;
         border-radius: 0;
-        /* Full screen feel */
         border-bottom: none;
         flex-shrink: 0;
         display: block;
-        /* Stack if needed, or keep flex? Title is usually short. Block is safer for text wrapping */
     }
 
     .sales-detail-modal-content .modal-header h2 {
@@ -530,21 +683,12 @@
         line-height: 1.1 !important;
     }
 
-    /* Minimal Table spacing - REMOVE ALL GAP */
+    /* Minimal Table spacing */
     .modal-table-container {
         margin-top: 0 !important;
         padding-top: 0 !important;
         border: none;
-        /* Mobile doesn't need border */
-        /* Flex 1 still applies here to fill screen */
     }
-
-    /* Disable sticky headers on mobile because strictly speaking
-       the "headers" are hidden and replaced by data-labels/flex layout.
-       Use display:none on thethead earlier in file for mobile?
-       Actually, check lines 226-230: .history-table thead tr { display: none? or absolute? }
-       If headers are hidden, sticky does nothing. Safe to keep.
-    */
 
     /* Compact Table Cells */
     .history-table td {
@@ -588,433 +732,10 @@
         justify-content: center;
     }
 
-    /* Issue #24: Contain modal children on mobile — no extra padding */
+    /* Contain modal children on mobile */
     .modal-content {
         max-width: 100%;
         box-sizing: border-box;
         overflow: hidden;
     }
-}
-
-
-/* Responsive Table & Cards (Adapted from InventarioPage.css) */
-@media (max-width: 1024px) {
-    .history-page {
-        padding: 0.5rem;
-    }
-
-    .history-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-
-    .date-filter {
-        width: 100%;
-    }
-
-    .table-responsive {
-        border-radius: 0;
-        box-shadow: none;
-        overflow: visible;
-    }
-
-    .history-table,
-    .history-table thead,
-    .history-table tbody,
-    .history-table th,
-    .history-table td,
-    .history-table tr {
-        display: block;
-    }
-
-    /* Hide table headers (but keep accessible) */
-    .history-table thead tr {
-        position: absolute;
-        top: -9999px;
-        left: -9999px;
-    }
-
-    .history-table tr {
-        background-color: white;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        padding: 1rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-
-    .history-table td {
-        display: block;
-        text-align: right;
-        border: none;
-        border-bottom: 1px solid #eee;
-        position: relative;
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-    }
-
-    .history-table td:last-child {
-        border-bottom: none;
-        padding-top: 1rem;
-        margin-top: 0.5rem;
-        border-top: 1px solid #eee;
-    }
-
-    .history-table td::before {
-        content: attr(data-label);
-        font-weight: 600;
-        color: #6c757d;
-        text-align: left;
-        position: absolute;
-        top: 0.5rem;
-        left: 0.5rem;
-        width: 45%;
-        padding-right: 10px;
-        white-space: nowrap;
-    }
-
-    .action-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        width: 100%;
-    }
-
-    .action-buttons-row {
-        display: flex;
-        gap: 0.5rem;
-        justify-content: flex-end;
-    }
-
-    .amount-cell {
-        font-size: 1.1rem;
-        color: var(--color-primary);
-    }
-
-    .history-header-column h1 {
-        margin-bottom: 0.25rem;
-        font-size: 1.5rem;
-    }
-
-    .date-filters-row {
-        gap: 0.5rem;
-        justify-content: space-between;
-        flex-wrap: wrap;
-    }
-
-    .filter-group {
-        display: flex;
-        flex-direction: column;
-        width: 48%;
-    }
-
-    .date-filters-row button {
-        width: 100%;
-        margin-top: 0.25rem;
-        height: 48px !important;
-    }
-
-    .date-filter {
-        width: 100%;
-        padding: 0.4rem;
-    }
-
-    .date-filter::-webkit-calendar-picker-indicator {
-        margin-left: 5px;
-        padding: 0;
-        cursor: pointer;
-    }
-}
-
-/* --- Req 3a: EXTREME NARROW SCREEN (=480px) � Progressive Space Squeezing --- */
-@media (max-width: 480px) {
-    .history-page.container {
-        margin: 0 !important;
-        padding: 0 2px !important;
-    }
-
-    .table-responsive {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-
-    .history-table th,
-    .history-table td {
-        padding: 0.25rem !important;
-        font-size: 0.82rem !important;
-    }
-
-    .history-table th {
-        font-size: 0.75rem !important;
-        letter-spacing: 0;
-    }
-
-    /* Req 3b: 2-column action button grid */
-    .action-buttons-row {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr !important;
-        gap: 0.4rem !important;
-    }
-
-    .action-buttons-row > :last-child:nth-child(odd) {
-        grid-column: span 2;
-    }
-
-    .btn-details,
-    .btn-pay,
-    .btn-print,
-    .btn-delete {
-        font-size: 0.78rem !important;
-        padding: 0.3rem 0.4rem !important;
-        min-height: 36px !important;
-    }
-
-    .label-cancelada {
-        font-size: 0.72rem !important;
-        padding: 0.3rem 0.4rem !important;
-        min-height: 36px !important;
-    }
-}
-
-/* Modal Styles for Sales Detail */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-.sales-detail-modal-content {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    width: 95%;
-    max-width: 1200px;
-    overflow: hidden;
-}
-
-.sales-detail-modal-content .modal-header {
-    background-color: var(--color-primary);
-    color: white;
-    padding: 1rem 2rem;
-    margin: -2rem -2rem 1rem -2rem;
-    border-radius: 8px 8px 0 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.sales-detail-modal-content .modal-header h2 {
-    color: white;
-    margin: 0;
-}
-
-.modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #eee;
-    flex-shrink: 0;
-}
-
-.modal-table-container {
-    margin-top: 1rem;
-    flex: 1;
-    overflow-y: auto;
-    min-height: 150px;
-    border: 1px solid #eee;
-    border-radius: 4px;
-}
-
-.history-table thead th {
-    position: sticky;
-    top: 0;
-    background-color: var(--color-primary);
-    color: white;
-    z-index: 5;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-@media (max-width: 1024px) {
-    .sales-detail-modal-content {
-        width: 100% !important;
-        max-width: none !important;
-        height: 100% !important;
-        max-height: 100vh !important;
-        margin: 0 !important;
-        border-radius: 0 !important;
-        padding: 0.5rem !important;
-    }
-
-    .sales-detail-modal-content .modal-header {
-        margin: -0.5rem -0.5rem 0.5rem -0.5rem;
-        padding: 1rem;
-        background-color: var(--color-primary);
-        color: white;
-        border-radius: 0;
-        border-bottom: none;
-        flex-shrink: 0;
-        display: block;
-    }
-
-    .sales-detail-modal-content .modal-header h2 {
-        font-size: 1.25rem;
-        margin-bottom: 0;
-        color: white;
-    }
-
-    .sale-info {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem !important;
-        font-size: 0.95rem;
-        margin-top: 0.3rem;
-        margin-bottom: 0.3rem !important;
-        padding-bottom: 0 !important;
-        flex-shrink: 0;
-    }
-
-    .sale-info p {
-        margin: 0 !important;
-        padding: 0 !important;
-        line-height: 1.1 !important;
-    }
-
-    .modal-table-container {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
-        border: none;
-    }
-
-    .history-table td {
-        padding: 0.4rem 0.25rem;
-        padding-left: 35%;
-        font-size: 0.95rem;
-    }
-
-    .history-table td::before {
-        width: 30%;
-        font-size: 0.85rem;
-        top: 0.4rem;
-    }
-
-    .product-name-cell {
-        word-break: break-word;
-        line-height: 1.2;
-    }
-
-    .modal-actions {
-        margin-top: 0.5rem;
-        flex-direction: row !important;
-        justify-content: space-between !important;
-        gap: 1rem;
-        padding-top: 0.5rem;
-        border-top: 1px solid #eee;
-        flex-shrink: 0;
-    }
-
-    .modal-actions button {
-        flex: 1;
-        margin-left: 0 !important;
-        font-size: 1rem;
-        padding: 0.5rem;
-        min-height: 48px;
-    }
-
-    .btn-print {
-        width: auto !important;
-        justify-content: center;
-    }
-
-    .modal-content {
-        max-width: 100%;
-        box-sizing: border-box;
-        overflow: hidden;
-    }
-}
-
-.row-anulada {
-    background-color: #f8d7da !important;
-}
-.row-anulada td {
-    color: #721c24;
-}
-/* Ensure table takes up all available safe space natively */
-.table-responsive {
-    width: 100%;
-}
-
-/* --- LAPTOP/TABLET COMPRESSION RESPONSIVENESS --- */
-/* Cascade strategy: margins first (to 2px), then cell padding (to 0.5rem).
-   Standard table layout is preserved up to 1025px — mobile card view triggers at <= 1024px. */
-@media (min-width: 1025px) and (max-width: 1440px) {
-    .history-page {
-        margin: 0 2px;
-    }
-
-    .table-responsive {
-        margin: 0 2px;
-    }
-
-    .history-table th,
-    .history-table td {
-        padding: 0.5rem;
-        font-size: 0.9rem;
-    }
-
-    .history-table th {
-        font-size: 0.8rem;
-        letter-spacing: 0.3px;
-    }
-
-    .btn-details,
-    .btn-pay,
-    .btn-print,
-    .btn-delete {
-        padding: 0.3rem 0.5rem;
-        font-size: 0.82rem;
-        min-height: 36px;
-    }
-}
-
-/* Filter button colors for CobrosYPedidos */
-.filter-btn-cheque {
-    background-color: #ccfbf1 !important;
-    color: #0d9488 !important;
-    border: 1px solid #99f6e4 !important;
-    opacity: 0.6;
-}
-.filter-btn-cheque.active {
-    background-color: #ccfbf1 !important;
-    color: #0d9488 !important;
-    border: 2px solid #0d9488 !important;
-    font-weight: 800 !important;
-    opacity: 1;
-}
-
-.filter-btn-sena {
-    background-color: #fee2e2 !important;
-    color: #b91c1c !important;
-    border: 1px solid #fecaca !important;
-    opacity: 0.6;
-}
-.filter-btn-sena.active {
-    background-color: #fee2e2 !important;
-    color: #b91c1c !important;
-    border: 2px solid #b91c1c !important;
-    font-weight: 800 !important;
-    opacity: 1;
 }

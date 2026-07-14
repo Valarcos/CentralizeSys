@@ -147,6 +147,21 @@ export default function VentaPage() {
     // Req 4: Ref for payment amount input — enables auto-focus + select when a method is chosen.
     const paymentAmountRef = useRef(null);
 
+    // Req: Ref for search input — enables auto-focus + select on mount and after adding to cart
+    const searchInputRef = useRef(null);
+
+    const focusAndSelectSearch = () => {
+        if (searchInputRef.current) {
+            searchInputRef.current.focus();
+            searchInputRef.current.select();
+        }
+    };
+
+    // Auto-focus and select search bar on mount
+    useEffect(() => {
+        focusAndSelectSearch();
+    }, []);
+
     // Req 1: Local display buffer for quantity inputs.
     // useCart's updateQuantity guards against values < 1, so storing '' in cart state is not possible.
     // This Map (productId -> displayString) acts as an independent controlled-input buffer.
@@ -498,6 +513,9 @@ export default function VentaPage() {
 
         addToCart(product);
         toast.success(`Agregado: ${product.descripcion}`, { duration: 1000, position: 'bottom-left' });
+
+        // Focus and select the search bar so the user can easily type the next item
+        setTimeout(focusAndSelectSearch, 0);
     };
 
     const confirmForceAdd = () => {
@@ -652,6 +670,7 @@ export default function VentaPage() {
             <div className={`catalog-panel ${activeTab === 'catalog' ? 'active' : ''}`}>
                 <div className="catalog-header">
                     <input
+                        ref={searchInputRef}
                         type="text"
                         className="search-bar-large"
                         placeholder="🔍 Buscar producto..."

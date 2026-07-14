@@ -162,6 +162,18 @@ export default function VentaPage() {
         focusAndSelectSearch();
     }, []);
 
+    // Req: Auto-scroll to bottom of cart when a NEW item is added
+    const cartListRef = useRef(null);
+    const prevCartLength = useRef(0);
+    useEffect(() => {
+        if (cartItems.length > prevCartLength.current) {
+            if (cartListRef.current) {
+                cartListRef.current.scrollTop = cartListRef.current.scrollHeight;
+            }
+        }
+        prevCartLength.current = cartItems.length;
+    }, [cartItems.length]);
+
     // Req 1: Local display buffer for quantity inputs.
     // useCart's updateQuantity guards against values < 1, so storing '' in cart state is not possible.
     // This Map (productId -> displayString) acts as an independent controlled-input buffer.
@@ -499,6 +511,42 @@ export default function VentaPage() {
     const [pendingSaleType, setPendingSaleType] = useState(null);
     const [pendingProductToAdd, setPendingProductToAdd] = useState(null); // New state for force add
 
+    // Req: Global focus hijacking back to search bar
+    // Placed here to avoid ReferenceError: Cannot access 'pendingProductToAdd' before initialization
+    useEffect(() => {
+        const handleGlobalClick = (e) => {
+            // Do not hijack focus if any modal is open
+            if (showStockModal || showDebtModal || showOverpaidModal || pendingProductToAdd || pendingSaleType) {
+                return;
+            }
+
+            // Do not hijack focus on touch devices (mobiles/tablets) to avoid virtual keyboard popping up
+            if (window.matchMedia && !window.matchMedia('(pointer: fine)').matches) {
+                return;
+            }
+
+            setTimeout(() => {
+                // Safety check: if a modal just opened in this render cycle, do not steal focus
+                if (document.querySelector('.modal-overlay')) {
+                    return;
+                }
+
+                const activeTag = document.activeElement?.tagName?.toLowerCase();
+                const isInput = ['input', 'textarea', 'select'].includes(activeTag);
+
+                if (!isInput && searchInputRef.current) {
+                    searchInputRef.current.focus();
+                    searchInputRef.current.select();
+                }
+            }, 0);
+        };
+
+        document.addEventListener('click', handleGlobalClick);
+        return () => {
+            document.removeEventListener('click', handleGlobalClick);
+        };
+    }, [showStockModal, showDebtModal, showOverpaidModal, pendingProductToAdd, pendingSaleType]);
+
     // MODIFIED: Intercept Add to Cart
     const handleAddToCart = (product) => {
         // Find existing quantity in cart
@@ -767,7 +815,7 @@ export default function VentaPage() {
                     </datalist>
                 </div>
 
-                <div className="cart-items-list">
+                <div className="cart-items-list" ref={cartListRef}>
                     {cartItems.map((item, index) => (
                         <div key={index} className={`cart-item ${item.quantity > item.product.cantidadStock ? 'stock-warning-row' : ''}`}>
                             {/* Row 1: Product Name */}

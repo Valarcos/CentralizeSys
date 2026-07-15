@@ -97,6 +97,11 @@ export const generateReceipt = (saleData) => {
         doc.text(`Vendedor: ${saleData.vendedor || saleData.user || 'Sistema'}`, 14, 47);
         doc.text(`Tipo Venta: ${saleData.saleType}`, 14, 52);
 
+        const totalUnidades = saleData.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Total de Artículos: ${totalUnidades}`, 14, 57);
+        doc.setFont(undefined, 'normal');
+
         // --- TABLE 1: ITEMS ---
         const itemsBody = saleData.items.map(item => {
             const unitPrice = item.unitPrice || 0;
@@ -115,7 +120,7 @@ export const generateReceipt = (saleData) => {
         });
 
         autoTable(doc, {
-            startY: 57,
+            startY: 62,
             head: [['Código', 'Descripción', 'Cant.', 'Precio', 'Desc.', 'Subtotal']],
             body: itemsBody,
             theme: 'grid',
@@ -237,7 +242,7 @@ export const generateDebtorReceipt = (debtorData) => {
         // --- HEADER ---
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
-        doc.text("CHEQUE", pageWidth / 2, 15, { align: 'center' });
+        doc.text("PRESUPUESTO", pageWidth / 2, 15, { align: 'center' });
 
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
@@ -269,6 +274,11 @@ export const generateDebtorReceipt = (debtorData) => {
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0);
 
+        const totalUnidades = debtorData.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Total de Artículos: ${totalUnidades}`, 14, 62);
+        doc.setFont(undefined, 'normal');
+
         // --- TABLE 1: ITEMS ---
         const itemsBody = debtorData.items.map(item => {
             const unitPrice = item.unitPrice || 0;
@@ -287,7 +297,7 @@ export const generateDebtorReceipt = (debtorData) => {
         });
 
         autoTable(doc, {
-            startY: 62,
+            startY: 67,
             head: [['Código', 'Descripción', 'Cant.', 'Precio', 'Desc.', 'Subtotal']],
             body: itemsBody,
             theme: 'grid',
@@ -433,7 +443,7 @@ export const generateDebtorReceipt = (debtorData) => {
         // Save
         const clientName = debtorData.clienteNombre || 'Consumidor Final';
         const dateStr = formatDateDDMMYYYY(debtorData.fechaDeuda || debtorData.saleDate || new Date().toISOString()).replace(/\//g, '-');
-        doc.save(`Cheque- ${clientName} - ${dateStr}.pdf`);
+        doc.save(`Presupuesto- ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating debtor PDF:", error);
         alert("Error al generar el PDF de deuda. Revise la consola.");
@@ -477,6 +487,11 @@ export const generatePendingSaleReceipt = (pedidoData) => {
         doc.setFont(undefined, 'normal');
         doc.setTextColor(0);
 
+        const totalUnidades = pedidoData.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+        doc.setFont(undefined, 'bold');
+        doc.text(`Total de Artículos: ${totalUnidades}`, 14, 57);
+        doc.setFont(undefined, 'normal');
+
         // --- TABLE 1: ITEMS ---
         const itemsBody = pedidoData.items.map(item => {
             const unitPrice = item.unitPrice || 0;
@@ -495,7 +510,7 @@ export const generatePendingSaleReceipt = (pedidoData) => {
         });
 
         autoTable(doc, {
-            startY: 57,
+            startY: 62,
             head: [['Código', 'Descripción', 'Cant.', 'Precio', 'Desc.', 'Subtotal']],
             body: itemsBody,
             theme: 'grid',

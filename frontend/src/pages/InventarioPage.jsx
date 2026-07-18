@@ -243,7 +243,7 @@ export default function InventarioPage() {
                         <button
                             onClick={() => handlePageChange(page - 1)}
                             disabled={page === 0 || loading}
-                            className="secondary"
+                            className="btn-pagination"
                         >
                             ← Anterior
                         </button>
@@ -253,7 +253,7 @@ export default function InventarioPage() {
                         <button
                             onClick={() => handlePageChange(page + 1)}
                             disabled={page >= totalPages - 1 || loading}
-                            className="secondary"
+                            className="btn-pagination"
                         >
                             Siguiente →
                         </button>
@@ -317,7 +317,7 @@ export default function InventarioPage() {
                             <button
                                 onClick={() => handlePageChange(page - 1)}
                                 disabled={page === 0 || loading}
-                                className="secondary"
+                                className="btn-pagination"
                             >
                                 ← Anterior
                             </button>
@@ -327,7 +327,7 @@ export default function InventarioPage() {
                             <button
                                 onClick={() => handlePageChange(page + 1)}
                                 disabled={page >= totalPages - 1 || loading}
-                                className="secondary"
+                                className="btn-pagination"
                             >
                                 Siguiente →
                             </button>

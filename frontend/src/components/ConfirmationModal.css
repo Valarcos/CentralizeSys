@@ -56,3 +56,42 @@
     font-weight: 600;
     min-height: 40px;
 }
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.btn-danger {
+    background-color: #ef4444;
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: var(--border-radius, 4px);
+    cursor: pointer;
+    font-weight: bold;
+    min-height: 48px;
+    font-size: var(--font-size-button);
+}
+
+.btn-danger:hover {
+    background-color: #dc2626;
+}
+
+.btn-secondary {
+    background-color: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    padding: 0.8rem 1.5rem;
+    border-radius: var(--border-radius, 4px);
+    cursor: pointer;
+    font-weight: bold;
+    min-height: 48px;
+    font-size: var(--font-size-button);
+}
+
+.btn-secondary:hover {
+    background-color: #e2e8f0;
+}

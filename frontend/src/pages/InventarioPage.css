@@ -7,10 +7,13 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-sm);
-    /* Reduced from md/lg */
+    margin-bottom: 0.75rem;
     flex-wrap: wrap;
     gap: var(--spacing-sm);
+}
+
+.inventario-header h1 {
+    margin-bottom: 0;
 }
 
 .header-actions {
@@ -22,8 +25,11 @@
 /* Search Container */
 .search-container {
     position: relative;
-    margin-bottom: var(--spacing-sm);
-    /* Reduced from md */
+    margin-bottom: 0.75rem;
+}
+
+.search-input {
+    margin-bottom: 0;
 }
 
 /* ... existing code ... */
@@ -163,7 +169,7 @@
     font-size: 0.9rem;
     min-height: 40px;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--border-radius);
     cursor: pointer;
     transition: background-color 0.2s, opacity 0.2s, transform 0.2s;
     display: inline-flex;
@@ -373,20 +379,7 @@
     opacity: 1;
 }
 
-/* Pagination Controls Base */
-.pagination-controls {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    justify-content: flex-end;
-    /* Align right per user request */
-}
 
-.page-indicator {
-    font-weight: bold;
-    min-width: 60px;
-    text-align: center;
-}
 
 /* Responsive Table & Cards */
 @media (max-width: 768px) {
@@ -406,16 +399,7 @@
         font-size: 0.9rem;
     }
 
-    .pagination-controls {
-        width: 100%;
-        justify-content: space-between;
-    }
 
-    .pagination-controls button {
-        flex: 1;
-        padding: 0.5rem;
-        font-size: 0.9rem;
-    }
 
     .products-table-container {
         border-radius: 0;

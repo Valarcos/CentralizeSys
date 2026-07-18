@@ -83,9 +83,16 @@ export default function VentaPage() {
     const location = useLocation();
     const navigate = useNavigate();
     const [editingPendingId, setEditingPendingId] = useState(null);
+    const isRedirectingRef = useRef(false);
 
     // Issue #11 fix: only block navigation if cart has items AND sale is NOT yet completed
-    const blocker = useBlocker(cartItems.length > 0 && !lastSale);
+    const blocker = useBlocker(({ currentLocation, nextLocation }) => {
+        if (isRedirectingRef.current) return false;
+        // Ignore navigation if we are staying on the same page (e.g. clearing router state)
+        if (currentLocation.pathname === nextLocation.pathname) return false;
+
+        return cartItems.length > 0 && !lastSale;
+    });
     useEffect(() => {
         if (blocker.state === 'blocked') {
             const leave = window.confirm('⚠️ ¿Desea salir?\n\nTiene productos en el carrito que se perderán si abandona esta página.');
@@ -427,6 +434,11 @@ export default function VentaPage() {
             } else {
                 response = await api.post('/ventas-pendientes', saleData);
                 toast.success("Pedido guardado como pendiente exitosamente.");
+            }
+            if (editingPendingId) {
+                isRedirectingRef.current = true;
+                navigate('/cobros-y-pedidos', { state: { highlightedSaleId: editingPendingId } });
+                return;
             }
             handleNewSale();
         } catch (error) {
@@ -818,15 +830,14 @@ export default function VentaPage() {
                 <div className="cart-items-list" ref={cartListRef}>
                     {cartItems.map((item, index) => (
                         <div key={index} className={`cart-item ${item.quantity > item.product.cantidadStock ? 'stock-warning-row' : ''}`}>
-                            {/* Row 1: Product Name */}
-                            <div className="cart-row cart-row-name">
-                                <b>{item.product.descripcion}</b>
-                            </div>
-                            {/* Row 2: Unit Price x Qty + Discount Input */}
-                            <div className="cart-row cart-row-price">
-                                <span className="price-label">{formatCurrency(item.unitPrice)} x {item.quantity}</span>
+                            {/* Row 1: Product Name & Code, and Discount */}
+                            <div className="cart-row cart-row-top">
+                                <div className="cart-item-name-container">
+                                    <b className="cart-item-name" title={item.product.descripcion}>{item.product.descripcion}</b>
+                                    <small className="product-code-label">Cod: {item.product.codigo}</small>
+                                </div>
                                 <div className="item-discount">
-                                    <label>Descuento</label>
+                                    <label>Desc. Producto</label>
                                     <input
                                         type="text"
                                         inputMode="decimal"
@@ -842,8 +853,9 @@ export default function VentaPage() {
                                     />
                                 </div>
                             </div>
-                            {/* Row 3: Qty Controls + Total + Remove */}
-                            <div className="cart-row cart-row-actions">
+                            {/* Row 2: Price, Qty Controls, Total, Remove */}
+                            <div className="cart-row cart-row-bottom">
+                                <span className="price-label">{formatCurrency(item.unitPrice)}</span>
                                 <div className="cart-item-qty">
                                     {/* Req 1: [-] button disabled when local display value is empty/0 */}
                                     <button
@@ -934,10 +946,8 @@ export default function VentaPage() {
                                         }}
                                     >+</button>
                                 </div>
-                                <div className="cart-item-total">
-                                    {formatCurrency((Math.max(0, item.unitPrice - (item.discount || 0))) * item.quantity)}
-                                </div>
-                                <button className="remove-btn" onClick={() => removeFromCart(item.product.id)}>×</button>
+                                <span className="cart-item-total">{formatCurrency((Math.max(0, item.unitPrice - (item.discount || 0))) * item.quantity)}</span>
+                                <button className="remove-btn-new" onClick={() => removeFromCart(item.product.id)}>×</button>
                             </div>
                             {/* Req 1: Non-disruptive warning — only shown under the LAST field that was blurred invalid.
                                 Appears after blur (onBlur), NOT while typing. Prevents flashing alerts mid-edit. */}
@@ -954,10 +964,10 @@ export default function VentaPage() {
                 <div className="payment-section">
                     <div className="payment-stack">
                         {payments.map((p, i) => (
-                            <div key={i} className="payment-row">
-                                <span style={{ flex: 2 }}>{p.name}</span>
-                                <span style={{ flex: 1, textAlign: 'right' }}>{formatCurrency(p.amount)}</span>
-                                {!p.id && <button className="remove-btn" onClick={() => removePaymentMethod(i)}>×</button>}
+                            <div key={i} className="payment-item">
+                                <span className="payment-name">{p.name}</span>
+                                <span className="payment-amount-label">{formatCurrency(p.amount)}</span>
+                                {!p.id && <button className="remove-btn-new" onClick={() => removePaymentMethod(i)}>×</button>}
                             </div>
                         ))}
                     </div>
@@ -969,6 +979,7 @@ export default function VentaPage() {
                             value={selectedMethodId}
                             onChange={handleMethodSelect}
                             tabIndex="2"
+                            disabled={!!editingPendingId}
                         >
                             <option value="" disabled>Elegir Método</option>
                             {availableMethods.map(m => (
@@ -982,6 +993,7 @@ export default function VentaPage() {
                             className="payment-amount"
                             placeholder="$"
                             value={paymentAmount}
+                            disabled={!!editingPendingId}
                             onChange={(e) => {
                                 const val = enforceMoneyFormat(e.target.value);
                                 setPaymentAmount(val);
@@ -994,7 +1006,7 @@ export default function VentaPage() {
                             onFocus={(e) => e.target.select()}
                             tabIndex="3"
                         />
-                        <button onClick={handleAddPayment} className="add-payment-btn" tabIndex="4">+</button>
+                        <button onClick={handleAddPayment} className="add-payment-btn" tabIndex="4" disabled={!!editingPendingId}>+</button>
                     </div>
 
                     <div className="totals-area">
@@ -1033,9 +1045,9 @@ export default function VentaPage() {
                            Discount fields are explicitly excluded from this check per business rules. */}
                         <button
                             className="pay-btn"
-                            disabled={cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty}
+                            disabled={!!editingPendingId || cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty}
                             onClick={handlePrePaymentCheck}
-                            style={{ flex: 2, opacity: (cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty) ? 0.5 : 1 }}
+                            style={{ flex: 2, opacity: (!!editingPendingId || cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty) ? 0.5 : 1 }}
                         >
                             {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
                         </button>

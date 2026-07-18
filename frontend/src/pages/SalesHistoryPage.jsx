@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/format';
 import SalesDetailModal from '../components/SalesDetailModal';
@@ -26,10 +26,6 @@ export default function SalesHistoryPage() {
 
 
 
-    useEffect(() => {
-        loadSales();
-    }, [page]);
-
     const handleSearch = () => {
         if (validateDateRange(startDate, endDate, true)) {
             setPage(0);
@@ -54,7 +50,7 @@ export default function SalesHistoryPage() {
         return true;
     };
 
-    const loadSales = async (pageOverride = null) => {
+    const loadSales = useCallback(async (pageOverride = null) => {
         setLoading(true);
         try {
             const currentPage = pageOverride !== null ? pageOverride : page;
@@ -76,7 +72,11 @@ export default function SalesHistoryPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [page, pageSize, startDate, endDate]);
+
+    useEffect(() => {
+        loadSales();
+    }, [loadSales]);
 
     const handleOpenDetails = async (saleId) => {
         try {
@@ -141,7 +141,7 @@ export default function SalesHistoryPage() {
                         <button
                             onClick={() => setPage(p => p - 1)}
                             disabled={page === 0}
-                            className="secondary"
+                            className="btn-pagination"
                         >
                             ← Anterior
                         </button>
@@ -151,7 +151,7 @@ export default function SalesHistoryPage() {
                         <button
                             onClick={() => setPage(p => p + 1)}
                             disabled={page === (totalPages - 1) || totalPages === 0}
-                            className="secondary"
+                            className="btn-pagination"
                         >
                             Siguiente →
                         </button>
@@ -171,6 +171,7 @@ export default function SalesHistoryPage() {
                                 <th>Fecha</th>
                                 <th>Cliente</th>
                                 <th>Tipo</th>
+                                <th>Cantidad Productos</th>
                                 <th>Costo Total</th>
                                 <th>Total</th>
                                 <th>Acciones</th>
@@ -190,6 +191,7 @@ export default function SalesHistoryPage() {
                                                 {sale.tipoVenta || 'ESTÁNDAR'}
                                             </span>
                                     </td>
+                                    <td data-label="Cantidad Productos" style={{textAlign: 'center'}}>{sale.cantidadProductos ?? sale.cantidad_productos ?? 0}</td>
                                     <td data-label="Costo Total" className="amount-cell">{formatCurrency(sale.costoTotal)}</td>
                                     <td data-label="Total" className="amount-cell">{formatCurrency(sale.totalVenta)}</td>
                                     <td data-label="Acciones">
@@ -212,7 +214,7 @@ export default function SalesHistoryPage() {
                             ))}
                             {sales.length === 0 && (
                                 <tr>
-                                    <td colSpan="7" style={{ textAlign: 'center' }}>No se encontraron ventas en este período.</td>
+                                    <td colSpan="8" style={{ textAlign: 'center' }}>No se encontraron ventas en este período.</td>
                                 </tr>
                             )}
                             </tbody>
@@ -228,7 +230,7 @@ export default function SalesHistoryPage() {
                             <button
                                 onClick={() => setPage(p => p - 1)}
                                 disabled={page === 0}
-                                className="secondary"
+                                className="btn-pagination"
                             >
                                 ← Anterior
                             </button>
@@ -238,7 +240,7 @@ export default function SalesHistoryPage() {
                             <button
                                 onClick={() => setPage(p => p + 1)}
                                 disabled={page === (totalPages - 1) || totalPages === 0}
-                                className="secondary"
+                                className="btn-pagination"
                             >
                                 Siguiente →
                             </button>

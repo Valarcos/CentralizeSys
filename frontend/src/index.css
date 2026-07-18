@@ -214,3 +214,64 @@ a:hover {
     white-space: nowrap;
     border-width: 0;
 }
+
+/* ============================================================
+   Global Pagination Controls
+   Extracted from InventarioPage.css & SalesHistoryPage.css.
+   Single source of truth — page-level files should NOT define
+   .pagination-controls or .btn-pagination anymore.
+   ============================================================ */
+.pagination-controls {
+    display: flex;
+    gap: 0.2rem;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.page-indicator {
+    font-weight: bold;
+    min-width: 45px;
+    text-align: center;
+    margin: 0 0.2rem;
+}
+
+/* Compact pagination buttons — smaller than the global button default */
+.btn-pagination {
+    padding: 0.2rem 0.2rem;
+    font-size: var(--font-size-button);
+    min-height: 40px;
+    background-color: white;
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.btn-pagination:hover:not(:disabled) {
+    background-color: #f1f5f9;
+    border-color: var(--color-secondary);
+}
+
+.btn-pagination:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .pagination-controls {
+        width: 100%;
+        justify-content: space-between;
+        gap: 0.1rem;
+    }
+
+    .btn-pagination {
+        flex: 1;
+        padding: 0.3rem 0.2rem;
+        font-size: 0.85rem;
+        min-height: 36px;
+    }
+}

@@ -54,7 +54,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .history-header-column h1 {
@@ -72,6 +72,10 @@
     margin-bottom: 0;
 }
 
+.date-filter input {
+    margin-bottom: 0;
+}
+
 .pagination-row {
     display: flex;
     justify-content: space-between;
@@ -84,31 +88,7 @@
     margin-top: 1rem;
 }
 
-.pagination-controls {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-}
 
-.btn-pagination {
-    padding: 0.4rem 0.8rem;
-    background-color: white;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-}
-
-.btn-pagination:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.page-indicator {
-    font-weight: bold;
-    min-width: 50px;
-    text-align: center;
-}
 
 
 /* =============================================================================
@@ -144,6 +124,12 @@
 .history-table td:last-child,
 .history-table th:last-child {
     border-right: none;
+}
+
+/* Specific constraint for the Actions column to keep it compact */
+.history-table .th-acciones {
+    width: 15%;
+    min-width: 130px;
 }
 
 .history-table th {
@@ -738,4 +724,13 @@
         box-sizing: border-box;
         overflow: hidden;
     }
+}
+
+@keyframes highlightFade {
+    0% { background-color: #bae6fd; } /* light blue */
+    100% { background-color: transparent; }
+}
+
+.highlight-row td {
+    animation: highlightFade 3s ease-out forwards;
 }

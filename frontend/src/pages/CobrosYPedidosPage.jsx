@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useBlocker, useNavigate } from 'react-router-dom';
+import { useBlocker, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/format';
 import toast from 'react-hot-toast';
@@ -11,9 +11,35 @@ import { blockNonNumericKeys, sanitizeNumericPaste, enforceMoneyFormat } from '.
 import './SalesHistoryPage.css'; // Reusing CSS for table responsive cards
 
 export default function CobrosYPedidosPage() {
+    const location = useLocation();
+    const navigate = useNavigate();
     const [items, setItems] = useState([]);
     const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'FIADO' | 'PEDIDO'
     const [loading, setLoading] = useState(true);
+
+    // Auto-scroll and highlight logic after editing
+    useEffect(() => {
+        if (!loading && items.length > 0 && location.state?.highlightedSaleId) {
+            const rowId = `sale-row-${location.state.highlightedSaleId}`;
+            const rowElement = document.getElementById(rowId);
+
+            if (rowElement) {
+                // Small timeout ensures the DOM is fully rendered/painted before scrolling
+                setTimeout(() => {
+                    rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    rowElement.classList.add('highlight-row');
+
+                    // Remove highlight class after animation finishes
+                    setTimeout(() => {
+                        rowElement.classList.remove('highlight-row');
+                    }, 3000);
+
+                    // Clear the state so it doesn't happen again on normal reload/navigation
+                    navigate(location.pathname, { replace: true, state: {} });
+                }, 100);
+            }
+        }
+    }, [loading, items, location, navigate]);
 
     // Modals
     const [selectedItem, setSelectedItem] = useState(null);
@@ -38,7 +64,6 @@ export default function CobrosYPedidosPage() {
     // when a payment method is chosen, making it easy to overwrite the auto-filled value.
     const paymentAmountRef = useRef(null);
 
-    const navigate = useNavigate();
     const [itemToCancel, setItemToCancel] = useState(null);
 
     const blocker = useBlocker(showPayModal && payments.length > 0);
@@ -360,7 +385,7 @@ export default function CobrosYPedidosPage() {
                from the backend domain values ('FIADO', 'PEDIDO'). This is a FRONTEND-ONLY rename
                per business requirements. The filterType state, API calls, and DB schema
                must continue using the original domain strings. DO NOT change the onClick values. */}
-            <div className="sale-type-toggle" style={{ marginBottom: '20px', justifyContent: 'center' }}>
+            <div className="sale-type-toggle" style={{ marginBottom: '1rem', justifyContent: 'center' }}>
                 <button
                     className={`toggle-btn ${filterType === 'ALL' ? 'active' : ''}`}
                     onClick={() => setFilterType('ALL')}
@@ -403,7 +428,7 @@ export default function CobrosYPedidosPage() {
                         </thead>
                         <tbody>
                         {displayedItems.map((item, index) => (
-                            <tr key={`${item.tipo}-${item.id_referencia}-${index}`}>
+                            <tr key={`${item.tipo}-${item.id_referencia}-${index}`} id={`sale-row-${item.id_referencia}`}>
                                 <td data-label="Cliente">{item.cliente_nombre}</td>
                                 <td data-label="Fecha">{formatDate(item.fecha_creacion)}</td>
                                 <td data-label="Tipo">
@@ -591,10 +616,10 @@ export default function CobrosYPedidosPage() {
                         )}
 
                         <div className="modal-actions">
+                            <button className="secondary" onClick={() => setShowPayModal(false)} disabled={isSubmitting}>Cancelar</button>
                             <button className="primary" onClick={handleRegisterPayment} disabled={payments.length === 0 || isSubmitting}>
                                 {isSubmitting ? 'Registrando...' : 'Confirmar Pago'}
                             </button>
-                            <button className="secondary" onClick={() => setShowPayModal(false)} disabled={isSubmitting}>Cancelar</button>
                         </div>
                     </div>
                 </div>

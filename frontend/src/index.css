@@ -83,7 +83,7 @@ body {
 h1 {
     font-size: var(--font-size-h1);
     font-weight: 700;
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm); /* Changed from md (1.5rem) to sm (1rem) for tighter global gap */
 }
 
 h2 {

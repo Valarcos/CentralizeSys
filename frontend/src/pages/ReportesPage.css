@@ -1,11 +1,10 @@
 .reportes-page {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     /* Relies on AppLayout .main-content padding */
 }
 
 .reportes-header {
-    /* Instruction 1: Remove margin-bottom — the controls row is now inline with the title area */
     margin-bottom: 0.5rem;
 }
 
@@ -129,7 +128,7 @@
    ============================================================ */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.75rem;
     align-items: stretch;
 }
@@ -207,6 +206,14 @@
 .card-net h3 { color: #047857; }
 .card-net .value { color: #064e3b; }
 
+.card-pendientes { border-color: #fcd34d; background-color: #fffbeb; }
+.card-pendientes h3 { color: #d97706; }
+.card-pendientes .value { color: #b45309; }
+
+.card-proyectado { border-color: #5eead4; background-color: #f0fdfa; border-width: 4px; }
+.card-proyectado h3 { color: #0d9488; }
+.card-proyectado .value { color: #0f766e; }
+
 .loading-state, .empty-state {
     text-align: center;
     padding: 2rem;
@@ -269,6 +276,7 @@
 
 @media (max-width: 480px) {
     .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr; /* Keep 2 cols even on small screens since minmax is 160 */
     }
 }
+

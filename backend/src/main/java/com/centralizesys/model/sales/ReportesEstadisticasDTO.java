@@ -21,6 +21,10 @@ public class ReportesEstadisticasDTO {
         private Long productosVendidos;
         private Long productosComprados;
         private Double deudasPendientes;
+        /** Total monetary value of orders in PENDIENTE state within the filtered period. */
+        private Double ventasPendientes;
+        /** Projected revenue: ingresosVentas + ventasPendientes. */
+        private Double ventasTotalesProyectadas;
     }
 
     @Data
@@ -28,7 +32,8 @@ public class ReportesEstadisticasDTO {
     @AllArgsConstructor
     public static class FlujoDeCaja {
         private Double ingresosEfectivo;
-        private Double egresosEfectivo;
+        private Double egresosEfectivo; // Only inventory purchases
+        private Double gastosVariosEfectivo; // Only gastos varios
         private Double balanceNeto;
     }
 }

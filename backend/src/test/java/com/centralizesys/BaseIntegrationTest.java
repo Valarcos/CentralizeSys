@@ -140,6 +140,9 @@ public abstract class BaseIntegrationTest {
         jdbcTemplate.execute("DELETE FROM detalles_compra");
         jdbcTemplate.execute("DELETE FROM compras");
 
+        // Caja Cycle
+        jdbcTemplate.execute("DELETE FROM gastos_caja");
+
         // Inventory
         jdbcTemplate.execute("DELETE FROM stock_por_ubicacion");
 

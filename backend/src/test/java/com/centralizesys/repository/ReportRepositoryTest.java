@@ -1,0 +1,117 @@
+package com.centralizesys.repository;
+
+import com.centralizesys.BaseIntegrationTest;
+import com.centralizesys.model.sales.ReportesEstadisticasDTO;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class ReportRepositoryTest extends BaseIntegrationTest {
+
+    @Autowired
+    private ReportRepository reportRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Test
+    @DisplayName("getEstadisticas - correctly subtracts active Gastos Varios from Egresos Efectivo")
+    void getEstadisticas_includesActiveGastosInCashOut() {
+        // Arrange
+        int year = 2026;
+        int month = 10;
+        int day = 15;
+
+        // Ensure clean state for this day
+        jdbcTemplate.update("DELETE FROM compras");
+        jdbcTemplate.update("DELETE FROM gastos_caja");
+
+        // 1. Add a purchase (Compra) for $1000 on that day
+        jdbcTemplate.update("""
+            INSERT INTO compras (proveedor, total_compra, fecha, nro_comprobante, usuario_id) 
+            VALUES ('TEST_PROV', 1000.0, '2026-10-15 10:00:00', 'TEST', 1)
+        """);
+
+        // 2. Add an active Gasto Vario for $500 on that day
+        jdbcTemplate.update("""
+            INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
+            VALUES (500.0, 'Luz', '2026-10-15 11:00:00', '2026-10-15 11:00:00', 'Admin', 1, 'Servicios', false)
+        """);
+
+        // 3. Add a VOIDED (anulado=true) Gasto Vario for $300 on that day
+        jdbcTemplate.update("""
+            INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
+            VALUES (300.0, 'Agua', '2026-10-15 12:00:00', '2026-10-15 12:00:00', 'Admin', 1, 'Servicios', true)
+        """);
+
+        // Act
+        ReportesEstadisticasDTO dto = reportRepository.getEstadisticas(year, month, day);
+
+        // Assert
+        ReportesEstadisticasDTO.FlujoDeCaja fc = dto.getFlujoDeCaja();
+        // Egresos (compras) should be 1000
+        // Gastos Varios should be 500 (active gasto only)
+        // The 300 voided gasto must NOT be included!
+        assertThat(fc.getEgresosEfectivo()).isEqualTo(1000.0);
+        assertThat(fc.getGastosVariosEfectivo()).isEqualTo(500.0);
+        assertThat(fc.getBalanceNeto()).isEqualTo(-1500.0);
+    }
+
+    @Test
+    @DisplayName("getEstadisticas - ventasPendientes sums PENDIENTE orders in the period without overlap with finalized sales")
+    void getEstadisticas_ventasPendientes_noOverlapWithFinalizedSales() {
+        // Arrange
+        int year = 2026;
+        int month = 11;
+        int day = 5;
+
+        // Clean up relevant data for this isolated date
+        jdbcTemplate.update("DELETE FROM ventas_pendientes WHERE fecha::date = '2026-11-05'");
+        jdbcTemplate.update("DELETE FROM ventas WHERE fecha::date = '2026-11-05'");
+
+        // Insert 1 finalized venta for $500 on 2026-11-05
+        jdbcTemplate.update("""
+            INSERT INTO ventas (fecha, total_venta, estado)
+            VALUES ('2026-11-05 10:00:00', 500.0, 'ACTIVA')
+        """);
+
+        // Insert 1 PENDIENTE venta_pendiente for $300 on 2026-11-05
+        jdbcTemplate.update("""
+            INSERT INTO ventas_pendientes (fecha, cliente_nombre, total_estimado, estado)
+            VALUES ('2026-11-05 11:00:00', 'Cliente Test', 300.0, 'PENDIENTE')
+        """);
+
+        // Insert 1 FINALIZADA venta_pendiente for $200 on 2026-11-05 (must NOT be counted)
+        jdbcTemplate.update("""
+            INSERT INTO ventas_pendientes (fecha, cliente_nombre, total_estimado, estado)
+            VALUES ('2026-11-05 12:00:00', 'Cliente Test 2', 200.0, 'FINALIZADA')
+        """);
+
+        // Act
+        ReportesEstadisticasDTO dto = reportRepository.getEstadisticas(year, month, day);
+        ReportesEstadisticasDTO.RendimientoComercial rc = dto.getRendimientoComercial();
+
+        // Assert — ingresos (finalized) must not include pending amounts
+        assertThat(rc.getIngresosVentas()).isEqualTo(500.0);
+
+        // ventasPendientes must include ONLY the PENDIENTE order ($300), NOT the FINALIZADA one
+        assertThat(rc.getVentasPendientes()).isEqualTo(300.0);
+
+        // ventasTotalesProyectadas = 500 + 300 = 800
+        assertThat(rc.getVentasTotalesProyectadas()).isEqualTo(800.0);
+    }
+
+    @Test
+    @DisplayName("getEstadisticas - ventasPendientes is zero when no pending orders exist in the period")
+    void getEstadisticas_ventasPendientes_zeroWhenNoPendingOrders() {
+        // Year 1990 will have no pending orders
+        ReportesEstadisticasDTO dto = reportRepository.getEstadisticas(1990, 1, null);
+
+        ReportesEstadisticasDTO.RendimientoComercial rc = dto.getRendimientoComercial();
+        assertThat(rc.getVentasPendientes()).isEqualTo(0.0);
+        assertThat(rc.getVentasTotalesProyectadas()).isEqualTo(0.0);
+    }
+}

@@ -1,0 +1,42 @@
+.jump-buttons {
+    position: fixed;
+    bottom: 2rem;
+    right: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 9999;
+}
+
+.jump-btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: none;
+    background-color: var(--color-primary);
+    color: white;
+    font-size: 1.3rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s, background-color 0.2s, opacity 0.2s;
+    opacity: 0.8;
+}
+
+.jump-btn:hover {
+    transform: scale(1.1);
+    background-color: #003366;
+    opacity: 1;
+}
+
+@media (max-width: 768px) {
+    .jump-buttons {
+        bottom: 5rem; /* Push up above bottom navigation if any */
+        right: 0.5rem;
+    }
+    .jump-btn {
+        opacity: 0.5; /* More transparent on mobile */
+    }
+}

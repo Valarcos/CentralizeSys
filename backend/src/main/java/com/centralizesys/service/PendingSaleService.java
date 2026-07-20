@@ -56,7 +56,7 @@ public class PendingSaleService {
     }
 
     @Transactional
-    public Long crearPendiente(VentaRequest request) {
+    public Long crearPendiente(VentaRequest request, Long authenticatedUserId) {
         if (request.getItems() == null || request.getItems().isEmpty()) {
             throw new BusinessRuleException("La venta pendiente debe tener al menos un producto.");
         }
@@ -78,7 +78,7 @@ public class PendingSaleService {
         pendingSale.setTotalVenta(finalTotal); // Stored in total_estimado
         pendingSale.setDescuentoGlobal(descuentoGlobal);
         pendingSale.setTipoVenta(request.getTipoVenta() != null ? request.getTipoVenta().name() : "MINORISTA");
-        pendingSale.setUsuarioId(request.getUsuarioId());
+        pendingSale.setUsuarioId(authenticatedUserId);
         pendingSale.setEstado(PENDIENTE);
 
         Long pendingId = pendingSaleRepository.savePendiente(pendingSale);
@@ -92,7 +92,7 @@ public class PendingSaleService {
         ventaService.updateStockFromDetails(detalles);
 
         // 5. Audit
-        auditoriaService.registrarAccion(request.getUsuarioId(), "CREAR_PENDIENTE", "Pedido creado con ID: " + pendingId);
+        auditoriaService.registrarAccion(authenticatedUserId, "CREAR_PENDIENTE", "Pedido creado con ID: " + pendingId);
 
         return pendingId;
     }
@@ -252,7 +252,7 @@ public class PendingSaleService {
     }
 
     @Transactional
-    public void cancelarPendiente(Long id) {
+    public void cancelarPendiente(Long id, Long authenticatedUserId) {
         // 1. Fetch pending sale
         Venta pendingSale = pendingSaleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(VENTA_PENDIENTE, id));
@@ -278,7 +278,7 @@ public class PendingSaleService {
             }
         }
 
-        auditoriaService.registrarAccion(0L, "CANCELAR_PENDIENTE", "Pedido ID " + id + " cancelado.");
+        auditoriaService.registrarAccion(authenticatedUserId, "CANCELAR_PENDIENTE", "Pedido ID " + id + " cancelado.");
     }
 
     /**
@@ -296,7 +296,7 @@ public class PendingSaleService {
      * @return The full VentaResponse of the newly created Venta.
      */
     @Transactional
-    public VentaResponse finalizarVenta(Long id) {
+    public VentaResponse finalizarVenta(Long id, Long authenticatedUserId) {
         // 1. Fetch pending sale
         Venta pendingSale = pendingSaleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(VENTA_PENDIENTE, id));
@@ -351,7 +351,7 @@ public class PendingSaleService {
 
         // Stock was already reserved when the pending sale was created — NO stock deduction here!
 
-        auditoriaService.registrarAccion(pendingSale.getUsuarioId(), "FINALIZAR_PENDIENTE",
+        auditoriaService.registrarAccion(authenticatedUserId, "FINALIZAR_PENDIENTE",
                 String.format("Pedido %d finalizado como Venta %d. Pagado: $%.2f. Deuda: $%.2f.",
                         id, newVentaId, totalPagado, saldoPendiente));
 

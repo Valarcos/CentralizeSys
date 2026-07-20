@@ -28,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(CompraController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@org.springframework.test.context.ActiveProfiles("test")
 class CompraControllerTest {
 
     @Autowired
@@ -95,3 +96,4 @@ class CompraControllerTest {
         }
     }
 }
+

@@ -39,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         controllers = AuthController.class,
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = JwtAuthenticationFilter.class))
 @AutoConfigureMockMvc(addFilters = false) // Disable Security Filters for Unit Test
+@org.springframework.test.context.ActiveProfiles("test")
 class AuthControllerTest {
 
         private static final LocalDateTime MOCK_EXPIRES_AT =
@@ -149,3 +150,4 @@ class AuthControllerTest {
                         .andExpect(status().isNotFound());
         }
 }
+

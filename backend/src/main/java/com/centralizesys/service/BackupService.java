@@ -25,6 +25,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,6 +41,9 @@ import java.util.*;
 import java.util.stream.Stream;
 
 @Service
+// TODO: Technical Debt - Extract ProcessBuilder OS executions (pg_dump/psql) into a dedicated
+// Infrastructure/CommandExecutor component. This will decouple business logic from OS-level
+// execution and allow proper unit testing.
 public class BackupService {
 
     private static final Logger log = LoggerFactory.getLogger(BackupService.class);
@@ -206,6 +213,9 @@ public class BackupService {
     public void restoreDatabase(File sqlFile) {
         com.centralizesys.config.MaintenanceInterceptor.isMaintenanceMode.set(true);
         try {
+            log.info("Triggering pre-restore safety net backup.");
+            performSafetyNetBackup();
+
             DataSource ds = jdbcTemplate.getDataSource();
             if (ds != null && ds.isWrapperFor(HikariDataSource.class)) {
                 HikariDataSource hds = ds.unwrap(HikariDataSource.class);
@@ -243,39 +253,95 @@ public class BackupService {
         }
     }
 
+    private void performSafetyNetBackup() {
+        try {
+            performBackup(BackupType.MANUAL, SecurityUtils.getAuthenticatedUserId());
+        } catch (Exception e) {
+            // Fail Fast constraint: If we can't secure current data, we DO NOT restore.
+            throw new InfrastructureException("Safety net backup failed! Aborting restoration to prevent data loss.", e);
+        }
+    }
+
+    private File preprocessSqlFile(File originalFile) throws IOException {
+        java.nio.file.Path manualBackupDir = Paths.get(pathStrategy.getManualDir());
+        if (!java.nio.file.Files.exists(manualBackupDir)) {
+            java.nio.file.Files.createDirectories(manualBackupDir);
+        }
+        java.nio.file.Path tempPath = java.nio.file.Files.createTempFile(manualBackupDir, "backup_clean_", ".sql");
+        File tempFile = tempPath.toFile();
+        try (BufferedReader reader = new BufferedReader(new FileReader(originalFile));
+             BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
+
+            writer.write("-- 1. Bulletproof Deadlock Prevention: Kill all other active connections (e.g., pgAdmin, hanging queries)");
+            writer.newLine();
+            writer.write("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid();");
+            writer.newLine();
+            writer.write("-- 2. Clean Wipe (Transactional DDL to prevent Hybrid Schema Drift)");
+            writer.newLine();
+            writer.write("DROP SCHEMA public CASCADE;");
+            writer.newLine();
+            writer.write("CREATE SCHEMA public;");
+            writer.newLine();
+            writer.write("GRANT ALL ON SCHEMA public TO public;");
+            writer.newLine();
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                // Ignore PostgreSQL 17 specific parameters that cause errors in PostgreSQL 16
+                if (line.trim().startsWith("SET transaction_timeout")) {
+                    continue;
+                }
+                writer.write(line);
+                writer.newLine();
+            }
+        }
+        return tempFile;
+    }
+
     private void executePsqlRestore(File sqlFile) throws InfrastructureException, IOException, InterruptedException {
-        String cleanUrl = dbUrl;
-        if (cleanUrl.contains("?")) {
-            cleanUrl = cleanUrl.substring(0, cleanUrl.indexOf('?'));
-        }
-        String cleanUriStr = cleanUrl.replace("jdbc:", "");
-        java.net.URI uri = java.net.URI.create(cleanUriStr);
-        String db = uri.getPath().replace("/", "");
+        File processedSqlFile = preprocessSqlFile(sqlFile);
+        try {
+            String cleanUrl = dbUrl;
+            if (cleanUrl.contains("?")) {
+                cleanUrl = cleanUrl.substring(0, cleanUrl.indexOf('?'));
+            }
+            String cleanUriStr = cleanUrl.replace("jdbc:", "");
+            java.net.URI uri = java.net.URI.create(cleanUriStr);
+            String db = uri.getPath().replace("/", "");
 
-        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-        List<String> command = new ArrayList<>();
-        if (isWindows) {
-            command.addAll(Arrays.asList("cmd.exe", "/c",
-                    "docker exec -i -e " + ENV_PG_PASS + " centralizesys_postgres psql -v ON_ERROR_STOP=1 -U " + dbUser + " -d " + db + " --single-transaction < \"" + sqlFile.getAbsolutePath() + "\""));
-        } else {
-            String host = uri.getHost();
-            int port = uri.getPort() == -1 ? 5432 : uri.getPort();
-            command.addAll(Arrays.asList("psql", "-v", "ON_ERROR_STOP=1", "-U", dbUser, "-h", host, "-p", String.valueOf(port), "-d", db, "--single-transaction"));
-        }
+            boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+            List<String> command = new ArrayList<>();
+            if (isWindows) {
+                command.addAll(Arrays.asList("cmd.exe", "/c",
+                        "docker exec -i -e " + ENV_PG_PASS + " centralizesys_postgres psql -v ON_ERROR_STOP=1 -U " + dbUser + " -d " + db + " --single-transaction < \"" + processedSqlFile.getAbsolutePath() + "\""));
+            } else {
+                String host = uri.getHost();
+                int port = uri.getPort() == -1 ? 5432 : uri.getPort();
+                command.addAll(Arrays.asList("psql", "-v", "ON_ERROR_STOP=1", "-U", dbUser, "-h", host, "-p", String.valueOf(port), "-d", db, "--single-transaction"));
+            }
 
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.environment().put(ENV_PG_PASS, dbPassword);
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.environment().put(ENV_PG_PASS, dbPassword);
 
-        if (!isWindows) {
-            pb.redirectInput(sqlFile);
-        }
-        pb.inheritIO();
+            if (!isWindows) {
+                pb.redirectInput(processedSqlFile);
+            }
+            pb.inheritIO();
 
-        Process process = pb.start();
-        int exitCode = process.waitFor();
+            Process process = pb.start();
+            int exitCode = process.waitFor();
 
-        if (exitCode != 0) {
-            throw new InfrastructureException("psql process failed with exit code: " + exitCode);
+            if (exitCode != 0) {
+                throw new InfrastructureException("psql process failed with exit code: " + exitCode);
+            }
+        } finally {
+            if (processedSqlFile != null && processedSqlFile.exists() && !processedSqlFile.getAbsolutePath().equals(sqlFile.getAbsolutePath())) {
+                try {
+                    Files.delete(processedSqlFile.toPath());
+                } catch (IOException e) {
+                    log.warn("Could not delete temporary preprocessed SQL file: {}", processedSqlFile.getAbsolutePath(), e);
+                }
+            }
         }
     }
 

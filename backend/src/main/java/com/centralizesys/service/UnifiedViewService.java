@@ -27,7 +27,9 @@ public class UnifiedViewService {
                 (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total,
                 (v.total_venta - d.monto_deuda) as monto_pagado,
                 d.monto_deuda as saldo_restante,
-                d.estado
+                d.estado,
+                v.tipo_venta,
+                (SELECT COUNT(*) FROM detalles_venta WHERE venta_id = v.id) as cantidad_productos
             FROM deudores d
             JOIN ventas v ON d.venta_id = v.id
             WHERE d.estado IN ('PENDIENTE', 'PARCIAL')
@@ -44,7 +46,9 @@ public class UnifiedViewService {
                 (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE) as costo_total,
                 COALESCE((SELECT SUM(monto) FROM pagos_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE), 0) as monto_pagado,
                 p.total_estimado - COALESCE((SELECT SUM(monto) FROM pagos_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE), 0) as saldo_restante,
-                p.estado
+                p.estado,
+                p.tipo_venta,
+                (SELECT COUNT(*) FROM detalles_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE) as cantidad_productos
             FROM ventas_pendientes p
             WHERE p.estado = 'PENDIENTE'
         

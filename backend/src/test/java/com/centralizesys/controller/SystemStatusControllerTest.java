@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(SystemStatusController.class)
+@org.springframework.test.context.ActiveProfiles("test")
 class SystemStatusControllerTest {
 
     @Autowired
@@ -43,3 +44,4 @@ class SystemStatusControllerTest {
                 .andExpect(jsonPath("$.alerts", hasSize(0)));
     }
 }
+

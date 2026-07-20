@@ -157,6 +157,9 @@ export default function VentaPage() {
     // Req: Ref for search input — enables auto-focus + select on mount and after adding to cart
     const searchInputRef = useRef(null);
 
+    // Anti-spam lock to prevent overlapping API calls if Enter is mashed rapidly
+    const isEnterSearchingRef = useRef(false);
+
     const focusAndSelectSearch = () => {
         if (searchInputRef.current) {
             searchInputRef.current.focus();
@@ -736,6 +739,46 @@ export default function VentaPage() {
                         placeholder="🔍 Buscar producto..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={async (e) => {
+                            // Ignore key-hold repeats to prevent spamming cart on a stuck Enter key
+                            if ((e.key === 'Enter' || e.keyCode === 13) && !e.repeat) {
+                                e.preventDefault();
+
+                                // Prevent overlapping network calls if the user rapidly mashes the Enter key
+                                if (!searchQuery.trim() || isEnterSearchingRef.current) return;
+
+                                try {
+                                    isEnterSearchingRef.current = true;
+
+                                    // Bypass debounce and fetch immediately to support rapid barcode scanners
+                                    const params = { size: 50, search: searchQuery };
+                                    const response = await api.get('/productos', { params });
+                                    const fetchedProducts = groupProducts(response.data.content || []);
+                                    setProducts(fetchedProducts);
+
+                                    if (fetchedProducts.length === 1) {
+                                        const single = fetchedProducts[0];
+                                        if (!single._isGrouped) {
+                                            // Single variant: add directly to cart
+                                            handleAddToCart(single);
+                                            // Clear the search bar to prepare for the next scan (this also cancels the old debounce)
+                                            setSearchQuery('');
+                                        } else {
+                                            // Multi-variant family: expand the inline variant picker
+                                            const key = single.codigo !== '1'
+                                                ? single.codigo
+                                                : `1|${single.descripcion.trim().toLowerCase()}`;
+                                            setExpandedFamilyKey(prev => prev === key ? null : key);
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error("Error in instant search on Enter:", error);
+                                    toast.error("Error al buscar el producto");
+                                } finally {
+                                    isEnterSearchingRef.current = false;
+                                }
+                            }
+                        }}
                         autoFocus
                     />
                 </div>

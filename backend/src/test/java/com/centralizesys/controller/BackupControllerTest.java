@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(BackupController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@org.springframework.test.context.ActiveProfiles("test")
 class BackupControllerTest {
 
     @Autowired
@@ -97,3 +98,4 @@ class BackupControllerTest {
         }
     }
 }
+

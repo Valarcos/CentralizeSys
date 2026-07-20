@@ -36,11 +36,12 @@
     *   `InfrastructureException` (500) - DB failures.
     *   **Constraint Violations:** Must explicitly catch `DataIntegrityViolationException` (Unique/FK violations).
     *   **Nulls:** Do not use `Optional.get()` without `orElseThrow()`.
+*   **React Hook Refactoring (Temporal Dead Zone):** Whenever converting a standard `function` into a `const` arrow function (e.g. wrapping with `useCallback`), you MUST explicitly verify that the new `const` definition physically precedes ALL `useEffect` blocks or other hooks that reference it. Never introduce `ReferenceError: Cannot access before initialization` bugs.
 
 ---
 
 ## 3. Database Schema & Triggers (The Truth)
-*   **Dates:** `YYYY-MM-DD` (ISO 8601).
+*   **Dates & Timezones:** Backend/DB use `YYYY-MM-DD` (ISO 8601). In the frontend UI, dates MUST be displayed in `dd/MM/YYYY` format and explicitly evaluated using the `UTC-3` (Argentina) timezone to prevent timezone shifting.
 *   **Tables:** `productos`, `ubicaciones`, `stock_por_ubicacion`, `ventas`, `detalles_venta`, `pagos_venta`, `compras`, `detalles_compra`, `deudores`, `usuarios`, `auditoria`, `metodos_pago`.
 *   **Triggers:**
     *   `update_stock_after_insert/update/delete`: Java NEVER updates total stock directly.

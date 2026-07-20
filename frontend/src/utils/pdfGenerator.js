@@ -13,26 +13,8 @@ const formatMoney = (val) => {
 };
 
 /**
- * Formats a date string as YYYY-MM-DD without timezone shifts.
- * JavaScript's `new Date("2026-02-18")` treats date-only strings as UTC,
- * causing off-by-one errors in negative UTC offsets (e.g., UTC-3).
- * This function extracts the date directly from the string to avoid that.
- */
-const formatDateYMD = (dateStr) => {
-    if (!dateStr) return 'N/A';
-    // If it contains YYYY-MM-DD anywhere, extract it directly (no Date parsing)
-    const match = String(dateStr).match(/(\d{4})-(\d{2})-(\d{2})/);
-    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
-    // Fallback: parse with local time forced
-    const safe = String(dateStr).includes('T') ? dateStr : dateStr + 'T12:00:00';
-    const d = new Date(safe);
-    if (isNaN(d.getTime())) return String(dateStr);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
-/**
  * Formats a date string as DD/MM/YYYY — the user-facing format required for PDFs.
- * Reuses the same safe-parsing approach as formatDateYMD to avoid UTC offset bugs.
+ * Parses dates safely to avoid UTC offset bugs.
  */
 const formatDateDDMMYYYY = (dateStr) => {
     if (!dateStr) return 'N/A';
@@ -80,26 +62,31 @@ export const generateReceipt = (saleData) => {
 
         // --- HEADER ---
         doc.setFontSize(18);
-        doc.text("VENTA", pageWidth / 2, 15, { align: 'center' });
+        doc.text("REMITO", pageWidth / 2, 15, { align: 'center' });
+
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text('Presupuesto', 14, 25);
+        doc.setFont(undefined, 'normal');
 
         doc.setFontSize(10);
-        doc.text(`Venta ID: #${saleData.id}`, 14, 25);
-        doc.text(`Fecha de Venta: ${formatDateDDMMYYYY(saleData.date)}`, 14, 30);
+        doc.text(`Venta ID: #${saleData.id}`, 14, 32);
+        doc.text(`Fecha de Venta: ${formatDateDDMMYYYY(saleData.date)}`, 14, 37);
 
         // PDF print date (smaller, gray)
         doc.setFontSize(8);
         doc.setTextColor(120);
-        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(new Date().toISOString())}`, 14, 35);
+        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(new Date().toISOString())}`, 14, 42);
         doc.setTextColor(0);
         doc.setFontSize(10);
 
-        doc.text(`Cliente: ${saleData.client || 'Consumidor Final'}`, 14, 42);
-        doc.text(`Vendedor: ${saleData.vendedor || saleData.user || 'Sistema'}`, 14, 47);
-        doc.text(`Tipo Venta: ${saleData.saleType}`, 14, 52);
+        doc.text(`Cliente: ${saleData.client || 'Consumidor Final'}`, 14, 49);
+        doc.text(`Vendedor: ${saleData.vendedor || saleData.user || 'Sistema'}`, 14, 54);
+        doc.text(`Tipo Venta: ${saleData.saleType}`, 14, 59);
 
         const totalUnidades = saleData.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
         doc.setFont(undefined, 'bold');
-        doc.text(`Total de Artículos: ${totalUnidades}`, 14, 57);
+        doc.text(`Total de Artículos: ${totalUnidades}`, 14, 64);
         doc.setFont(undefined, 'normal');
 
         // --- TABLE 1: ITEMS ---
@@ -120,7 +107,7 @@ export const generateReceipt = (saleData) => {
         });
 
         autoTable(doc, {
-            startY: 62,
+            startY: 69,
             head: [['Código', 'Descripción', 'Cant.', 'Precio', 'Desc.', 'Subtotal']],
             body: itemsBody,
             theme: 'grid',

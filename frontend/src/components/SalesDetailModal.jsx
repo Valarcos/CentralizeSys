@@ -111,6 +111,7 @@ export default function SalesDetailModal({ sale, onClose, printMode = 'ticket', 
                     <p><strong>Fecha:</strong> {sale.fecha}</p>
                     <p><strong>Cliente:</strong> {sale.clienteNombre || 'Consumidor Final'}</p>
                     <p><strong>Total:</strong> {formatCurrency(sale.totalVenta)}</p>
+                    <p><strong>Cantidad de Productos:</strong> {sale.cantidadProductos || sale.items?.reduce((sum, item) => sum + (item.cantidad || 0), 0) || 0}</p>
                     {sale.descuentoGlobal > 0 && (
                         <p style={{ color: 'green' }}><strong>Descuento Global:</strong> -{formatCurrency(sale.descuentoGlobal)}</p>
                     )}

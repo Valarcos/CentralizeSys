@@ -40,7 +40,7 @@ public class ReportRepository {
                 ((SUM(v.total_venta) - SUM(d.cogs_venta)) / NULLIF(SUM(v.total_venta), 0)) * 100 as margen_porcentaje
             FROM ventas v
             LEFT JOIN DetallesAgrupados d ON v.id = d.venta_id
-            WHERE v.estado != 'ANULADA'
+            WHERE v.estado NOT IN ('ANULADA', 'PENDIENTE', 'CANCELADA_PENDIENTE')
               AND EXTRACT(YEAR FROM v.fecha) = :year
             GROUP BY DATE_TRUNC('month', v.fecha)
             ORDER BY mes ASC
@@ -66,7 +66,7 @@ public class ReportRepository {
                 ((SUM(v.total_venta) - SUM(d.cogs_venta)) / NULLIF(SUM(v.total_venta), 0)) * 100 as margen_porcentaje
             FROM ventas v
             LEFT JOIN DetallesAgrupados d ON v.id = d.venta_id
-            WHERE v.estado != 'ANULADA'
+            WHERE v.estado NOT IN ('ANULADA', 'PENDIENTE', 'CANCELADA_PENDIENTE')
               AND EXTRACT(YEAR FROM v.fecha) = :year
               AND EXTRACT(MONTH FROM v.fecha) = :month
         """;
@@ -146,7 +146,7 @@ public class ReportRepository {
                 COALESCE(SUM(d.qty_vendida), 0)              AS productos_vendidos
             FROM ventas v
             LEFT JOIN DetallesAgrupados d ON v.id = d.venta_id
-            WHERE v.estado != 'ANULADA'
+            WHERE v.estado NOT IN ('ANULADA', 'PENDIENTE', 'CANCELADA_PENDIENTE')
         """ + dateFilter.replace(FECHA_FIELD, "v.fecha");
 
         // Products purchased (compras) in the same period
@@ -165,12 +165,12 @@ public class ReportRepository {
         """;
 
         // Pending orders (ventas_pendientes) with estado = 'PENDIENTE' within the filtered period.
-        // Uses the same date params as the main revenue query (applied to the 'fecha' column).
+        // Uses the same date params as the main revenue query (applied to the 'fecha_creacion' column).
         String pendingOrdersSql = """
-            SELECT COALESCE(SUM(vp.total_estimado), 0.0) AS ventas_pendientes
-            FROM ventas_pendientes vp
+            SELECT COALESCE(SUM(vp.total_venta), 0.0) AS ventas_pendientes
+            FROM ventas vp
             WHERE vp.estado = 'PENDIENTE'
-        """ + dateFilter.replace(FECHA_FIELD, "vp.fecha");
+        """ + dateFilter.replace(FECHA_FIELD, "vp.fecha_creacion");
 
         List<Map<String, Object>> revenueResult   = namedJdbcTemplate.queryForList(revenueSql, params);
         List<Map<String, Object>> purchaseResult  = namedJdbcTemplate.queryForList(purchaseSql, params);
@@ -218,19 +218,13 @@ public class ReportRepository {
                 SELECT pv.monto AS monto_total
                 FROM pagos_venta pv
                 JOIN ventas v ON pv.venta_id = v.id
-                WHERE v.estado != 'ANULADA'
+                WHERE v.estado NOT IN ('ANULADA', 'CANCELADA_PENDIENTE') AND pv.anulado = false
             """ + buildJoinDateFilter("pv.fecha_pago", dateFilter) + """
                 UNION ALL
                 SELECT pd.monto AS monto_total
                 FROM pagos_deuda pd
                 WHERE pd.anulado = false
             """ + buildJoinDateFilter("pd.fecha_pago", dateFilter) + """
-                UNION ALL
-                SELECT pvp.monto AS monto_total
-                FROM pagos_venta_pendiente pvp
-                JOIN ventas_pendientes vp ON pvp.venta_pendiente_id = vp.id
-                WHERE pvp.anulado = false AND vp.estado = 'PENDIENTE'
-            """ + buildJoinDateFilter("pvp.fecha_pago", dateFilter) + """
             ) AS all_cash_in
         """;
 

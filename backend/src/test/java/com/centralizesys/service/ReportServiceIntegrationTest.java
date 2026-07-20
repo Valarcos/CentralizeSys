@@ -227,14 +227,14 @@ class ReportServiceIntegrationTest extends BaseIntegrationTest {
 
         // Create a pending sale
         jdbcTemplate.update(
-                "INSERT INTO ventas_pendientes (cliente_nombre, total_estimado, monto_pagado, fecha, estado, usuario_id) " +
-                        "VALUES ('Pending Cash Flow Client', 500.0, 200.0, NOW(), 'PENDIENTE', ?)", userId);
+                "INSERT INTO ventas (cliente_nombre, total_venta, fecha, fecha_creacion, estado, usuario_id) " +
+                        "VALUES ('Pending Cash Flow Client', 500.0, NOW(), NOW(), 'PENDIENTE', ?)", userId);
         Long pendingId = jdbcTemplate.queryForObject(
-                "SELECT id FROM ventas_pendientes WHERE cliente_nombre = 'Pending Cash Flow Client'", Long.class);
+                "SELECT id FROM ventas WHERE cliente_nombre = 'Pending Cash Flow Client'", Long.class);
 
         // Create a deposit for it
         jdbcTemplate.update(
-                "INSERT INTO pagos_venta_pendiente (venta_pendiente_id, metodo_pago_id, monto, fecha_pago, anulado, usuario_id) " +
+                "INSERT INTO pagos_venta (venta_id, metodo_pago_id, monto, fecha_pago, anulado, usuario_id) " +
                         "VALUES (?, 1, 200.0, NOW(), false, ?)", pendingId, userId);
 
         // 2. Act
@@ -264,16 +264,15 @@ class ReportServiceIntegrationTest extends BaseIntegrationTest {
         jdbcTemplate.update("UPDATE productos SET precio_costo = 40.0 WHERE id = ?", productId);
 
         jdbcTemplate.update(
-                "INSERT INTO ventas_pendientes (cliente_nombre, total_estimado, monto_pagado, fecha, estado, usuario_id) " +
-                        "VALUES ('No Double Count Client', 500.0, 0.0, NOW(), 'PENDIENTE', ?)", userId);
+                "INSERT INTO ventas (cliente_nombre, total_venta, fecha, fecha_creacion, estado, usuario_id) " +
+                        "VALUES ('No Double Count Client', 500.0, NOW(), NOW(), 'PENDIENTE', ?)", userId);
         Long pendingId = jdbcTemplate.queryForObject(
-                "SELECT id FROM ventas_pendientes WHERE cliente_nombre = 'No Double Count Client'", Long.class);
+                "SELECT id FROM ventas WHERE cliente_nombre = 'No Double Count Client'", Long.class);
 
         // Make a deposit dated YESTERDAY
         jdbcTemplate.update(
-                "INSERT INTO pagos_venta_pendiente (venta_pendiente_id, metodo_pago_id, monto, fecha_pago, anulado, usuario_id) " +
+                "INSERT INTO pagos_venta (venta_id, metodo_pago_id, monto, fecha_pago, anulado, usuario_id) " +
                         "VALUES (?, 1, 200.0, NOW() - INTERVAL '1 day', false, ?)", pendingId, userId);
-        jdbcTemplate.update("UPDATE ventas_pendientes SET monto_pagado = 200.0 WHERE id = ?", pendingId);
 
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
 
@@ -283,23 +282,7 @@ class ReportServiceIntegrationTest extends BaseIntegrationTest {
         double revenueBefore = statsBefore.getRendimientoComercial().getIngresosVentas();
 
         // 2. Act: Finalize the sale TODAY
-        // The system will create a Venta and copy the PagoVenta.
-        // The bug was that the finalized sale payment appeared as TODAY's cash flow because fecha_pago defaulted to today,
-        // or because the query UNION ALL didn't filter the pending deposit.
-        // We simulate the exact database state of a finalized pending sale:
-
-        jdbcTemplate.update("UPDATE ventas_pendientes SET estado = 'FINALIZADA' WHERE id = ?", pendingId);
-
-        jdbcTemplate.update(
-                "INSERT INTO ventas (fecha, cliente_nombre, total_venta, usuario_id, estado) " +
-                        "VALUES (NOW(), 'No Double Count Client', 500.0, ?, 'ACTIVA')", userId);
-        Long ventaId = jdbcTemplate.queryForObject(
-                "SELECT id FROM ventas WHERE cliente_nombre = 'No Double Count Client' ORDER BY id DESC LIMIT 1", Long.class);
-
-        // Migrate payment WITH original date (Simulating PendingSaleService fix)
-        jdbcTemplate.update(
-                "INSERT INTO pagos_venta (venta_id, metodo_pago_id, monto, fecha_pago) " +
-                        "VALUES (?, 1, 200.0, NOW() - INTERVAL '1 day')", ventaId);
+        jdbcTemplate.update("UPDATE ventas SET estado = 'ACTIVA', fecha = NOW() WHERE id = ?", pendingId);
 
         // 3. Assert
         com.centralizesys.model.sales.ReportesEstadisticasDTO statsAfter = reportService.getEstadisticas(now.getYear(), now.getMonthValue(), now.getDayOfMonth());

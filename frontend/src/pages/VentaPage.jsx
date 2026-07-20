@@ -333,7 +333,7 @@ export default function VentaPage() {
             let response;
             if (editingPendingId) {
                 // 1. Update Cart
-                await api.put(`/ventas-pendientes/${editingPendingId}`, saleData);
+                await api.put(`/ventas/${editingPendingId}`, saleData);
 
                 // 2. Register NEW payments
                 const newPayments = payments.filter(p => !p.id);
@@ -343,11 +343,11 @@ export default function VentaPage() {
                         metodoPagoId: p.methodId,
                         observaciones: ""
                     }));
-                    await api.post(`/ventas-pendientes/${editingPendingId}/pagos`, pagosPayload);
+                    await api.post(`/ventas/${editingPendingId}/pagos`, pagosPayload);
                 }
 
                 // 3. Finalize
-                response = await api.post(`/ventas-pendientes/${editingPendingId}/finalizar`);
+                response = await api.post(`/ventas/${editingPendingId}/finalizar`);
                 toast.success("Pedido finalizado con éxito");
             } else {
                 response = await api.post('/ventas', saleData);
@@ -422,7 +422,7 @@ export default function VentaPage() {
 
             let response;
             if (editingPendingId) {
-                response = await api.put(`/ventas-pendientes/${editingPendingId}`, saleData);
+                response = await api.put(`/ventas/${editingPendingId}`, saleData);
                 // Also save new payments if any
                 const newPayments = payments.filter(p => !p.id);
                 if (newPayments.length > 0) {
@@ -431,11 +431,11 @@ export default function VentaPage() {
                         metodoPagoId: p.methodId,
                         observaciones: ""
                     }));
-                    await api.post(`/ventas-pendientes/${editingPendingId}/pagos`, pagosPayload);
+                    await api.post(`/ventas/${editingPendingId}/pagos`, pagosPayload);
                 }
                 toast.success("Pedido pendiente actualizado exitosamente.");
             } else {
-                response = await api.post('/ventas-pendientes', saleData);
+                response = await api.post('/ventas/pendientes', saleData);
                 toast.success("Pedido guardado como pendiente exitosamente.");
             }
             if (editingPendingId) {

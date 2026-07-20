@@ -124,11 +124,6 @@ public abstract class BaseIntegrationTest {
         // TRUNCATE bypasses row-level DELETE triggers and is faster.
         jdbcTemplate.execute("TRUNCATE TABLE auditoria");
 
-        // Pending Sales Cycle
-        jdbcTemplate.execute("DELETE FROM pagos_venta_pendiente");
-        jdbcTemplate.execute("DELETE FROM detalles_venta_pendiente");
-        jdbcTemplate.execute("DELETE FROM ventas_pendientes");
-
         // Sales Cycle
         jdbcTemplate.execute("DELETE FROM pagos_deuda");
         jdbcTemplate.execute("DELETE FROM deudores");

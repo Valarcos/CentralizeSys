@@ -107,7 +107,7 @@ public class DeudoresRepository {
                     SELECT (
                         EXISTS (SELECT 1 FROM deudores WHERE estado IN ('PENDIENTE', 'PARCIAL'))
                         OR
-                        EXISTS (SELECT 1 FROM ventas_pendientes WHERE estado = 'PENDIENTE')
+                        EXISTS (SELECT 1 FROM ventas WHERE estado = 'PENDIENTE')
                     )
                 """;
         Boolean result = jdbcTemplate.queryForObject(sql, Boolean.class);

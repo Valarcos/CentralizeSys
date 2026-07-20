@@ -221,10 +221,18 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         v2.setUsuarioId(userId);
         ventaRepository.saveVenta(v2);
 
+        Venta v3 = new Venta();
+        v3.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
+        v3.setClienteNombre("Pending Client");
+        v3.setTotalVenta(300.00);
+        v3.setEstado("PENDIENTE");
+        v3.setUsuarioId(userId);
+        ventaRepository.saveVenta(v3);
+
         // Act
         List<Venta> all = ventaRepository.findAll();
 
-        // Assert - Second inserted should come first (higher ID, same date)
+        // Assert - Second inserted should come first (higher ID, same date). Pending sale must be excluded!
         assertThat(all).hasSize(2);
         assertThat(all.getFirst().getClienteNombre()).isEqualTo("Second");
     }
@@ -303,10 +311,19 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         createVenta(userId, LocalDateTime.parse("2023-01-03T00:00:00"), "C3", 300.0); // Target
         createVenta(userId, LocalDateTime.parse("2023-01-04T00:00:00"), "C4", 400.0);
 
+        // Insert a pending sale in the target range (must be ignored)
+        Venta pending = new Venta();
+        pending.setFecha(LocalDateTime.parse("2023-01-02T12:00:00"));
+        pending.setClienteNombre("Pending in range");
+        pending.setTotalVenta(500.0);
+        pending.setEstado("PENDIENTE");
+        pending.setUsuarioId(userId);
+        ventaRepository.saveVenta(pending);
+
         // Act
         long count = ventaRepository.countVentasByFechaBetween(LocalDateTime.parse("2023-01-02T00:00:00"), LocalDateTime.parse("2023-01-03T00:00:00"));
 
-        // Assert
+        // Assert - Should only count the 2 ACTIVA sales
         assertThat(count).isEqualTo(2);
     }
 

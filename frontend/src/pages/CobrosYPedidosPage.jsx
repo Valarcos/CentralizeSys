@@ -161,7 +161,7 @@ export default function CobrosYPedidosPage() {
             if (selectedItem.tipo === 'FIADO') {
                 await api.post(`/deudores/${selectedItem.id_referencia}/pagar`, payload);
             } else {
-                await api.post(`/ventas-pendientes/${selectedItem.id_referencia}/pagos`, payload);
+                await api.post(`/ventas/${selectedItem.id_referencia}/pagos`, payload);
             }
 
             toast.success("Pago registrado con éxito");
@@ -192,7 +192,7 @@ export default function CobrosYPedidosPage() {
                 }
             } else {
                 // For PEDIDO, we can use the new pending sale endpoint
-                response = await api.get(`/ventas-pendientes/${item.id_referencia}`);
+                response = await api.get(`/ventas/${item.id_referencia}`);
             }
             setViewSale(response?.data);
             setViewItemInfo(item);
@@ -265,8 +265,8 @@ export default function CobrosYPedidosPage() {
         try {
             toast.loading("Generando recibo de pedido...", { id: "print-pedido-toast" });
             const [saleRes, pagosRes, methodsRes] = await Promise.all([
-                api.get(`/ventas-pendientes/${item.id_referencia}`),
-                api.get(`/ventas-pendientes/${item.id_referencia}/pagos`),
+                api.get(`/ventas/${item.id_referencia}`),
+                api.get(`/ventas/${item.id_referencia}/pagos`),
                 paymentMethods.length > 0 ? Promise.resolve({ data: paymentMethods }) : api.get('/ventas/metodos-pago')
             ]);
 
@@ -321,7 +321,7 @@ export default function CobrosYPedidosPage() {
         if (!itemToFinalize) return;
         setIsSubmitting(true);
         try {
-            await api.post(`/ventas-pendientes/${itemToFinalize.id_referencia}/finalizar`);
+            await api.post(`/ventas/${itemToFinalize.id_referencia}/finalizar`);
             toast.success("Pedido finalizado con éxito.");
             setShowFinalizeModal(false);
             setItemToFinalize(null);
@@ -342,7 +342,7 @@ export default function CobrosYPedidosPage() {
         if (!itemToCancel) return;
         setIsSubmitting(true);
         try {
-            await api.post(`/ventas-pendientes/${itemToCancel.id_referencia}/cancelar`);
+            await api.post(`/ventas/${itemToCancel.id_referencia}/cancelar`);
             toast.success("Pedido cancelado exitosamente. Stock retornado.");
             fetchItems();
         } catch (error) {
@@ -358,8 +358,8 @@ export default function CobrosYPedidosPage() {
         try {
             toast.loading("Cargando pedido...", { id: "edit-toast" });
             const [saleRes, pagosRes] = await Promise.all([
-                api.get(`/ventas-pendientes/${item.id_referencia}`),
-                api.get(`/ventas-pendientes/${item.id_referencia}/pagos`)
+                api.get(`/ventas/${item.id_referencia}`),
+                api.get(`/ventas/${item.id_referencia}/pagos`)
             ]);
 
             const saleData = saleRes.data;
@@ -416,6 +416,7 @@ export default function CobrosYPedidosPage() {
                     <table className="history-table cobros-table">
                         <thead>
                         <tr>
+                            <th>ID</th>
                             <th>Cliente</th>
                             <th className="col-pendiente-fecha">Fecha</th>
                             <th className="col-pendiente-tipo">Tipo</th>
@@ -432,6 +433,7 @@ export default function CobrosYPedidosPage() {
                         <tbody>
                         {displayedItems.map((item, index) => (
                             <tr key={`${item.tipo}-${item.id_referencia}-${index}`} id={`sale-row-${item.id_referencia}`}>
+                                <td data-label="ID">#{item.id_referencia}</td>
                                 <td data-label="Cliente">{item.cliente_nombre}</td>
                                 <td data-label="Fecha">{formatDate(item.fecha_creacion)}</td>
                                 <td data-label="Tipo">

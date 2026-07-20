@@ -77,7 +77,7 @@ class DeudoresServiceIntegrationTest extends BaseIntegrationTest {
     void shouldHandleRounding() {
         // Scenario: 10.00 debt. Payment of 3.33 repeated 3 times.
         Long userId = createTestUser();
-        Venta venta = new Venta(null, LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0), "Math User", 10.0, 0.0, "MINORISTA", userId, "ACTIVA", 0.0, 0L);
+        Venta venta = new Venta(null, LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0), LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0), "Math User", 10.0, 0.0, "MINORISTA", userId, "ACTIVA", 0.0, 0L);
         Long ventaId = ventaRepository.saveVenta(venta);
 
         deudoresRepository.save(ventaId, "Math User", 10.00);
@@ -115,7 +115,7 @@ class DeudoresServiceIntegrationTest extends BaseIntegrationTest {
     @DisplayName("Should record payment in pagos_deuda history")
     void shouldRecordPaymentInHistory() {
         Long userId = createTestUser();
-        Venta venta = new Venta(null, LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0), "History User", 100.0, 0.0, "MINORISTA", userId, "ACTIVA", 0.0, 0L);
+        Venta venta = new Venta(null, LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0), LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0), "History User", 100.0, 0.0, "MINORISTA", userId, "ACTIVA", 0.0, 0L);
         Long ventaId = ventaRepository.saveVenta(venta);
 
         deudoresRepository.save(ventaId, "History User", 100.0);

@@ -15,4 +15,6 @@ public class PagoVenta {
     private Long metodoPagoId; // Links to 'metodos_pago' table
     private Double monto;
     private LocalDateTime fechaPago;
+    private Boolean anulado;
+    private Long usuarioId;
 }

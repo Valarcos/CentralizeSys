@@ -128,7 +128,7 @@
    ============================================================ */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(192px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
     gap: 0.75rem;
     align-items: stretch;
 }

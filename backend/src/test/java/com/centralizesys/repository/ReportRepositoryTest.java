@@ -69,8 +69,7 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         int day = 5;
 
         // Clean up relevant data for this isolated date
-        jdbcTemplate.update("DELETE FROM ventas_pendientes WHERE fecha::date = '2026-11-05'");
-        jdbcTemplate.update("DELETE FROM ventas WHERE fecha::date = '2026-11-05'");
+        jdbcTemplate.update("DELETE FROM ventas WHERE fecha::date = '2026-11-05' OR fecha_creacion::date = '2026-11-05'");
 
         // Insert 1 finalized venta for $500 on 2026-11-05
         jdbcTemplate.update("""
@@ -78,30 +77,30 @@ class ReportRepositoryTest extends BaseIntegrationTest {
             VALUES ('2026-11-05 10:00:00', 500.0, 'ACTIVA')
         """);
 
-        // Insert 1 PENDIENTE venta_pendiente for $300 on 2026-11-05
+        // Insert 1 PENDIENTE venta for $300 on 2026-11-05
         jdbcTemplate.update("""
-            INSERT INTO ventas_pendientes (fecha, cliente_nombre, total_estimado, estado)
-            VALUES ('2026-11-05 11:00:00', 'Cliente Test', 300.0, 'PENDIENTE')
+            INSERT INTO ventas (fecha, fecha_creacion, cliente_nombre, total_venta, estado)
+            VALUES ('2026-11-05 11:00:00', '2026-11-05 11:00:00', 'Cliente Test', 300.0, 'PENDIENTE')
         """);
 
-        // Insert 1 FINALIZADA venta_pendiente for $200 on 2026-11-05 (must NOT be counted)
+        // Insert 1 FINALIZADA venta_pendiente is equivalent to an ACTIVA venta created in the past but finalized now
         jdbcTemplate.update("""
-            INSERT INTO ventas_pendientes (fecha, cliente_nombre, total_estimado, estado)
-            VALUES ('2026-11-05 12:00:00', 'Cliente Test 2', 200.0, 'FINALIZADA')
+            INSERT INTO ventas (fecha, fecha_creacion, cliente_nombre, total_venta, estado)
+            VALUES ('2026-11-05 12:00:00', '2026-11-05 10:00:00', 'Cliente Test 2', 200.0, 'ACTIVA')
         """);
 
         // Act
         ReportesEstadisticasDTO dto = reportRepository.getEstadisticas(year, month, day);
         ReportesEstadisticasDTO.RendimientoComercial rc = dto.getRendimientoComercial();
 
-        // Assert — ingresos (finalized) must not include pending amounts
-        assertThat(rc.getIngresosVentas()).isEqualTo(500.0);
+        // Assert — ingresos (finalized) now includes both ACTIVA sales (500 + 200)
+        assertThat(rc.getIngresosVentas()).isEqualTo(700.0);
 
-        // ventasPendientes must include ONLY the PENDIENTE order ($300), NOT the FINALIZADA one
+        // ventasPendientes must include ONLY the PENDIENTE order ($300), NOT the ACTIVA one
         assertThat(rc.getVentasPendientes()).isEqualTo(300.0);
 
-        // ventasTotalesProyectadas = 500 + 300 = 800
-        assertThat(rc.getVentasTotalesProyectadas()).isEqualTo(800.0);
+        // ventasTotalesProyectadas = 700 + 300 = 1000
+        assertThat(rc.getVentasTotalesProyectadas()).isEqualTo(1000.0);
     }
 
     @Test

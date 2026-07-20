@@ -42,6 +42,10 @@ dependencies {
     // PostgreSQL JDBC driver
     implementation("org.postgresql:postgresql")
 
+    // Flyway for Database Migrations
+    implementation("org.flywaydb:flyway-core")
+    runtimeOnly("org.flywaydb:flyway-database-postgresql")
+
     implementation("org.hibernate.validator:hibernate-validator")
 
     // Security

@@ -23,4 +23,5 @@ public class DetalleVenta {
 
     private Double precioUnitario; // Final Price
     private Double subtotal;
+    private Boolean anulado;
 }

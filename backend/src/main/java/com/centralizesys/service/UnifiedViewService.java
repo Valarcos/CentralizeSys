@@ -29,7 +29,7 @@ public class UnifiedViewService {
                 d.monto_deuda as saldo_restante,
                 d.estado,
                 v.tipo_venta,
-                (SELECT COUNT(*) FROM detalles_venta WHERE venta_id = v.id) as cantidad_productos
+                (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as cantidad_productos
             FROM deudores d
             JOIN ventas v ON d.venta_id = v.id
             WHERE d.estado IN ('PENDIENTE', 'PARCIAL')
@@ -42,14 +42,14 @@ public class UnifiedViewService {
                 NULL as venta_id,
                 p.cliente_nombre,
                 p.fecha as fecha_creacion,
-                p.total_estimado as monto_total,
-                (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE) as costo_total,
-                COALESCE((SELECT SUM(monto) FROM pagos_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE), 0) as monto_pagado,
-                p.total_estimado - COALESCE((SELECT SUM(monto) FROM pagos_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE), 0) as saldo_restante,
+                p.total_venta as monto_total,
+                (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = p.id AND (anulado = false OR anulado IS NULL)) as costo_total,
+                COALESCE((SELECT SUM(monto) FROM pagos_venta WHERE venta_id = p.id AND (anulado = false OR anulado IS NULL)), 0) as monto_pagado,
+                p.total_venta - COALESCE((SELECT SUM(monto) FROM pagos_venta WHERE venta_id = p.id AND (anulado = false OR anulado IS NULL)), 0) as saldo_restante,
                 p.estado,
                 p.tipo_venta,
-                (SELECT COUNT(*) FROM detalles_venta_pendiente WHERE venta_pendiente_id = p.id AND anulado = FALSE) as cantidad_productos
-            FROM ventas_pendientes p
+                (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = p.id AND (anulado = false OR anulado IS NULL)) as cantidad_productos
+            FROM ventas p
             WHERE p.estado = 'PENDIENTE'
         
             ORDER BY fecha_creacion DESC

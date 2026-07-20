@@ -1,5 +1,6 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.model.debt.PagoDeudaRequest;
 import com.centralizesys.model.sales.Venta;
 import com.centralizesys.model.sales.MetodoPago;
 import com.centralizesys.model.sales.VentaRequest;
@@ -20,8 +21,6 @@ public class VentaController {
     private final VentaService ventaService;
     private final MetodoPagoRepository metodoPagoRepository;
 
-    // We inject MetodoPagoRepository directly for simple reads (Dropdowns),
-    // but use VentaService for the complex Transactional logic.
     public VentaController(VentaService ventaService, MetodoPagoRepository metodoPagoRepository) {
         this.ventaService = ventaService;
         this.metodoPagoRepository = metodoPagoRepository;
@@ -31,32 +30,98 @@ public class VentaController {
 
     @PostMapping
     public ResponseEntity<VentaResponse> registrarVenta(@RequestBody VentaRequest request) {
-        // Security: Always override the usuarioId from the validated JWT.
-        // The value sent by the client in the request body is discarded.
         request.setUsuarioId(SecurityUtils.getAuthenticatedUserId());
         VentaResponse response = ventaService.registrarVenta(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
+    @PostMapping("/pendientes")
+    public ResponseEntity<Long> crearPendiente(@RequestBody VentaRequest request) {
+        Long authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+        Long id = ventaService.crearPendiente(request, authenticatedUserId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(id);
+    }
+
+    @PostMapping("/{id}/pagos")
+    public ResponseEntity<Void> registrarPago(
+            @PathVariable Long id,
+            @RequestBody List<PagoDeudaRequest> pagos) {
+        Long authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+        ventaService.registrarPago(id, pagos, authenticatedUserId);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    @PostMapping("/{id}/finalizar")
+    public ResponseEntity<VentaResponse> finalizarVenta(@PathVariable Long id) {
+        Long authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+        VentaResponse response = ventaService.finalizarVenta(id, authenticatedUserId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<Void> cancelarPendiente(@PathVariable Long id) {
+        Long authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+        ventaService.cancelarPendiente(id, authenticatedUserId);
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<VentaResponse> modificarCarrito(
+            @PathVariable Long id,
+            @RequestBody VentaRequest request) {
+        Long authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+        VentaResponse response = ventaService.modificarCarrito(id, request, authenticatedUserId);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{id}/pagos/{pagoId}")
+    public ResponseEntity<Void> anularPago(
+            @PathVariable Long id,
+            @PathVariable Long pagoId) {
+        Long authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+        ventaService.anularPago(id, pagoId, authenticatedUserId);
+        return ResponseEntity.noContent().build();
+    }
+
     // --- QUERIES ---
 
-    // GET /api/ventas (Paginated & Filtered)
-    // Default: Page 0, Size 20, Last 30 Days (Service handles defaults)
     @GetMapping
     public ResponseEntity<com.centralizesys.model.dto.PageResponse<Venta>> getAll(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-
         return ResponseEntity.ok(ventaService.getVentasPage(startDate, endDate, page, size));
     }
 
-    // GET /api/ventas/{id} (Full Receipt: Header + Items + Payments)
+    @GetMapping("/pendientes")
+    public ResponseEntity<com.centralizesys.model.dto.PageResponse<Venta>> getAllPendientes(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ventaService.getVentasPendientesPage(startDate, endDate, page, size));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<VentaResponse> getById(@PathVariable Long id) {
         VentaResponse response = ventaService.getVentaById(id);
         return ResponseEntity.ok(response);
+    }
+
+    // For backwards compatibility or specific frontend requests
+    @GetMapping("/pendientes/{id}")
+    public ResponseEntity<VentaResponse> getPendienteById(@PathVariable Long id) {
+        return getById(id);
+    }
+
+    @GetMapping("/{id}/pagos")
+    public ResponseEntity<List<com.centralizesys.model.sales.PagoVenta>> getPagos(@PathVariable Long id) {
+        // Find by venta ID instead of pending sale ID
+        // (Wait, I didn't add findPagosActivosByVentaId directly to service, it's just available in VentaResponse.
+        // Oh, wait, the response already contains all active payments. But if they strictly want this endpoint...)
+        VentaResponse venta = ventaService.getVentaById(id);
+        return ResponseEntity.ok(venta.getPagos());
     }
 
     @PostMapping("/{id}/anular")
@@ -67,8 +132,6 @@ public class VentaController {
 
     // --- CONFIG / UTILS ---
 
-    // GET /api/ventas/metodos-pago
-    // Vital for the Frontend to populate the "Payment Method" dropdown
     @GetMapping("/metodos-pago")
     public ResponseEntity<List<MetodoPago>> getMetodosPago() {
         return ResponseEntity.ok(metodoPagoRepository.findAll());

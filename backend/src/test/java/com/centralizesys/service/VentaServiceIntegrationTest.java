@@ -4,6 +4,7 @@ import com.centralizesys.BaseIntegrationTest;
 import com.centralizesys.exception.ResourceNotFoundException;
 import com.centralizesys.model.sales.VentaRequest;
 import com.centralizesys.model.sales.VentaResponse;
+import com.centralizesys.model.debt.PagoDeudaRequest;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -234,5 +235,80 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
         // Assert that the date is approximately now (within 1 minute)
         assertTrue(dbDate.isAfter(java.time.LocalDateTime.now().minusMinutes(1)));
         assertTrue(dbDate.isBefore(java.time.LocalDateTime.now().plusMinutes(1)));
+    }
+
+    @Test
+    @DisplayName("IT-08: Pending Sale Lifecycle - Creation and Finalization do not double-discount stock")
+    void integration_PendingSale_FullLifecycle() {
+        // Arrange
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(10L);
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Pending Lifecycle");
+        request.setItems(List.of(item));
+        // Act 1: Registrar PENDIENTE
+        Long pendingId = ventaService.crearPendiente(request, testUserId);
+        assertNotNull(pendingId);
+
+        VentaResponse pending = ventaService.getVentaById(pendingId);
+        assertEquals("PENDIENTE", pending.getEstado());
+
+        // Assert 1: Stock is discounted ONCE
+        Long stockAfterPending = jdbcTemplate.queryForObject(
+                "SELECT cantidad_stock FROM productos WHERE id = ?", Long.class, testProductId);
+        assertEquals(90L, stockAfterPending, "Stock should decrease by 10 upon pending creation");
+
+        // Act 2: Agregar un pago (seña) y Finalizar Venta
+        PagoDeudaRequest pagoReq = new PagoDeudaRequest();
+        pagoReq.setMetodoPagoId(1L);
+        pagoReq.setMontoPago(500.0);
+        ventaService.registrarPago(pendingId, List.of(pagoReq), testUserId);
+
+        ventaService.finalizarVenta(pending.getId(), testUserId);
+
+        // Assert 2: Status is ACTIVA, stock remains the same (no double discount)
+        VentaResponse finalized = ventaService.getVentaById(pending.getId());
+        assertEquals("ACTIVA", finalized.getEstado());
+
+        Long stockAfterFinalize = jdbcTemplate.queryForObject(
+                "SELECT cantidad_stock FROM productos WHERE id = ?", Long.class, testProductId);
+        assertEquals(90L, stockAfterFinalize, "Stock MUST NOT be discounted again on finalization");
+
+        // Assert 3: Date shifted (fecha updated to now)
+        java.time.LocalDateTime dbFecha = jdbcTemplate.queryForObject(
+                "SELECT fecha FROM ventas WHERE id = ?", java.time.LocalDateTime.class, pending.getId());
+        assertTrue(dbFecha.isAfter(java.time.LocalDateTime.now().minusMinutes(1)));
+    }
+
+    @Test
+    @DisplayName("IT-09: Pending Sale Cancellation restores stock")
+    void integration_PendingSale_Cancellation() {
+        // Arrange
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(5L);
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Pending Cancel");
+        request.setItems(List.of(item));
+        Long pendingId = ventaService.crearPendiente(request, testUserId);
+
+        Long stockAfterPending = jdbcTemplate.queryForObject(
+                "SELECT cantidad_stock FROM productos WHERE id = ?", Long.class, testProductId);
+        assertEquals(95L, stockAfterPending, "Stock dropped by 5");
+
+        // Act: Cancelar
+        ventaService.cancelarPendiente(pendingId, testUserId);
+
+        // Assert: Status is CANCELADA_PENDIENTE, stock is restored
+        String estado = jdbcTemplate.queryForObject(
+                "SELECT estado FROM ventas WHERE id = ?", String.class, pendingId);
+        assertEquals("CANCELADA_PENDIENTE", estado);
+
+        Long stockRestored = jdbcTemplate.queryForObject(
+                "SELECT cantidad_stock FROM productos WHERE id = ?", Long.class, testProductId);
+        assertEquals(100L, stockRestored, "Stock MUST be restored upon cancellation");
     }
 }

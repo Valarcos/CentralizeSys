@@ -13,6 +13,8 @@ public class Venta {
     private Long id;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime fecha; // YYYY-MM-DD HH:mm:ss
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime fechaCreacion;
     private String clienteNombre;
     private Double totalVenta;
     private Double descuentoGlobal;

@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS detalles_venta (
                                               descuento_valor REAL DEFAULT 0,
                                               precio_unitario REAL NOT NULL,
                                               subtotal REAL NOT NULL,
+                                              anulado BOOLEAN NOT NULL DEFAULT FALSE,
                                               FOREIGN KEY (venta_id) REFERENCES ventas(id),
                                               FOREIGN KEY (producto_id) REFERENCES productos(id)
 );;
@@ -130,8 +131,12 @@ CREATE TABLE IF NOT EXISTS pagos_venta (
                                            venta_id INTEGER NOT NULL,
                                            metodo_pago_id INTEGER NOT NULL,
                                            monto REAL NOT NULL,
+                                           fecha_pago TIMESTAMP,
+                                           anulado BOOLEAN NOT NULL DEFAULT FALSE,
+                                           usuario_id INTEGER,
                                            FOREIGN KEY (venta_id) REFERENCES ventas(id),
-                                           FOREIGN KEY (metodo_pago_id) REFERENCES metodos_pago(id)
+                                           FOREIGN KEY (metodo_pago_id) REFERENCES metodos_pago(id),
+                                           FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );;
 
 -- 11. Tabla DEUDORES
@@ -334,7 +339,7 @@ EXECUTE FUNCTION fn_audit_no_mutation();;
 
 -- 1. Agregar columnas faltantes a ventas existentes
 ALTER TABLE ventas ADD COLUMN IF NOT EXISTS tipo_venta TEXT;;
-ALTER TABLE ventas ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'ACTIVA' CHECK(estado IN ('ACTIVA', 'ANULADA'));;
+ALTER TABLE ventas ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'ACTIVA' CHECK(estado IN ('ACTIVA', 'ANULADA', 'PENDIENTE', 'CANCELADA_PENDIENTE'));;
 ALTER TABLE ventas ADD COLUMN IF NOT EXISTS usuario_id INTEGER;;
 
 -- 2. Agregar columnas faltantes a pagos_deuda existentes

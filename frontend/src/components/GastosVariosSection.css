@@ -1,0 +1,315 @@
+.gastos-container {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) 3.5fr;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.gastos-form-card, .gastos-history-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.gastos-history-card {
+    padding: 10px 15px; /* Reduced gap between table and container */
+}
+
+.gastos-form-card h3, .gastos-history-card h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: var(--color-primary);
+    border-bottom: 2px solid #f1f3f5;
+    padding-bottom: 10px;
+}
+
+.gastos-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #f1f3f5;
+    padding-bottom: 10px;
+}
+
+.gastos-history-header h3 {
+    margin: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.history-header-actions {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    justify-content: space-between;
+    margin-left: 20px;
+}
+
+.total-label {
+    font-weight: 600;
+    color: var(--color-secondary);
+}
+
+.gastos-form .form-group {
+    margin-bottom: 8px;
+}
+
+.gastos-form label {
+    display: block;
+    margin-bottom: 0;
+    font-weight: 500;
+    color: #495057;
+    font-size: 1rem; /* Increased font size */
+}
+
+.gastos-form input, .gastos-form select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.gastos-form input:focus, .gastos-form select:focus {
+    border-color: var(--color-primary);
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.25);
+}
+
+.submit-gasto {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.gastos-table-container {
+    overflow-x: auto;
+}
+
+.gastos-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.gastos-table th, .gastos-table td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+    height: 53px; /* Ensure uniform row height across table */
+    vertical-align: middle;
+}
+
+.gastos-table th {
+    background-color: var(--color-primary);
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.gastos-table .fecha-col {
+    width: 140px;
+    white-space: nowrap;
+}
+
+.gastos-table .motivo-col {
+    width: 100%;
+}
+/* Zebra striping */
+.gastos-table tbody tr:nth-child(even):not(.row-canceled) {
+    background-color: #f2f2f2;
+}
+
+.gastos-table tbody tr:hover:not(.row-canceled) {
+    background-color: #e6e6e6;
+}
+
+.estado-col {
+    width: 100px;
+    text-align: center;
+}
+
+.acciones-col {
+    width: 80px;
+    text-align: center;
+}
+
+.monto-cell {
+    font-weight: bold;
+    color: #e53e3e;
+    white-space: nowrap;
+}
+
+/* Canceled Row Styling */
+.row-canceled {
+    background-color: #fff5f5;
+}
+
+.row-canceled td {
+    color: #a0aec0;
+}
+
+.row-canceled .monto-cell {
+    text-decoration: line-through;
+    color: #cbd5e0;
+}
+
+.badge-active {
+    background: #c6f6d5;
+    color: #2f855a;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.badge-canceled {
+    background: #fed7d7;
+    color: #c53030;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.razon-anulacion-text {
+    font-size: 0.8rem;
+    color: #e53e3e;
+    margin-top: 4px;
+    font-style: italic;
+}
+
+.btn-delete-small {
+    background-color: #e53e3e;
+    color: white;
+    border: none;
+    padding: 0 8px;
+    height: 32px;
+    min-height: 32px; /* Override global 48px min-height */
+    line-height: 32px;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-block;
+}
+
+.btn-delete-small:hover {
+    background-color: #c53030;
+    transform: scale(1.05);
+}
+
+/* Mobile Layout */
+@media (max-width: 768px) {
+    .gastos-container {
+        grid-template-columns: 1fr;
+    }
+
+    .gastos-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .gastos-table, .gastos-table tbody, .gastos-table tr, .gastos-table td {
+        display: block;
+    }
+    .gastos-history-card {
+        padding: 10px 4px; /* Dramatically reduce side padding to reclaim screen space */
+        margin: 0 -0.5rem; /* Push outwards to counter the parent padding */
+        width: calc(100% + 1rem);
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+    }
+    .gastos-table tr {
+        background-color: white;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        padding: 0.75rem 0.5rem; /* Reduced from massive var(--spacing-md) */
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .gastos-table td {
+        border: none;
+        border-bottom: 1px solid #eee;
+        position: relative;
+        padding-left: 45%;
+        text-align: right;
+        min-height: 2.5rem;
+        padding-top: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .gastos-table td:last-child {
+        border-bottom: none;
+    }
+
+    .gastos-table td::before {
+        position: absolute;
+        top: 0.5rem;
+        left: 0.5rem;
+        width: 40%;
+        text-align: left;
+        font-weight: 600;
+        content: attr(data-label);
+        color: var(--color-secondary);
+    }
+
+    .gastos-history-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .history-header-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        margin-left: 0;
+        margin-top: 0;
+        width: 100%;
+    }
+    .pagination-controls {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+}
+.cancel-modal {
+    max-width: 640px !important;
+    width: 90%;
+    padding: 1.5rem !important; /* Override large default padding to reduce height */
+}
+
+.modal-header-danger h2 {
+    color: #e53e3e;
+    margin: 0;
+}
+
+.warning-text {
+    background: #fff5f5;
+    color: #c53030;
+    padding: 15px;
+    border-left: 4px solid #e53e3e;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+.cancel-reason textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    resize: vertical;
+}
+
+@media (max-width: 900px) {
+    .gastos-container {
+        grid-template-columns: 1fr;
+    }
+}

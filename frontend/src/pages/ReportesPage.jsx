@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 import { formatCurrency } from '../utils/format';
 import toast from 'react-hot-toast';
+import GastosVariosSection from '../components/GastosVariosSection';
+import JumpButtons from '../components/JumpButtons';
 import './ReportesPage.css';
 
 export default function ReportesPage() {
@@ -13,23 +15,26 @@ export default function ReportesPage() {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const loadStats = async () => {
+    const filterParams = useMemo(() => {
+        const params = {};
+        if (granularity === 'YEAR') {
+            params.year = year;
+        } else if (granularity === 'MONTH') {
+            params.year = year;
+            params.month = month;
+        } else if (granularity === 'DAY') {
+            const [y, m, d] = date.split('-');
+            params.year = y;
+            params.month = parseInt(m, 10);
+            params.day = parseInt(d, 10);
+        }
+        return params;
+    }, [granularity, year, month, date]);
+
+    const loadStats = useCallback(async () => {
         setLoading(true);
         try {
-            const params = {};
-            if (granularity === 'YEAR') {
-                params.year = year;
-            } else if (granularity === 'MONTH') {
-                params.year = year;
-                params.month = month;
-            } else if (granularity === 'DAY') {
-                const [y, m, d] = date.split('-');
-                params.year = y;
-                params.month = parseInt(m, 10);
-                params.day = parseInt(d, 10);
-            }
-
-            const res = await api.get('/reportes/estadisticas', { params });
+            const res = await api.get('/reportes/estadisticas', { params: filterParams });
             setStats(res.data);
         } catch (error) {
             console.error("Error loading stats:", error);
@@ -37,12 +42,12 @@ export default function ReportesPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [filterParams]);
 
     // Auto-refresh when parameters change
     useEffect(() => {
         loadStats();
-    }, [granularity, date, year, month]);
+    }, [loadStats]);
 
     const rc = stats?.rendimientoComercial;
     const fc = stats?.flujoDeCaja;
@@ -131,7 +136,7 @@ export default function ReportesPage() {
                 <>
                     {/* SECTION 1: Rendimiento Comercial */}
                     <div className="report-section comercial">
-                        <h2 className="report-section-title">📦 RENDIMIENTO COMERCIAL (Acumulado)</h2>
+                        <h2 className="report-section-title">📦 RENDIMIENTO COMERCIAL</h2>
                         <div className="stats-grid">
                             <div className="stat-card card-revenue">
                                 <h3>Total Ventas (Ingresos)</h3>
@@ -167,7 +172,7 @@ export default function ReportesPage() {
 
                     {/* SECTION 2: Flujo de Caja (Cash Flow) */}
                     <div className="report-section caja">
-                        <h2 className="report-section-title">💵 REPORTE DE CAJA (Efectivo Real)</h2>
+                        <h2 className="report-section-title">💵 REPORTE DE CAJA</h2>
                         <div className="stats-grid">
                             <div className="stat-card card-cashin">
                                 <h3>Dinero Entrante</h3>
@@ -178,7 +183,13 @@ export default function ReportesPage() {
                             <div className="stat-card card-cashout">
                                 <h3>Dinero Saliente</h3>
                                 <div className="value">{formatCurrency(fc.egresosEfectivo)}</div>
-                                <div className="sub-value">Pagos a proveedores por compras</div>
+                                <div className="sub-value">Pagos a proveedores por compras de inventario</div>
+                            </div>
+
+                            <div className="stat-card card-gastos">
+                                <h3>Gastos Varios</h3>
+                                <div className="value">{formatCurrency(fc.gastosVariosEfectivo)}</div>
+                                <div className="sub-value">Gastos operativos, retiros y sueldos</div>
                             </div>
 
                             <div className="stat-card card-net">
@@ -192,6 +203,11 @@ export default function ReportesPage() {
             ) : (
                 <div className="empty-state">No se pudieron cargar los datos.</div>
             )}
+
+
+            {/* SECTION 3: Gastos Varios (Moved OUTSIDE loading ternary to prevent unmounting and state reset) */}
+            <GastosVariosSection onGastosChanged={loadStats} filterParams={filterParams} />
+            <JumpButtons targetTopSelector=".reportes-page" />
         </div>
     );
 }

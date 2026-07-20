@@ -428,3 +428,18 @@ DO $$
 -- 6. Agregar fecha_pago a pagos_venta (Resolución de Double-Counting en Flujo de Caja)
 ALTER TABLE pagos_venta ADD COLUMN IF NOT EXISTS fecha_pago TIMESTAMP;;
 UPDATE pagos_venta SET fecha_pago = (SELECT fecha FROM ventas WHERE ventas.id = pagos_venta.venta_id) WHERE fecha_pago IS NULL;;
+
+-- 19. Gastos Varios
+CREATE TABLE IF NOT EXISTS gastos_caja (
+    id SERIAL PRIMARY KEY,
+    monto REAL NOT NULL,
+    motivo TEXT NOT NULL,
+    fecha_gasto TIMESTAMP NOT NULL,
+    fecha_registro TIMESTAMP NOT NULL,
+    persona_involucrada TEXT,
+    registrado_por_usuario_id INTEGER,
+    categoria TEXT,
+    anulado BOOLEAN NOT NULL DEFAULT FALSE,
+    razon_anulacion TEXT,
+    FOREIGN KEY (registrado_por_usuario_id) REFERENCES usuarios(id)
+);;

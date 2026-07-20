@@ -7,6 +7,7 @@ import DeleteProductModal from '../components/DeleteProductModal';
 import StockManagementModal from '../components/StockManagementModal';
 import LocationManagementModal from '../components/LocationManagementModal';
 import StockEntryModal from '../components/StockEntryModal'; // Imported
+import JumpButtons from '../components/JumpButtons';
 import './InventarioPage.css';
 
 export default function InventarioPage() {
@@ -335,10 +336,7 @@ export default function InventarioPage() {
                     )}
                 </>
             )}
-            <div className="jump-buttons">
-                <button onClick={() => document.querySelector('.inventario-page').scrollIntoView({ behavior: 'smooth', block: 'start' })} className="jump-btn" aria-label="Ir arriba">↑</button>
-                <button onClick={() => document.getElementById('inventario-bottom-marker').scrollIntoView({ behavior: 'smooth', block: 'end' })} className="jump-btn" aria-label="Ir abajo">↓</button>
-            </div>
+            <JumpButtons targetTopSelector=".inventario-page" targetBottomSelector="#inventario-bottom-marker" />
 
 
             {showProductForm && (

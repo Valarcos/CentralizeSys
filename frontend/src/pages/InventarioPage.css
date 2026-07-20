@@ -1,6 +1,7 @@
 /* Inventario Page Styles */
 .inventario-page {
-    /* Relies on AppLayout .main-content padding */
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
 .inventario-header {
@@ -337,47 +338,7 @@
     color: #333;
 }
 
-/* Jump Buttons */
-.jump-buttons {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    z-index: 200;
-    /* Above bottom-nav (100) and top-nav (100) */
-}
 
-@media (max-width: 768px) {
-    .jump-buttons {
-        bottom: 6rem;
-        /* Push up above bottom-nav (80px ~ 5rem) */
-    }
-}
-
-.jump-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: none;
-    background-color: var(--color-primary);
-    color: white;
-    font-size: 1.2rem;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s, background-color 0.2s;
-    opacity: 0.8;
-}
-
-.jump-btn:hover {
-    transform: scale(1.1);
-    background-color: #003366;
-    opacity: 1;
-}
 
 
 

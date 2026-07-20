@@ -164,19 +164,34 @@ public class ReportRepository {
             WHERE estado IN ('PENDIENTE', 'PARCIAL')
         """;
 
-        List<Map<String, Object>> revenueResult = namedJdbcTemplate.queryForList(revenueSql, params);
-        List<Map<String, Object>> purchaseResult = namedJdbcTemplate.queryForList(purchaseSql, params);
-        Double deudas = namedJdbcTemplate.queryForObject(debtSql, new MapSqlParameterSource(), Double.class);
+        // Pending orders (ventas_pendientes) with estado = 'PENDIENTE' within the filtered period.
+        // Uses the same date params as the main revenue query (applied to the 'fecha' column).
+        String pendingOrdersSql = """
+            SELECT COALESCE(SUM(vp.total_estimado), 0.0) AS ventas_pendientes
+            FROM ventas_pendientes vp
+            WHERE vp.estado = 'PENDIENTE'
+        """ + dateFilter.replace(FECHA_FIELD, "vp.fecha");
 
-        Map<String, Object> revenueRow = revenueResult.isEmpty() ? Map.of() : revenueResult.getFirst();
+        List<Map<String, Object>> revenueResult   = namedJdbcTemplate.queryForList(revenueSql, params);
+        List<Map<String, Object>> purchaseResult  = namedJdbcTemplate.queryForList(purchaseSql, params);
+        Double deudas                             = namedJdbcTemplate.queryForObject(debtSql, new MapSqlParameterSource(), Double.class);
+        Double pendingOrders                      = namedJdbcTemplate.queryForObject(pendingOrdersSql, params, Double.class);
+
+        Map<String, Object> revenueRow  = revenueResult.isEmpty()  ? Map.of() : revenueResult.getFirst();
         Map<String, Object> purchaseRow = purchaseResult.isEmpty() ? Map.of() : purchaseResult.getFirst();
 
+        double ingresosVentas        = safeDouble(revenueRow, "ingresos_ventas");
+        double ventasPendientesVal   = pendingOrders != null ? pendingOrders : 0.0;
+        double ventasTotalesProyect  = Math.round((ingresosVentas + ventasPendientesVal) * 100.0) / 100.0;
+
         return new com.centralizesys.model.sales.ReportesEstadisticasDTO.RendimientoComercial(
-                safeDouble(revenueRow, "ingresos_ventas"),
+                ingresosVentas,
                 safeDouble(revenueRow, "costo_total_vendido"),
                 safeLong(revenueRow, "productos_vendidos"),
                 safeLong(purchaseRow, "productos_comprados"),
-                deudas != null ? deudas : 0.0
+                deudas != null ? deudas : 0.0,
+                ventasPendientesVal,
+                ventasTotalesProyect
         );
     }
 
@@ -219,22 +234,33 @@ public class ReportRepository {
             ) AS all_cash_in
         """;
 
-        // Cash Out: money paid to suppliers
+        // Cash Out: money paid to suppliers (Inventory)
         String cashOutSql = """
-            SELECT COALESCE(SUM(total_compra), 0.0) AS egresos_efectivo
-            FROM compras
-        """ + buildCompraDateFilter(dateFilter);
+            SELECT COALESCE(SUM(c.total_compra), 0.0) AS egresos_efectivo
+            FROM compras c
+            WHERE 1=1
+        """ + dateFilter.replace(FECHA_FIELD, "c.fecha");
+
+        // Cash Out: gastos varios y retiros
+        String gastosVariosSql = """
+            SELECT COALESCE(SUM(g.monto), 0.0) AS gastos_varios
+            FROM gastos_caja g
+            WHERE g.anulado = false
+        """ + buildJoinDateFilter("g.fecha_gasto", dateFilter);
 
         Double cashIn = namedJdbcTemplate.queryForObject(cashInSql, params, Double.class);
         Double cashOut = namedJdbcTemplate.queryForObject(cashOutSql, params, Double.class);
+        Double gastosVarios = namedJdbcTemplate.queryForObject(gastosVariosSql, params, Double.class);
 
         double ingresosEfectivo = cashIn != null ? cashIn : 0.0;
         double egresosEfectivo = cashOut != null ? cashOut : 0.0;
-        double balanceNeto = Math.round((ingresosEfectivo - egresosEfectivo) * 100.0) / 100.0;
+        double gastosVariosEfectivo = gastosVarios != null ? gastosVarios : 0.0;
+        double balanceNeto = Math.round((ingresosEfectivo - egresosEfectivo - gastosVariosEfectivo) * 100.0) / 100.0;
 
         return new com.centralizesys.model.sales.ReportesEstadisticasDTO.FlujoDeCaja(
                 ingresosEfectivo,
                 egresosEfectivo,
+                gastosVariosEfectivo,
                 balanceNeto
         );
     }

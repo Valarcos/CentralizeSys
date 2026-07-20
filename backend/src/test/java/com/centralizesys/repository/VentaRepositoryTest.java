@@ -152,6 +152,43 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         assertThat(found).isPresent();
         assertThat(found.get().getClienteNombre()).isEqualTo("Find Test");
         assertThat(found.get().getTotalVenta()).isEqualTo(250.00);
+        // Ensure 0 is mapped correctly when there are no items
+        assertThat(found.get().getCantidadProductos()).isZero();
+    }
+
+    @Test
+    @DisplayName("findById - maps cantidad_productos correctly when items exist")
+    void findById_mapsCantidadProductos() {
+        // Arrange
+        Long userId = createTestUser();
+        Long productId = createTestProduct("MAP-002", 50.0, 5L);
+
+        Venta venta = new Venta();
+        venta.setFecha(LocalDateTime.of(2026, java.time.Month.JANUARY, 1, 12, 0));
+        venta.setClienteNombre("Quantity Test");
+        venta.setTotalVenta(90.00);
+        venta.setUsuarioId(userId);
+        Long ventaId = ventaRepository.saveVenta(venta);
+
+        DetalleVenta det = new DetalleVenta();
+        det.setVentaId(ventaId);
+        det.setProductoId(productId);
+        det.setCodigoSnapshot("MAP-002");
+        det.setDescripcionSnapshot("Mapping Test");
+        det.setCostoSnapshot(30.0);
+        det.setCantidad(2L); // 2 items
+        det.setPrecioLista(50.0);
+        det.setDescuentoValor(5.0);
+        det.setPrecioUnitario(45.0);
+        det.setSubtotal(90.0);
+        ventaRepository.saveDetalles(List.of(det));
+
+        // Act
+        Optional<Venta> found = ventaRepository.findById(ventaId);
+
+        // Assert
+        assertThat(found).isPresent();
+        assertThat(found.get().getCantidadProductos()).isEqualTo(2L);
     }
 
     @Test

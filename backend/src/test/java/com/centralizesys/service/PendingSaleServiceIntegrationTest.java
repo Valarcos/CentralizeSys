@@ -47,7 +47,7 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
         request.setItems(List.of(item));
         request.setUsuarioId(userId);
 
-        return pendingSaleService.crearPendiente(request);
+        return pendingSaleService.crearPendiente(request, userId);
     }
 
     private void helperRegisterDeposit(Long pendingId, Long userId, Double amount, String observations) {
@@ -90,7 +90,7 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
         Long pendingId = helperCreatePendingSale(userId, productId, 10L, "Cancel Client");
 
         // 2. Act
-        pendingSaleService.cancelarPendiente(pendingId);
+        pendingSaleService.cancelarPendiente(pendingId, userId);
 
         // 3. Assert
         Long restoredStock = jdbcTemplate.queryForObject(
@@ -115,7 +115,7 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
         helperRegisterDeposit(pendingId, userId, 500.0, null);
 
         // 2. Act
-        VentaResponse finalizedSale = pendingSaleService.finalizarVenta(pendingId);
+        VentaResponse finalizedSale = pendingSaleService.finalizarVenta(pendingId, userId);
 
         // 3. Assert
         assertEquals(500.0, finalizedSale.getTotalVenta(), 0.001);
@@ -227,7 +227,7 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
         helperRegisterDeposit(pendingId, userId, 200.0, "Segunda cuota");
 
         // 2. Act
-        VentaResponse finalizedSale = pendingSaleService.finalizarVenta(pendingId);
+        VentaResponse finalizedSale = pendingSaleService.finalizarVenta(pendingId, userId);
 
         // 3. Assert
         Integer pagosVentaCount = jdbcTemplate.queryForObject(
@@ -275,7 +275,7 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
                 (rs, rowNum) -> rs.getObject("fecha_pago", java.time.LocalDateTime.class), pendingId);
 
         // 2. Act
-        VentaResponse finalizedSale = pendingSaleService.finalizarVenta(pendingId);
+        VentaResponse finalizedSale = pendingSaleService.finalizarVenta(pendingId, userId);
 
         // 3. Assert
         List<java.time.LocalDateTime> migratedDates = jdbcTemplate.query(
@@ -305,7 +305,7 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
         helperRegisterDeposit(pendingId, userId, 200.0, "Seña parcial");
 
         // 2. Act: Finalize with incomplete payment
-        VentaResponse finalizedSale = pendingSaleService.finalizarVenta(pendingId);
+        VentaResponse finalizedSale = pendingSaleService.finalizarVenta(pendingId, userId);
 
         // 3. Assert — Payment Migration
         Double totalMigrated = jdbcTemplate.queryForObject(
@@ -338,7 +338,7 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
 
         // 2. Act & Assert: Finalizing with 0 paid is blocked
         BusinessRuleException exception = assertThrows(BusinessRuleException.class, () -> {
-            pendingSaleService.finalizarVenta(pendingId);
+            pendingSaleService.finalizarVenta(pendingId, userId);
         });
         assertTrue(exception.getMessage().contains("pago"));
     }
@@ -449,7 +449,7 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
         Long pendingId = helperCreatePendingSale(userId, productId, 5L, "Guard Client");
 
         // Cancel the sale so it's not PENDIENTE
-        pendingSaleService.cancelarPendiente(pendingId);
+        pendingSaleService.cancelarPendiente(pendingId, userId);
 
         // Try to pay
         BusinessRuleException exPay = assertThrows(BusinessRuleException.class, () -> {
@@ -459,7 +459,7 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
 
         // Try to finalize
         BusinessRuleException exFinalize = assertThrows(BusinessRuleException.class, () -> {
-            pendingSaleService.finalizarVenta(pendingId);
+            pendingSaleService.finalizarVenta(pendingId, userId);
         });
         assertTrue(exFinalize.getMessage().toLowerCase().contains("estado") || exFinalize.getMessage().toLowerCase().contains("pendiente"));
 
@@ -495,14 +495,14 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
         // Negative discount
         request.setDescuentoGlobal(-10.0);
         BusinessRuleException exNeg = assertThrows(BusinessRuleException.class, () -> {
-            pendingSaleService.crearPendiente(request);
+            pendingSaleService.crearPendiente(request, userId);
         });
         assertTrue(exNeg.getMessage().toLowerCase().contains("descuento"));
 
         // Exceeds subtotal
         request.setDescuentoGlobal(250.0);
         BusinessRuleException exExc = assertThrows(BusinessRuleException.class, () -> {
-            pendingSaleService.crearPendiente(request);
+            pendingSaleService.crearPendiente(request, userId);
         });
         assertTrue(exExc.getMessage().toLowerCase().contains("descuento") || exExc.getMessage().toLowerCase().contains("excede"));
     }
@@ -517,14 +517,14 @@ class PendingSaleServiceIntegrationTest extends BaseIntegrationTest {
 
         // Null items
         BusinessRuleException exNull = assertThrows(BusinessRuleException.class, () -> {
-            pendingSaleService.crearPendiente(request);
+            pendingSaleService.crearPendiente(request, userId);
         });
         assertTrue(exNull.getMessage().toLowerCase().contains("producto"));
 
         // Empty items
         request.setItems(List.of());
         BusinessRuleException exEmpty = assertThrows(BusinessRuleException.class, () -> {
-            pendingSaleService.crearPendiente(request);
+            pendingSaleService.crearPendiente(request, userId);
         });
         assertTrue(exEmpty.getMessage().toLowerCase().contains("producto"));
     }

@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Disabled;
 
 @Disabled("Disabled pending PostgreSQL pg_restore implementation")
+// TODO: Technical Debt - Re-implement test logic after BackupService is refactored
+// to use an injected CommandExecutor, avoiding direct OS ProcessBuilder calls.
 class DatabaseRestorerTest {
     @Test
     void testPlaceholder() {

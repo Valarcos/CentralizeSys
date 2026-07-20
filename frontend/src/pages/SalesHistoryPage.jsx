@@ -3,6 +3,7 @@ import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/format';
 import SalesDetailModal from '../components/SalesDetailModal';
 import CancellationModal from '../components/CancellationModal';
+import { generateReceipt } from '../utils/pdfGenerator';
 import toast from 'react-hot-toast';
 import './SalesHistoryPage.css';
 
@@ -23,8 +24,20 @@ export default function SalesHistoryPage() {
     const [loading, setLoading] = useState(true);
     const [selectedSale, setSelectedSale] = useState(null);
     const [saleToCancel, setSaleToCancel] = useState(null);
+    const [paymentMethods, setPaymentMethods] = useState([]);
+    const [isPrinting, setIsPrinting] = useState(false);
 
-
+    useEffect(() => {
+        const fetchPaymentMethods = async () => {
+            try {
+                const res = await api.get('/ventas/metodos-pago');
+                setPaymentMethods(res.data);
+            } catch (error) {
+                console.error('Error fetching payment methods:', error);
+            }
+        };
+        fetchPaymentMethods();
+    }, []);
 
     const handleSearch = () => {
         if (validateDateRange(startDate, endDate, true)) {
@@ -84,6 +97,51 @@ export default function SalesHistoryPage() {
             setSelectedSale(res.data);
         } catch (error) {
             console.error("Error fetching sale details", error);
+        }
+    };
+
+    const handlePrintDirect = async (saleId) => {
+        if (isPrinting) return;
+        setIsPrinting(true);
+        try {
+            const res = await api.get(`/ventas/${saleId}`);
+            const sale = res.data;
+
+            // Resolve payment method names using cached list (fetched once on mount)
+            const methods = paymentMethods;
+            const enrichedPayments = (sale.pagos || []).map(p => {
+                const method = methods.find(m => m.id === p.metodoPagoId);
+                return {
+                    name: method ? method.descripcion : 'Desconocido',
+                    amount: p.monto
+                };
+            });
+
+            const receiptData = {
+                id: sale.id,
+                date: sale.fecha,
+                client: sale.clienteNombre,
+                user: sale.vendedorNombre || 'Sistema',
+                saleType: sale.tipoVenta || 'ESTÁNDAR',
+                items: (sale.items || []).map(d => ({
+                    codigo: d.productoCodigo || d.codigoSnapshot,
+                    descripcion: d.productoNombre || d.descripcionSnapshot,
+                    quantity: d.cantidad,
+                    unitPrice: d.precioUnitario,
+                    discount: d.descuentoValor || 0,
+                    subtotal: d.subtotal
+                })),
+                payments: enrichedPayments,
+                total: sale.totalVenta,
+                globalDiscount: sale.descuentoGlobal || 0
+            };
+
+            generateReceipt(receiptData);
+        } catch (error) {
+            console.error('Error generating direct print:', error);
+            toast.error('Error al generar el PDF. Intente abriendo el detalle.');
+        } finally {
+            setIsPrinting(false);
         }
     };
 
@@ -199,6 +257,14 @@ export default function SalesHistoryPage() {
                                             <div className="action-buttons-row">
                                                 <button className="btn-details" onClick={() => handleOpenDetails(sale.id)}>
                                                     Ver
+                                                </button>
+                                                <button
+                                                    className="btn-print"
+                                                    onClick={() => handlePrintDirect(sale.id)}
+                                                    disabled={isPrinting}
+                                                    title="Imprimir Remito"
+                                                >
+                                                    🖨️ Imprimir
                                                 </button>
                                                 {sale.estado === 'ANULADA' ? (
                                                     <span className="label-cancelada">CANCELADA</span>

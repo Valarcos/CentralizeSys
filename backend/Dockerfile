@@ -9,16 +9,17 @@ RUN chmod +x ./gradlew
 RUN ./gradlew build -x test
 
 # Stage 2: Run the application
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:21-jre
 
-# Install postgresql-client dynamically based on OS to support pg_dump and psql
-RUN if [ -x "$(command -v apk)" ]; then \
-      apk add --no-cache postgresql-client; \
-    elif [ -x "$(command -v apt-get)" ]; then \
-      apt-get update && apt-get install -y --no-install-recommends postgresql-client && rm -rf /var/lib/apt/lists/*; \
-    else \
-      echo "Unsupported OS for postgresql-client installation"; exit 1; \
-    fi
+ENV LANG=C.UTF-8
+
+# Add official PostgreSQL APT repository using modern keyring to ensure immutable access to postgresql-client-16
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates gnupg2 lsb-release wget && \
+    wget --quiet -O /usr/share/keyrings/postgresql.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc && \
+    echo "deb [signed-by=/usr/share/keyrings/postgresql.asc] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends postgresql-client-16 && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 # Copy the built jar from the build stage

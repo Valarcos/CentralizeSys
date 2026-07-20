@@ -443,3 +443,23 @@ CREATE TABLE IF NOT EXISTS gastos_caja (
     razon_anulacion TEXT,
     FOREIGN KEY (registrado_por_usuario_id) REFERENCES usuarios(id)
 );;
+
+-- ==========================================
+-- MIGRATION: Metodos de Pago (2026-07-20)
+-- ==========================================
+
+-- Add new credit card entry for BBVA (MariaClo account)
+INSERT INTO metodos_pago (acronimo, descripcion)
+VALUES ('TCBM', 'Tarjeta Credito BBVA MariaClo')
+ON CONFLICT (acronimo) DO NOTHING;;
+
+-- Add new bank transfer entry for Fico Mutual
+INSERT INTO metodos_pago (acronimo, descripcion)
+VALUES ('TBFM', 'Transferencia Fico Mutual')
+ON CONFLICT (acronimo) DO NOTHING;;
+
+-- Rename existing 'TBF' entry to 'TBFBBVA' for clarity
+-- Idempotent: if 'TBF' no longer exists (already migrated), WHERE matches nothing and no-op results
+UPDATE metodos_pago
+SET acronimo = 'TBFBBVA', descripcion = 'Transferencia Fico BBVA'
+WHERE acronimo = 'TBF';;

@@ -277,8 +277,8 @@ Proyecto final de Tesis Universitaria.
 
 1. **The Docker Exec PATH Concession:**
    Local development relies on `docker exec centralizesys_postgres` to run `pg_dump` and `psql` within the Java `BackupService`. Si el nombre del contenedor de la base de datos cambia en el `docker-compose`, el código Java (`BackupService.java`) debe ser actualizado manualmente para reflejar este nuevo nombre.
-2. **The Hybrid Schema Risk:**
-   Restaurar un respaldo antiguo sobre una versión nueva de la aplicación (ej. después de agregar nuevas tablas) requiere administración manual de base de datos. Se eliminó la limpieza automatizada (DROP SCHEMA) desde Java para evitar deadlocks fatales. Los administradores deben lidiar con discrepancias de esquemas manualmente si realizan *rollbacks* a través de migraciones mayores.
+2. **Automated Schema Wipe (The former Hybrid Schema Risk):**
+   Restaurar un respaldo antiguo sobre una versión nueva de la aplicación ahora es completamente automático. El sistema realiza una inyección a nivel de S.O. (`psql`) que fuerza la caída de todas las conexiones activas y ejecuta un `DROP SCHEMA public CASCADE` antes de restaurar, garantizando cero conflictos de llaves foráneas y recreando mágicamente cualquier tabla nueva en el arranque de Spring. (Se superaron los deadlocks pasados eliminando a Java como intermediario).
 3. **The Single Transaction Flag:**
    El proceso de restauración utiliza `--single-transaction`. Es perfectamente seguro para la base de datos actual (pequeña), pero si el volumen de datos escala masivamente en el futuro, inyectar una reconstrucción completa en una sola transacción puede causar agotamiento de memoria del *Write-Ahead Log (WAL)* en PostgreSQL.
 4. **Lack of Remote Logger in Frontend:**

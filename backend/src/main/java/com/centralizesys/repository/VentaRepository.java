@@ -46,7 +46,8 @@ public class VentaRepository {
                 rs.getString("tipo_venta"), // NEW
                 usuarioId,
                 rs.getString("estado"),
-                getNullableDouble(rs, "costo_total"));
+                getNullableDouble(rs, "costo_total"),
+                rs.getLong("cantidad_productos"));
     };
 
     // Helper to gracefully handle columns that might not be selected in simple queries
@@ -157,7 +158,8 @@ public class VentaRepository {
     public List<Venta> findAll() {
         String sql = """
                 SELECT v.*,
-                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total
+                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total,
+                       (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as cantidad_productos
                 FROM ventas v 
                 ORDER BY fecha DESC, id DESC
                 """;
@@ -167,7 +169,8 @@ public class VentaRepository {
     public Optional<Venta> findById(Long id) {
         String sql = """
                 SELECT v.*,
-                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total
+                       (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total,
+                       (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as cantidad_productos
                 FROM ventas v 
                 WHERE id = :id
                 """;
@@ -202,7 +205,8 @@ public class VentaRepository {
     public List<Venta> findVentasByFechaBetween(java.time.LocalDateTime startDate, LocalDateTime endDate, int limit, int offset) {
         String sql = """
                     SELECT v.*,
-                           (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total
+                           (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total,
+                           (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as cantidad_productos
                     FROM ventas v
                     WHERE fecha BETWEEN :startDate AND :endDate
                     ORDER BY fecha DESC, id DESC

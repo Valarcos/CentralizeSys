@@ -35,6 +35,17 @@ public class PendingSaleRepository {
     private final RowMapper<Venta> pendingVentaMapper = (rs, rowNum) -> {
         Long usuarioIdVal = rs.getLong("usuario_id");
         Long usuarioId = rs.wasNull() ? null : usuarioIdVal;
+
+        Long cantidadProductosVal = null;
+        try {
+            long val = rs.getLong("cantidad_productos");
+            if (!rs.wasNull()) {
+                cantidadProductosVal = val;
+            }
+        } catch (Exception e) {
+            // column might not be present if selected via simple SELECT *
+        }
+
         return new Venta(
                 rs.getLong("id"),
                 rs.getObject("fecha", LocalDateTime.class),
@@ -44,7 +55,8 @@ public class PendingSaleRepository {
                 rs.getString("tipo_venta"),
                 usuarioId,
                 rs.getString("estado"),
-                null);
+                null,
+                cantidadProductosVal);
     };
 
     private final RowMapper<DetalleVenta> pendingDetalleMapper = (rs, rowNum) -> new DetalleVenta(
@@ -230,7 +242,12 @@ public class PendingSaleRepository {
     // --- READ OPERATIONS ---
 
     public Optional<Venta> findById(Long id) {
-        String sql = "SELECT * FROM ventas_pendientes WHERE id = :id";
+        String sql = """
+                SELECT p.*,
+                       (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta_pendiente WHERE venta_pendiente_id = p.id AND (anulado = false OR anulado IS NULL)) as cantidad_productos
+                FROM ventas_pendientes p
+                WHERE p.id = :id
+                """;
         List<Venta> list = namedJdbcTemplate.query(sql, new MapSqlParameterSource("id", id), pendingVentaMapper);
         return list.stream().findFirst();
     }

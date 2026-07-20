@@ -1,0 +1,45 @@
+/* =============================================================================
+   CobrosYPedidosPage.css
+   Extends SalesHistoryPage.css (imported before this file in CobrosYPedidosPage.jsx).
+   All rules are scoped to .cobros-table to avoid overriding the standard
+   SalesHistoryPage table.
+   =============================================================================*/
+
+/* Override padding for the pending sales table only.
+   SalesHistoryPage uses 1rem which is too wide for the additional columns. */
+.cobros-table th,
+.cobros-table td {
+    padding: 0.5rem 0.4rem;
+}
+
+/* ─── Column width constraints ─────────────────────────────────────────────
+   Applied via className on <th> elements in CobrosYPedidosPage.jsx.
+   The browser honours these as hints within the table-layout: auto algorithm.
+   ─────────────────────────────────────────────────────────────────────────*/
+
+/* FECHA: date already splits into 2 lines — tighten to remove dead space */
+.col-pendiente-fecha {
+    width: 80px;
+    white-space: normal;
+}
+
+/* TIPO: short pill content (Cheque / Seña) — can be narrow */
+.col-pendiente-tipo {
+    width: 64px;
+}
+
+/* ESTADO: short pill content (PENDIENTE / PARCIAL) */
+.col-pendiente-estado {
+    width: 90px;
+}
+
+/* VENTA: badge pill (MINORISTA / MAYORISTA) */
+.col-pendiente-venta {
+    width: 90px;
+}
+
+/* PRODUCTOS: numeric count — very compact */
+.col-pendiente-productos {
+    width: 60px;
+    text-align: center;
+}

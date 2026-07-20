@@ -26,6 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(ProductController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@org.springframework.test.context.ActiveProfiles("test")
 class ProductControllerTest {
 
     @Autowired
@@ -171,3 +172,4 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$[0].cantidadStock").value(-5));
     }
 }
+

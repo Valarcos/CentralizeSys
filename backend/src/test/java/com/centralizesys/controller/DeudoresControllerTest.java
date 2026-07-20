@@ -23,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(DeudoresController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@org.springframework.test.context.ActiveProfiles("test")
 class DeudoresControllerTest {
 
     @Autowired
@@ -89,3 +90,4 @@ class DeudoresControllerTest {
         }
     }
 }
+

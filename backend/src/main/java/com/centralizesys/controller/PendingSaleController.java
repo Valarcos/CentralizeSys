@@ -60,7 +60,8 @@ public class PendingSaleController {
 
     @PostMapping
     public ResponseEntity<Long> crearPendiente(@RequestBody VentaRequest request) {
-        Long id = pendingSaleService.crearPendiente(request);
+        Long authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+        Long id = pendingSaleService.crearPendiente(request, authenticatedUserId);
         return ResponseEntity.status(HttpStatus.CREATED).body(id);
     }
 
@@ -96,13 +97,15 @@ public class PendingSaleController {
 
     @PostMapping("/{id}/finalizar")
     public ResponseEntity<VentaResponse> finalizarVenta(@PathVariable Long id) {
-        VentaResponse response = pendingSaleService.finalizarVenta(id);
+        Long authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+        VentaResponse response = pendingSaleService.finalizarVenta(id, authenticatedUserId);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/cancelar")
     public ResponseEntity<Void> cancelarPendiente(@PathVariable Long id) {
-        pendingSaleService.cancelarPendiente(id);
+        Long authenticatedUserId = SecurityUtils.getAuthenticatedUserId();
+        pendingSaleService.cancelarPendiente(id, authenticatedUserId);
         return ResponseEntity.ok().build();
     }
 

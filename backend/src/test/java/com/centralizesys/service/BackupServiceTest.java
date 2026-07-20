@@ -27,6 +27,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+// TODO: Technical Debt - Re-enable @Disabled tests after BackupService is refactored
+// to use an injected CommandExecutor. The executor must be mocked here to prevent
+// actual OS ProcessBuilder execution during unit tests.
 class BackupServiceTest {
 
     @Mock

@@ -20,4 +20,5 @@ public class Venta {
     private Long usuarioId; // For audit/security
     private String estado; // ACTIVA, ANULADA
     private Double costoTotal; // Dynamically calculated
+    private Long cantidadProductos; // Dynamically calculated
 }

@@ -9,6 +9,7 @@ import FinalizeConfirmationModal from '../components/FinalizeConfirmationModal';
 import { generateDebtorReceipt, generatePendingSaleReceipt } from '../utils/pdfGenerator';
 import { blockNonNumericKeys, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './SalesHistoryPage.css'; // Reusing CSS for table responsive cards
+import './CobrosYPedidosPage.css'; // Scoped overrides for padding and column widths
 
 export default function CobrosYPedidosPage() {
     const location = useLocation();
@@ -412,17 +413,19 @@ export default function CobrosYPedidosPage() {
                 <p>Cargando...</p>
             ) : (
                 <div className="table-responsive">
-                    <table className="history-table">
+                    <table className="history-table cobros-table">
                         <thead>
                         <tr>
                             <th>Cliente</th>
-                            <th>Fecha</th>
-                            <th>Tipo</th>
+                            <th className="col-pendiente-fecha">Fecha</th>
+                            <th className="col-pendiente-tipo">Tipo</th>
+                            <th className="col-pendiente-venta">Venta</th>
+                            <th className="col-pendiente-productos">Productos</th>
                             <th>Costo Total</th>
                             <th>Monto Total</th>
                             <th>Monto Pagado</th>
                             <th>Saldo Restante</th>
-                            <th>Estado</th>
+                            <th className="col-pendiente-estado">Estado</th>
                             <th>Acciones</th>
                         </tr>
                         </thead>
@@ -447,6 +450,18 @@ export default function CobrosYPedidosPage() {
                                             Seña
                                         </span>
                                     )}
+                                </td>
+                                <td data-label="Venta">
+                                    {item.tipo_venta ? (
+                                        <span className={`badge ${item.tipo_venta === 'MAYORISTA' ? 'badge-wholesale' : 'badge-retail'}`}>
+                                            {item.tipo_venta}
+                                        </span>
+                                    ) : (
+                                        <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>—</span>
+                                    )}
+                                </td>
+                                <td data-label="Productos" className="col-pendiente-productos">
+                                    {item.cantidad_productos ?? 0}
                                 </td>
                                 <td data-label="Costo Total" className="amount-cell">{formatCurrency(item.costo_total)}</td>
                                 <td data-label="Monto Total" className="amount-cell">{formatCurrency(item.monto_total)}</td>
@@ -528,7 +543,7 @@ export default function CobrosYPedidosPage() {
                             </tr>
                         ))}
                         {displayedItems.length === 0 && (
-                            <tr><td colSpan="9" style={{ textAlign: 'center' }}>No hay cobros ni pedidos registrados.</td></tr>
+                            <tr><td colSpan="11" style={{ textAlign: 'center' }}>No hay cobros ni pedidos registrados.</td></tr>
                         )}
                         </tbody>
                     </table>

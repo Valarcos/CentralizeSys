@@ -10,6 +10,7 @@ export default function DashboardPage() {
     const [negativeStockProducts, setNegativeStockProducts] = useState([]);
     const [showCorrectionModal, setShowCorrectionModal] = useState(false);
     const [hasActiveDebts, setHasActiveDebts] = useState(false);
+    const [pendingCheques, setPendingCheques] = useState([]);
     const [backupWarning, setBackupWarning] = useState(false);
     const [systemAlerts, setSystemAlerts] = useState([]);
     const navigate = useNavigate();
@@ -33,11 +34,12 @@ export default function DashboardPage() {
 
         const fetchDashboardData = async () => {
             try {
-                const [stockRes, backupRes, reminderRes, systemRes] = await Promise.all([
+                const [stockRes, backupRes, reminderRes, systemRes, chequesRes] = await Promise.all([
                     api.get('/productos/alerts'),
                     api.get('/backups/last').catch(() => ({ data: null })),
                     api.get('/deudores/reminder').catch(() => ({ data: false })),
-                    api.get('/system/alerts').catch(() => ({ data: { alerts: [] } }))
+                    api.get('/system/alerts').catch(() => ({ data: { alerts: [] } })),
+                    api.get('/alertas/cheques').catch(() => ({ data: [] }))
                 ]);
 
                 // Negative Stock Alerts — banner shows whenever there are negative products
@@ -46,6 +48,11 @@ export default function DashboardPage() {
                 // Debtor Logic
                 if (reminderRes.data === true) {
                     setHasActiveDebts(true);
+                }
+
+                // Cheques Logic
+                if (chequesRes.data && chequesRes.data.length > 0) {
+                    setPendingCheques(chequesRes.data);
                 }
 
                 // Check Backup Status
@@ -148,6 +155,22 @@ export default function DashboardPage() {
                         <p>Existen cuentas por cobrar o ventas pendientes de pago.</p>
                     </div>
                     <span className="alert-action">Ver Pendientes →</span>
+                </div>
+            )}
+
+            {/* Cheques Reminder Badge */}
+            {pendingCheques.length > 0 && (
+                <div
+                    className="alert-card clickable"
+                    onClick={() => navigate('/cobros-y-pedidos', { state: { filter: 'CHEQUE' } })}
+                    style={{ backgroundColor: '#ccfbf1', borderLeft: '4px solid #0d9488' }}
+                >
+                    <span className="alert-icon" style={{color: '#0d9488'}}>⚠️</span>
+                    <div className="alert-content" style={{color: '#0d9488'}}>
+                        <strong style={{color: '#0d9488'}}>Cheques Pendientes</strong>
+                        <p>Tienes {pendingCheques.length} {pendingCheques.length === 1 ? 'cheque' : 'cheques'} pendiente(s) para cobro hoy o atrasado(s).</p>
+                    </div>
+                    <span className="alert-action" style={{color: '#0d9488'}}>Ir a Cobros →</span>
                 </div>
             )}
 

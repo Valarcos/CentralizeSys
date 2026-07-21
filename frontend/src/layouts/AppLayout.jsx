@@ -17,7 +17,7 @@ export default function AppLayout() {
     useEffect(() => {
         setUserName(localStorage.getItem('userName') || 'Usuario');
         setUserRole(localStorage.getItem('userRole') || 'EMPLEADO');
-    }, []);
+    }, [location.pathname]);
 
     const handleLogout = async () => {
         try {

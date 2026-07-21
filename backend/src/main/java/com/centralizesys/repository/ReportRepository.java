@@ -159,9 +159,10 @@ public class ReportRepository {
         // Outstanding debts — note: we report ALL currently pending debts regardless of period
         // to give an accurate current-state picture for the dashboard.
         String debtSql = """
-            SELECT COALESCE(SUM(monto_deuda), 0.0) AS deudas_pendientes
-            FROM deudores
-            WHERE estado IN ('PENDIENTE', 'PARCIAL')
+            SELECT (
+                COALESCE((SELECT SUM(monto_deuda) FROM deudores WHERE estado IN ('PENDIENTE', 'PARCIAL')), 0.0) +
+                COALESCE((SELECT SUM(monto) FROM alertas_cheques WHERE estado = 'PENDIENTE'), 0.0)
+            ) AS deudas_pendientes
         """;
 
         // Pending orders (ventas_pendientes) with estado = 'PENDIENTE' within the filtered period.

@@ -57,4 +57,10 @@ public class DeudoresController {
     public ResponseEntity<List<PagoDeuda>> getPagos(@PathVariable Long id) {
         return ResponseEntity.ok(service.getPagos(id));
     }
+
+    @PostMapping("/pagos/{pagoId}/cancelar")
+    public ResponseEntity<Void> cancelarPago(@PathVariable Long pagoId) {
+        service.anularPago(pagoId);
+        return ResponseEntity.ok().build();
+    }
 }

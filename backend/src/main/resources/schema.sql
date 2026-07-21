@@ -1,3 +1,17 @@
+-- =========================================================================================
+-- LEGACY SCRIPT CONFIGURATION NOTE
+-- =========================================================================================
+-- This schema.sql file uses the double semicolon (;;) as a statement terminator.
+-- WHY? Because this script is executed by Spring Boot's standard SQL initialization
+-- (specifically in the Test environment via application-test.properties: `spring.sql.init.separator=;;`)
+-- to prevent the naive Spring script parser from breaking inside `DO $$ ... $$` blocks.
+--
+-- IMPORTANT: This does NOT conflict with Flyway. Flyway is a completely separate engine
+-- that processes the migration scripts in `db/migration/V*.sql` using the standard single
+-- semicolon (;). Flyway is smart enough to handle `DO $$` blocks natively.
+-- Thus, schema.sql keeps `;;` for tests, and Flyway scripts use `;` for production migrations.
+-- =========================================================================================
+
 -- 1. Tabla de PRODUCTOS (Inventario)
 CREATE TABLE IF NOT EXISTS productos (
                                          id SERIAL PRIMARY KEY,
@@ -43,7 +57,8 @@ ON CONFLICT DO NOTHING;;
 CREATE TABLE IF NOT EXISTS metodos_pago (
                                             id SERIAL PRIMARY KEY,
                                             acronimo TEXT NOT NULL UNIQUE,
-                                            descripcion TEXT NOT NULL
+                                            descripcion TEXT NOT NULL,
+                                            activo BOOLEAN NOT NULL DEFAULT TRUE
 );;
 
 INSERT INTO metodos_pago (acronimo, descripcion) VALUES
@@ -393,6 +408,18 @@ CREATE TABLE IF NOT EXISTS gastos_caja (
                                            anulado BOOLEAN NOT NULL DEFAULT FALSE,
                                            razon_anulacion TEXT,
                                            FOREIGN KEY (registrado_por_usuario_id) REFERENCES usuarios(id)
+);;
+
+-- 20. Alertas Cheques
+CREATE TABLE IF NOT EXISTS alertas_cheques (
+                                               id SERIAL PRIMARY KEY,
+                                               venta_id INTEGER NOT NULL,
+                                               monto REAL NOT NULL,
+                                               fecha_cobro DATE NOT NULL,
+                                               estado TEXT DEFAULT 'PENDIENTE' CHECK(estado IN ('PENDIENTE', 'COBRADO', 'ANULADA')),
+                                               pago_venta_id INTEGER,
+                                               FOREIGN KEY (venta_id) REFERENCES ventas(id),
+                                               FOREIGN KEY (pago_venta_id) REFERENCES pagos_venta(id) ON DELETE SET NULL
 );;
 
 -- ==========================================

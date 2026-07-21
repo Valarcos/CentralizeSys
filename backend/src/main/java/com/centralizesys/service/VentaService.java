@@ -11,6 +11,9 @@ import com.centralizesys.repository.DeudoresRepository;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.repository.StockRepository;
 import com.centralizesys.repository.VentaRepository;
+import com.centralizesys.repository.AlertaChequeRepository;
+import com.centralizesys.model.cheque.AlertaCheque;
+import com.centralizesys.model.cheque.AlertaChequeRequest;
 import com.centralizesys.util.Constants;
 import lombok.Data;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,8 @@ public class VentaService {
     private final StockRepository stockRepository;
     private final DeudoresRepository deudoresRepository;
     private final AuditoriaService auditoriaService;
+    private final AlertaChequeRepository alertaChequeRepository;
+    private final com.centralizesys.repository.MetodoPagoRepository metodoPagoRepository;
 
     private static final String ANULADA = "ANULADA";
     private static final String PENDIENTE = "PENDIENTE";
@@ -43,12 +48,16 @@ public class VentaService {
                         ProductRepository productRepository,
                         StockRepository stockRepository,
                         DeudoresRepository deudoresRepository,
-                        AuditoriaService auditoriaService) {
+                        AuditoriaService auditoriaService,
+                        AlertaChequeRepository alertaChequeRepository,
+                        com.centralizesys.repository.MetodoPagoRepository metodoPagoRepository) {
         this.ventaRepository = ventaRepository;
         this.productRepository = productRepository;
         this.stockRepository = stockRepository;
         this.deudoresRepository = deudoresRepository;
         this.auditoriaService = auditoriaService;
+        this.alertaChequeRepository = alertaChequeRepository;
+        this.metodoPagoRepository = metodoPagoRepository;
     }
 
     public PageResponse<Venta> getVentasPage(String startDate, String endDate, int page, int size) {
@@ -143,6 +152,113 @@ public class VentaService {
                 stockAlerts,
                 ACTIVA,
                 processedData.getDetalles().stream().mapToDouble(d -> d.getCostoSnapshot() * d.getCantidad()).sum());
+    }
+
+    @Transactional
+    public VentaResponse registrarVentaConCheques(VentaRequest request) {
+        validateRequest(request);
+        if (request.getCheques() == null || request.getCheques().isEmpty()) {
+            throw new BusinessRuleException("La venta con cheques debe incluir al menos un cheque.");
+        }
+        for (AlertaChequeRequest cReq : request.getCheques()) {
+            if (cReq.getFechaCobro() == null) throw new BusinessRuleException("La fecha de cobro de un cheque no puede estar vacía.");
+            if (cReq.getMonto() == null || cReq.getMonto() <= 0) throw new BusinessRuleException("El monto de un cheque debe ser mayor a 0.");
+        }
+
+        ProcessedSaleResult processedData = processItems(request.getItems(), request.getTipoVenta());
+        Double subtotal = processedData.getTotalVenta();
+        Double descuentoGlobal = request.getDescuentoGlobal() != null ? request.getDescuentoGlobal() : 0.0;
+
+        if (descuentoGlobal < 0) throw new BusinessRuleException("El descuento global no puede ser negativo.");
+        if (descuentoGlobal > subtotal) throw new BusinessRuleException("El descuento global no puede ser mayor al subtotal.");
+
+        Double finalTotal = Math.round((subtotal - descuentoGlobal) * 100.0) / 100.0;
+        processedData.setTotalVenta(finalTotal);
+        processedData.setDescuentoGlobal(descuentoGlobal);
+
+        // Server-side guard: cheque installment amounts must equal the sale total.
+        // Client-side validation alone violates Zero-Trust principles.
+        double chequesTotal = request.getCheques().stream().mapToDouble(AlertaChequeRequest::getMonto).sum();
+        double chequesTotalRounded = Math.round(chequesTotal * 100.0) / 100.0;
+        if (Math.abs(chequesTotalRounded - finalTotal) > 0.01) {
+            throw new BusinessRuleException(
+                    String.format("La suma de los cheques ($%.2f) no coincide con el total de la venta ($%.2f).", chequesTotalRounded, finalTotal)
+            );
+        }
+
+        // A cheque sale has no immediate payments.
+        request.setPagos(Collections.emptyList());
+
+        PersistedTransactionInfo txInfo = saveTransactionData(request, processedData);
+        List<String> stockAlerts = updateStockFromDetails(processedData.getDetalles());
+
+        // Save Cheques (Alertas)
+        for (AlertaChequeRequest chequeReq : request.getCheques()) {
+            AlertaCheque cheque = new AlertaCheque(null, txInfo.getVentaId(), chequeReq.getMonto(), chequeReq.getFechaCobro(), PENDIENTE, null);
+            alertaChequeRepository.save(cheque);
+        }
+
+        auditoriaService.registrarAccion(request.getUsuarioId(), "VENTA_CHEQUE", "Venta con Cheques ID " + txInfo.getVentaId() + " a " + request.getClienteNombre() + ". Total: $" + processedData.getTotalVenta() + " (Desc: " + descuentoGlobal + ")");
+        String vendedorNombre = ventaRepository.findVendedorNombre(request.getUsuarioId());
+
+        return new VentaResponse(
+                txInfo.getVentaId(),
+                LocalDateTime.now(ZoneId.systemDefault()),
+                request.getClienteNombre(),
+                vendedorNombre,
+                processedData.getTotalVenta(),
+                descuentoGlobal,
+                request.getTipoVenta() != null ? request.getTipoVenta().name() : MINORISTA,
+                processedData.getDetalles(),
+                txInfo.getPagosPersistidos(), // Empty for now
+                stockAlerts,
+                ACTIVA,
+                processedData.getDetalles().stream().mapToDouble(d -> d.getCostoSnapshot() * d.getCantidad()).sum());
+    }
+
+    @Transactional
+    public void cobrarCheque(Long chequeId, Long metodoPagoId, Long authenticatedUserId) {
+        AlertaCheque cheque = alertaChequeRepository.findById(chequeId)
+                .orElseThrow(() -> new ResourceNotFoundException("AlertaCheque", chequeId));
+
+        if (!PENDIENTE.equals(cheque.getEstado())) {
+            throw new BusinessRuleException("El cheque ya fue cobrado o anulado.");
+        }
+
+        com.centralizesys.model.sales.MetodoPago metodo = metodoPagoRepository.findById(metodoPagoId)
+                .orElseThrow(() -> new ResourceNotFoundException("MetodoPago", metodoPagoId));
+        if (!metodo.isActivo()) {
+            throw new BusinessRuleException("El método de pago seleccionado no está activo.");
+        }
+
+        Long pagoVentaId = ventaRepository.savePagoUnicoReturningId(cheque.getVentaId(), metodoPagoId, cheque.getMonto(), authenticatedUserId);
+        alertaChequeRepository.updateEstadoAndPagoVentaId(chequeId, "COBRADO", pagoVentaId);
+
+        auditoriaService.registrarAccion(authenticatedUserId, "COBRO_CHEQUE",
+                "Cheque ID " + chequeId + " cobrado por $" + cheque.getMonto() + " (Pago ID: " + pagoVentaId + ")");
+    }
+
+    @Transactional
+    public void cancelarCobroCheque(Long chequeId, Long authenticatedUserId) {
+        AlertaCheque cheque = alertaChequeRepository.findById(chequeId)
+                .orElseThrow(() -> new ResourceNotFoundException("AlertaCheque", chequeId));
+
+        if (!"COBRADO".equals(cheque.getEstado())) {
+            throw new BusinessRuleException("Solo se pueden cancelar cheques que hayan sido cobrados.");
+        }
+
+        if (cheque.getPagoVentaId() == null) {
+            throw new BusinessRuleException("No se encontró el pago asociado a este cheque para anularlo (Cheques cobrados antes de la versión 6.0 no pueden anularse automáticamente).");
+        }
+
+        // Anular el pago físicamente en la DB
+        ventaRepository.anularPagoVentaById(cheque.getPagoVentaId());
+
+        // Revertir el estado del cheque
+        alertaChequeRepository.updateEstadoAndPagoVentaId(chequeId, PENDIENTE, null);
+
+        auditoriaService.registrarAccion(authenticatedUserId, "CANCELACION_COBRO_CHEQUE",
+                "Anulado cobro de Cheque ID " + chequeId + " por $" + cheque.getMonto());
     }
 
     @Transactional
@@ -515,6 +631,8 @@ public class VentaService {
         deudoresRepository.findByVentaId(ventaId).ifPresent(deuda ->
                 deudoresRepository.updateMontoAndEstado(deuda.getId(), deuda.getMontoDeuda(), ANULADA)
         );
+
+        alertaChequeRepository.updateEstadoByVentaId(ventaId, ANULADA);
 
         Long currentUserId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
         auditoriaService.registrarAccion(currentUserId, "ANULAR_VENTA", "Se anuló la venta ID " + ventaId + " y se retornó el stock a la ubicación principal.");

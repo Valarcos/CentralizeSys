@@ -1,5 +1,6 @@
 package com.centralizesys.model.sales;
 
+import com.centralizesys.model.cheque.AlertaChequeRequest;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -23,6 +24,9 @@ public class VentaRequest {
 
     // The list of payment methods used (e.g. $500 Cash + $200 Card)
     private List<PagoRequest> pagos;
+
+    // The list of cheques if the sale is paid with cheques
+    private List<AlertaChequeRequest> cheques;
 
     // Nested static classes for the inner lists
     @Data

@@ -7,6 +7,7 @@ import StockWarningModal from '../components/StockWarningModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { generateReceipt } from '../utils/pdfGenerator';
 import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste, enforceMoneyFormat } from '../utils/numericInput';
+import CheckoutChequeModal from '../components/CheckoutChequeModal';
 import './VentaPage.css';
 
 /**
@@ -150,6 +151,9 @@ export default function VentaPage() {
     // Overpayment Modal State (Issue #8)
     const [showOverpaidModal, setShowOverpaidModal] = useState(false);
     const [overpaidMaxAllowed, setOverpaidMaxAllowed] = useState(0);
+
+    // Cheque Flow State
+    const [showChequeModal, setShowChequeModal] = useState(false);
 
     // Req 4: Ref for payment amount input — enables auto-focus + select when a method is chosen.
     const paymentAmountRef = useRef(null);
@@ -447,6 +451,38 @@ export default function VentaPage() {
         } catch (error) {
             console.error("Pending Sale Error:", error);
             const msg = error.response?.data?.message || "Error al guardar el pedido";
+            toast.error(msg);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleChequeSale = async (cheques) => {
+        try {
+            setIsSubmitting(true);
+            const saleData = {
+                clienteNombre: clientName,
+                tipoVenta: saleType,
+                descuentoGlobal: globalDiscount,
+                items: cartItems.map(item => ({
+                    productoId: item.product.id,
+                    cantidad: item.quantity,
+                    valorDescuento: item.discount || 0
+                })),
+                cheques: cheques.map(c => ({
+                    monto: parseFloat(c.monto),
+                    fechaCobro: c.fechaCobro
+                }))
+            };
+
+            const response = await api.post('/ventas/cheques', saleData);
+            const dataWithFlag = { ...response.data, isCheque: true };
+            setLastSale(dataWithFlag);
+            setShowChequeModal(false);
+            toast.success("Venta con cheques registrada exitosamente.");
+        } catch (error) {
+            console.error("Cheque Sale Error:", error);
+            const msg = error.response?.data?.message || "Error al registrar la venta con cheques";
             toast.error(msg);
         } finally {
             setIsSubmitting(false);
@@ -1094,6 +1130,22 @@ export default function VentaPage() {
                         >
                             {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
                         </button>
+                        <button
+                            className="pay-btn"
+                            disabled={cartItems.length === 0 || !clientName.trim() || isSubmitting || hasInvalidQty || !!editingPendingId}
+                            onClick={() => {
+                                const issues = checkStockAvailability();
+                                if (issues.length > 0) {
+                                    setAffectedProducts(issues);
+                                    setShowStockModal(true);
+                                } else {
+                                    setShowChequeModal(true);
+                                }
+                            }}
+                            style={{ flex: 1, backgroundColor: '#0d9488', color: 'white', border: '1px solid #0f766e', opacity: (cartItems.length === 0 || !clientName.trim() || isSubmitting || hasInvalidQty || !!editingPendingId) ? 0.5 : 1 }}
+                        >
+                            📋 CHEQUE
+                        </button>
                         {/* Req 1: GUARDAR PENDIENTE also blocked when any qty is invalid */}
                         <button
                             className="pay-btn"
@@ -1176,6 +1228,14 @@ export default function VentaPage() {
                         onCancel={() => setShowOverpaidModal(false)}
                     />
                 )}
+
+                <CheckoutChequeModal
+                    isOpen={showChequeModal}
+                    onClose={() => setShowChequeModal(false)}
+                    onConfirm={handleChequeSale}
+                    totalAmount={totals.total}
+                    clientName={clientName}
+                />
                 {/* Tab switching is now handled by the contextual bottom-nav in AppLayout */}
             </div>
 

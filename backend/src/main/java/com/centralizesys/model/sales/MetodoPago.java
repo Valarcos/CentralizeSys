@@ -11,4 +11,5 @@ public class MetodoPago {
     private Long id;
     private String acronimo;    // E, TCM, etc.
     private String descripcion; // Efectivo, Tarjeta Macro...
+    private boolean activo;
 }

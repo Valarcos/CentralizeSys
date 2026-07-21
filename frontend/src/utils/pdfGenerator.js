@@ -64,7 +64,7 @@ export const generateReceipt = (saleData) => {
         doc.setFontSize(18);
         doc.text("REMITO", pageWidth / 2, 15, { align: 'center' });
 
-        doc.setFontSize(11);
+        doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
         doc.text('Presupuesto', 14, 25);
         doc.setFont(undefined, 'normal');
@@ -115,12 +115,12 @@ export const generateReceipt = (saleData) => {
             columnStyles: {
                 0: { cellWidth: 20 },
                 1: { cellWidth: 'auto' },
-                2: { cellWidth: 12, halign: 'center' },
+                2: { cellWidth: 10, halign: 'center' },
                 3: { cellWidth: 22, halign: 'right' },
                 4: { cellWidth: 22, halign: 'right' },
                 5: { cellWidth: 28, halign: 'right' }
             },
-            styles: { fontSize: 9, cellPadding: 2 },
+            styles: { fontSize: 8, cellPadding: 1 },
         });
 
         // --- TABLE 2: DISCOUNTS SUMMARY (before payments, black header) ---
@@ -156,30 +156,38 @@ export const generateReceipt = (saleData) => {
                     0: { cellWidth: 'auto' },
                     1: { cellWidth: 40, halign: 'right' }
                 },
-                styles: { fontSize: 9, cellPadding: 2 },
+                styles: { fontSize: 8, cellPadding: 1 },
             });
         }
 
         // --- TABLE 3: PAYMENT METHODS (blue header) ---
         let payY = doc.lastAutoTable.finalY + 10;
 
-        const paymentsBody = saleData.payments.map(p => [
-            p.name,
-            formatMoney(p.amount)
-        ]);
+        if (saleData.isCheque) {
+            doc.setFontSize(10);
+            doc.setTextColor(0, 80, 160);
+            doc.text("Pagos: A cobrarse vía cheques", 14, payY);
+            doc.setTextColor(0);
+            doc.lastAutoTable = { finalY: payY + 5 };
+        } else if (saleData.payments && saleData.payments.length > 0) {
+            const paymentsBody = saleData.payments.map(p => [
+                p.name,
+                formatMoney(p.amount)
+            ]);
 
-        autoTable(doc, {
-            startY: payY,
-            head: [['Método de Pago', 'Monto']],
-            body: paymentsBody,
-            theme: 'grid',
-            headStyles: { fillColor: [0, 80, 160], textColor: 255 },
-            columnStyles: {
-                0: { cellWidth: 'auto' },
-                1: { cellWidth: 40, halign: 'right' }
-            },
-            styles: { fontSize: 9, cellPadding: 2 },
-        });
+            autoTable(doc, {
+                startY: payY,
+                head: [['Método de Pago', 'Monto']],
+                body: paymentsBody,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 80, 160], textColor: 255 },
+                columnStyles: {
+                    0: { cellWidth: 'auto' },
+                    1: { cellWidth: 40, halign: 'right' }
+                },
+                styles: { fontSize: 8, cellPadding: 1 },
+            });
+        }
 
         // --- TOTAL ---
         let finalY = doc.lastAutoTable.finalY + 8;
@@ -292,12 +300,12 @@ export const generateDebtorReceipt = (debtorData) => {
             columnStyles: {
                 0: { cellWidth: 20 },
                 1: { cellWidth: 'auto' },
-                2: { cellWidth: 12, halign: 'center' },
+                2: { cellWidth: 10, halign: 'center' },
                 3: { cellWidth: 22, halign: 'right' },
                 4: { cellWidth: 22, halign: 'right' },
                 5: { cellWidth: 28, halign: 'right' }
             },
-            styles: { fontSize: 9, cellPadding: 2 },
+            styles: { fontSize: 8, cellPadding: 1 },
         });
 
         // --- TABLE 2: DISCOUNTS SUMMARY (black header, black font) ---
@@ -333,7 +341,7 @@ export const generateDebtorReceipt = (debtorData) => {
                     0: { cellWidth: 'auto' },
                     1: { cellWidth: 40, halign: 'right' }
                 },
-                styles: { fontSize: 9, cellPadding: 2 },
+                styles: { fontSize: 8, cellPadding: 1 },
             });
         }
 
@@ -381,7 +389,7 @@ export const generateDebtorReceipt = (debtorData) => {
                     2: { cellWidth: 30, fontStyle: 'italic' },
                     3: { cellWidth: 30, halign: 'right' }
                 },
-                styles: { fontSize: 9, cellPadding: 2 },
+                styles: { fontSize: 8, cellPadding: 1 },
                 foot: [['', '', 'TOTAL PAGADO', formatMoney(totalPagado)]],
                 footStyles: { fillColor: [220, 235, 250], textColor: [0, 0, 0], fontStyle: 'bold' },
             });
@@ -505,12 +513,12 @@ export const generatePendingSaleReceipt = (pedidoData) => {
             columnStyles: {
                 0: { cellWidth: 20 },
                 1: { cellWidth: 'auto' },
-                2: { cellWidth: 12, halign: 'center' },
+                2: { cellWidth: 10, halign: 'center' },
                 3: { cellWidth: 22, halign: 'right' },
                 4: { cellWidth: 22, halign: 'right' },
                 5: { cellWidth: 28, halign: 'right' }
             },
-            styles: { fontSize: 9, cellPadding: 2 },
+            styles: { fontSize: 8, cellPadding: 1 },
         });
 
         // --- TABLE 2: DISCOUNTS SUMMARY ---
@@ -545,7 +553,7 @@ export const generatePendingSaleReceipt = (pedidoData) => {
                     0: { cellWidth: 'auto' },
                     1: { cellWidth: 40, halign: 'right' }
                 },
-                styles: { fontSize: 9, cellPadding: 2 },
+                styles: { fontSize: 8, cellPadding: 1 },
             });
         }
 
@@ -578,7 +586,7 @@ export const generatePendingSaleReceipt = (pedidoData) => {
                     2: { cellWidth: 30, fontStyle: 'italic' },
                     3: { cellWidth: 30, halign: 'right' }
                 },
-                styles: { fontSize: 9, cellPadding: 2 },
+                styles: { fontSize: 8, cellPadding: 1 },
                 foot: [['', '', 'TOTAL PAGADO', formatMoney(totalPagado)]],
                 footStyles: { fillColor: [220, 235, 250], textColor: [0, 0, 0], fontStyle: 'bold' },
             });

@@ -1,0 +1,189 @@
+/* Increased specificity to override global .modal-content from LogoutModal.css */
+.modal-content.cheque-modal-content {
+    max-width: 800px;
+    width: 90%;
+    padding: 0;
+    overflow: hidden;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header-cheque {
+    background-color: #0d9488;
+    color: white;
+    padding: 1rem;
+    margin: 0;
+}
+
+.modal-header-cheque h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: white;
+}
+
+.cheque-modal-body {
+    padding: 1rem;
+}
+
+.cheque-info-box {
+    background-color: #f8f9fa;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    border: 1px solid #e2e8f0;
+}
+
+.info-row {
+    display: grid;
+    grid-template-columns: 50% 50%;
+    margin-bottom: 0.38rem; /* at most 0.4 * 0.95rem */
+    font-size: 0.95rem;
+}
+
+.info-row:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    text-align: right;
+    padding-right: 0.5rem;
+}
+
+.info-value {
+    text-align: left;
+    padding-left: 0.5rem;
+}
+
+.cheques-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    /* Limit to 4 items height, allowing scroll */
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 0.2rem;
+}
+
+.cheque-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    background-color: #f8fafc;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    position: relative;
+}
+
+.cheque-row label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+    white-space: nowrap;
+}
+
+.cheque-row input {
+    flex: 1;
+    padding: 0.4rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+.remove-cheque-btn, .remove-cheque-placeholder {
+    position: relative;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    min-height: 0;
+    border-radius: 4px;
+    background-color: #7f1d1d; /* Calmer, darker red */
+    color: white;
+    border: none;
+    font-size: 1.4rem; /* covers more area */
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.25rem;
+}
+
+.remove-cheque-placeholder {
+    background-color: transparent;
+    cursor: default;
+}
+
+.remove-cheque-btn:hover {
+    background-color: #450a0a;
+}
+
+.add-cheque-btn {
+    width: 33.33%;
+    display: block;
+    margin: 0 auto;
+    padding: 0.5rem;
+    background-color: white;
+    color: #0d9488;
+    border: 2px dashed #0d9488;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-cheque-btn:hover:not(:disabled) {
+    background-color: #ccfbf1;
+}
+
+.add-cheque-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #cbd5e1;
+    color: #64748b;
+}
+
+.modal-actions-cheque {
+    padding: 1rem 1.5rem;
+    background-color: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+.modal-actions-cheque button {
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.cancel-btn {
+    background-color: transparent;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+}
+
+.cancel-btn:hover {
+    background-color: #f1f5f9;
+}
+
+.confirm-btn {
+    background-color: #0d9488;
+    color: white;
+    border: none;
+}
+
+.confirm-btn:hover:not(:disabled) {
+    background-color: #0f766e;
+}
+
+.confirm-btn:disabled {
+    background-color: #94a3b8;
+    cursor: not-allowed;
+}

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import SalesDetailModal from '../components/SalesDetailModal';
 import CancellationModal from '../components/CancellationModal';
 import FinalizeConfirmationModal from '../components/FinalizeConfirmationModal';
+import CobrarChequesModal from '../components/CobrarChequesModal';
 import { generateDebtorReceipt, generatePendingSaleReceipt } from '../utils/pdfGenerator';
 import { blockNonNumericKeys, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './SalesHistoryPage.css'; // Reusing CSS for table responsive cards
@@ -15,8 +16,13 @@ export default function CobrosYPedidosPage() {
     const location = useLocation();
     const navigate = useNavigate();
     const [items, setItems] = useState([]);
-    const [filterType, setFilterType] = useState('ALL'); // 'ALL' | 'FIADO' | 'PEDIDO'
+    // 'ALL' | 'CHEQUE' | 'PEDIDO'  — NOTE: old FIADO rows stay as 'FIADO' in DB; CHEQUE is the new discriminator
+    const [filterType, setFilterType] = useState(location.state?.filter || 'ALL');
+    const [sortConfig, setSortConfig] = useState({ key: 'fecha_creacion', direction: 'desc' });
     const [loading, setLoading] = useState(true);
+    // CobrarChequesModal state
+    const [showCobrarChequesModal, setShowCobrarChequesModal] = useState(false);
+    const [cobrarChequesItem, setCobrarChequesItem] = useState(null);
 
     // Auto-scroll and highlight logic after editing
     useEffect(() => {
@@ -54,9 +60,9 @@ export default function CobrosYPedidosPage() {
     const [itemToFinalize, setItemToFinalize] = useState(null);
     const [showFinalizeModal, setShowFinalizeModal] = useState(false);
 
-    // Multi-Payment State
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [payments, setPayments] = useState([]); // Array of { methodId, methodName, amount, note }
+    const [historicalPayments, setHistoricalPayments] = useState([]);
     const [selectedMethodId, setSelectedMethodId] = useState('');
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentNote, setPaymentNote] = useState('');
@@ -105,13 +111,29 @@ export default function CobrosYPedidosPage() {
         }
     };
 
-    const handleOpenPayment = (item) => {
+    const handleOpenPayment = async (item) => {
+        // Blueprint §4&5: CHEQUE tipo opens the dedicated installment cobro modal.
+        if (item.tipo === 'CHEQUE') {
+            setCobrarChequesItem(item);
+            setShowCobrarChequesModal(true);
+            return;
+        }
         setSelectedItem(item);
         setPayments([]);
         setSelectedMethodId('');
         setPaymentAmount('');
         setPaymentNote('');
         setShowPayModal(true);
+        setHistoricalPayments([]);
+        try {
+            const endpoint = item.tipo === 'FIADO'
+                ? `/deudores/${item.id_referencia}/pagos`
+                : `/ventas/${item.id_referencia}/pagos`;
+            const res = await api.get(endpoint);
+            setHistoricalPayments(res.data.filter(p => !p.anulado));
+        } catch (error) {
+            console.error("Error fetching historical payments", error);
+        }
     };
 
     const handleAddPayment = () => {
@@ -147,6 +169,26 @@ export default function CobrosYPedidosPage() {
         setPayments(newPayments);
     };
 
+    const cancelHistoricalPayment = async (pagoId) => {
+        if (!window.confirm("¿Está seguro de que desea anular este pago?")) return;
+        setIsSubmitting(true);
+        try {
+            if (selectedItem.tipo === 'FIADO') {
+                await api.post(`/deudores/pagos/${pagoId}/cancelar`);
+            } else {
+                await api.delete(`/ventas/${selectedItem.id_referencia}/pagos/${pagoId}`);
+            }
+            toast.success("Pago anulado exitosamente");
+            fetchItems();
+            setShowPayModal(false); // Close to force refresh since the selectedItem reference is stale
+        } catch (error) {
+            console.error(error);
+            toast.error("Error al anular pago");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleRegisterPayment = async () => {
         if (payments.length === 0) return toast.error("Agregue al menos un pago");
 
@@ -159,8 +201,15 @@ export default function CobrosYPedidosPage() {
             }));
 
             if (selectedItem.tipo === 'FIADO') {
+                // Classic debtor: id_referencia is the deudor record ID
                 await api.post(`/deudores/${selectedItem.id_referencia}/pagar`, payload);
+            } else if (selectedItem.tipo === 'CHEQUE') {
+                // Cheque installment: id_referencia is the alertas_cheques record ID.
+                // The backend endpoint accepts a single metodoPagoId as a query param.
+                const metodoPagoId = payload[0]?.metodoPagoId;
+                await api.post(`/alertas/cheques/${selectedItem.id_referencia}/cobrar`, null, { params: { metodoPagoId } });
             } else {
+                // PEDIDO: id_referencia is the venta ID
                 await api.post(`/ventas/${selectedItem.id_referencia}/pagos`, payload);
             }
 
@@ -190,8 +239,11 @@ export default function CobrosYPedidosPage() {
                 } else {
                     throw new Error("Deuda no encontrada");
                 }
+            } else if (item.tipo === 'CHEQUE') {
+                // For CHEQUE, venta_id holds the sale ID
+                response = await api.get(`/ventas/${item.venta_id}`);
             } else {
-                // For PEDIDO, we can use the new pending sale endpoint
+                // For PEDIDO, we can use the pending sale endpoint
                 response = await api.get(`/ventas/${item.id_referencia}`);
             }
             setViewSale(response?.data);
@@ -373,7 +425,39 @@ export default function CobrosYPedidosPage() {
         }
     };
 
-    const displayedItems = filterType === 'ALL' ? items : items.filter(i => i.tipo === filterType);
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIndicator = (key) => {
+        if (sortConfig.key !== key) return null;
+        return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
+    };
+
+    const sortedItems = [...items].sort((a, b) => {
+        let aVal = a[sortConfig.key];
+        let bVal = b[sortConfig.key];
+
+        if (aVal === bVal) return 0;
+        if (aVal == null) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (bVal == null) return sortConfig.direction === 'asc' ? 1 : -1;
+
+        if (typeof aVal === 'string') {
+            return sortConfig.direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+        return sortConfig.direction === 'asc' ? (aVal < bVal ? -1 : 1) : (aVal > bVal ? -1 : 1);
+    });
+
+    // Filter: 'CHEQUE' filter tab now shows both CHEQUE and FIADO (Deudas comunes) per user request.
+    const displayedItems = filterType === 'ALL'
+        ? sortedItems
+        : filterType === 'CHEQUE'
+            ? sortedItems.filter(i => i.tipo === 'CHEQUE' || i.tipo === 'FIADO')
+            : sortedItems.filter(i => i.tipo === filterType);
 
     return (
         <div className="history-page container">
@@ -393,12 +477,12 @@ export default function CobrosYPedidosPage() {
                 >
                     TODOS
                 </button>
-                {/* UI label: "Cheque" — Domain value: 'FIADO' (unchanged in state/API/DB) */}
+                {/* UI label: "Cheques y Deudas" — Shows both CHEQUE and FIADO domain values */}
                 <button
-                    className={`toggle-btn filter-btn-cheque ${filterType === 'FIADO' ? 'active' : ''}`}
-                    onClick={() => setFilterType('FIADO')}
+                    className={`toggle-btn filter-btn-cheque ${filterType === 'CHEQUE' ? 'active' : ''}`}
+                    onClick={() => setFilterType('CHEQUE')}
                 >
-                    📋 Cheque
+                    📋 Cheques y Deudas
                 </button>
                 {/* UI label: "Seña" — Domain value: 'PEDIDO' (unchanged in state/API/DB) */}
                 <button
@@ -417,133 +501,166 @@ export default function CobrosYPedidosPage() {
                         <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Cliente</th>
-                            <th className="col-pendiente-fecha">Fecha</th>
+                            <th onClick={() => handleSort('cliente_nombre')} style={{cursor: 'pointer'}}>Cliente{getSortIndicator('cliente_nombre')}</th>
+                            <th onClick={() => handleSort('fecha_creacion')} style={{cursor: 'pointer'}} className="col-pendiente-fecha">Fecha{getSortIndicator('fecha_creacion')}</th>
                             <th className="col-pendiente-tipo">Tipo</th>
                             <th className="col-pendiente-venta">Venta</th>
                             <th className="col-pendiente-productos">Productos</th>
                             <th>Costo Total</th>
-                            <th>Monto Total</th>
+                            <th onClick={() => handleSort('monto_total')} style={{cursor: 'pointer'}}>Monto Total{getSortIndicator('monto_total')}</th>
                             <th>Monto Pagado</th>
                             <th>Saldo Restante</th>
-                            <th className="col-pendiente-estado">Estado</th>
+                            <th onClick={() => handleSort('fecha_cobro')} style={{cursor: 'pointer'}} className="col-pendiente-estado">Estado{getSortIndicator('fecha_cobro')}</th>
                             <th>Acciones</th>
                         </tr>
                         </thead>
                         <tbody>
-                        {displayedItems.map((item, index) => (
-                            <tr key={`${item.tipo}-${item.id_referencia}-${index}`} id={`sale-row-${item.id_referencia}`}>
-                                <td data-label="ID">#{item.id_referencia}</td>
-                                <td data-label="Cliente">{item.cliente_nombre}</td>
-                                <td data-label="Fecha">{formatDate(item.fecha_creacion)}</td>
-                                <td data-label="Tipo">
-                                    {/*
+                        {displayedItems.map((item, index) => {
+                            let rowStyle = {};
+                            if ((item.tipo === 'FIADO' || item.tipo === 'CHEQUE') && item.fecha_cobro) {
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const fechaCobro = new Date(item.fecha_cobro);
+                                // Workaround for timezone issue when creating Date from string
+                                fechaCobro.setMinutes(fechaCobro.getMinutes() + fechaCobro.getTimezoneOffset());
+                                fechaCobro.setHours(0,0,0,0);
+
+                                if (fechaCobro < today) {
+                                    rowStyle = { backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444' }; // Overdue - Strong
+                                } else if (fechaCobro.getTime() === today.getTime()) {
+                                    rowStyle = { backgroundColor: '#f0fdfa', borderLeft: '4px solid #14b8a6' }; // Today - Soft Teal
+                                }
+                            }
+
+                            return (
+                                <tr key={`${item.tipo}-${item.id_referencia}-${index}`} id={`sale-row-${item.id_referencia}`} style={rowStyle}>
+                                    <td data-label="ID">#{item.id_referencia}</td>
+                                    <td data-label="Cliente">{item.cliente_nombre}</td>
+                                    <td data-label="Fecha">{formatDate(item.fecha_creacion)}</td>
+                                    <td data-label="Tipo">
+                                        {/*
                                       ARCHITECTURE NOTE (Req 3c/3d): UI display labels are intentionally
-                                      different from domain values. 'FIADO' displays as 'Cheque' (teal).
-                                      'PEDIDO' displays as 'Seña' (red). The `item.tipo` value itself
-                                      is never changed — it is used for all API routing decisions.
+                                      different from backend domain values. 'CHEQUE' displays as 'Cheque'
+                                      (teal), 'FIADO' as 'Cheque' (teal legacy), and 'PEDIDO' as 'Seña'.
+                                      The `item.tipo` value is never changed — it drives all API routing.
                                     */}
-                                    {item.tipo === 'FIADO' ? (
-                                        <span className="status-pill" style={{ backgroundColor: '#ccfbf1', color: '#0d9488', fontWeight: 700 }}>
+                                        {item.tipo === 'CHEQUE' ? (
+                                            <span className="status-pill" style={{ backgroundColor: '#ccfbf1', color: '#0d9488', fontWeight: 700 }}>
                                             Cheque
                                         </span>
-                                    ) : (
-                                        <span className="status-pill" style={{ backgroundColor: '#fee2e2', color: '#b91c1c', fontWeight: 700 }}>
+                                        ) : item.tipo === 'FIADO' ? (
+                                            <span className="status-pill" style={{ backgroundColor: '#fef3c7', color: '#b45309', fontWeight: 700 }}>
+                                            Deuda
+                                        </span>
+                                        ) : (
+                                            <span className="status-pill" style={{ backgroundColor: '#fee2e2', color: '#b91c1c', fontWeight: 700 }}>
                                             Seña
                                         </span>
-                                    )}
-                                </td>
-                                <td data-label="Venta">
-                                    {item.tipo_venta ? (
-                                        <span className={`badge ${item.tipo_venta === 'MAYORISTA' ? 'badge-wholesale' : 'badge-retail'}`}>
+                                        )}
+                                    </td>
+                                    <td data-label="Venta">
+                                        {item.tipo_venta ? (
+                                            <span className={`badge ${item.tipo_venta === 'MAYORISTA' ? 'badge-wholesale' : 'badge-retail'}`}>
                                             {item.tipo_venta}
                                         </span>
-                                    ) : (
-                                        <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>—</span>
-                                    )}
-                                </td>
-                                <td data-label="Productos" className="col-pendiente-productos">
-                                    {item.cantidad_productos ?? 0}
-                                </td>
-                                <td data-label="Costo Total" className="amount-cell">{formatCurrency(item.costo_total)}</td>
-                                <td data-label="Monto Total" className="amount-cell">{formatCurrency(item.monto_total)}</td>
-                                <td data-label="Monto Pagado" className="amount-cell">{formatCurrency(item.monto_pagado)}</td>
-                                <td data-label="Saldo Restante" className="amount-cell" style={{ fontWeight: 'bold', color: item.saldo_restante > 0 ? '#dc2626' : '#16a34a' }}>
-                                    {formatCurrency(item.saldo_restante)}
-                                </td>
-                                <td data-label="Estado">
+                                        ) : (
+                                            <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>—</span>
+                                        )}
+                                    </td>
+                                    <td data-label="Productos" className="col-pendiente-productos">
+                                        {item.cantidad_productos ?? 0}
+                                    </td>
+                                    <td data-label="Costo Total" className="amount-cell">{formatCurrency(item.costo_total)}</td>
+                                    <td data-label="Monto Total" className="amount-cell">{formatCurrency(item.monto_total)}</td>
+                                    <td data-label="Monto Pagado" className="amount-cell">{formatCurrency(item.monto_pagado)}</td>
+                                    <td data-label="Saldo Restante" className="amount-cell" style={{ fontWeight: 'bold', color: item.saldo_restante > 0 ? '#dc2626' : '#16a34a' }}>
+                                        {formatCurrency(item.saldo_restante)}
+                                    </td>
+                                    <td data-label="Estado">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                         <span className={`status-pill status-${item.estado?.toLowerCase()}`}>
                                             {item.estado}
                                         </span>
-                                </td>
-                                <td data-label="Acciones">
-                                    <div className="action-buttons">
-                                        <div className="action-buttons-row">
-                                            {/* 1. Pago */}
-                                            {item.saldo_restante > 0 && (
-                                                <button className="btn-pay" onClick={() => handleOpenPayment(item)}>
-                                                    💰 Pago
-                                                </button>
-                                            )}
-
-                                            {/* 2. Ver Detalle */}
-                                            <button
-                                                className="btn-details"
-                                                onClick={() => handleViewDetails(item)}
-                                                disabled={isLoadingSale}
-                                            >
-                                                👁️ Ver Detalle
-                                            </button>
-
-                                            {/* 3. Imprimir */}
-                                            {item.tipo === 'FIADO' && (
-                                                <button
-                                                    className="btn-print"
-                                                    onClick={() => handlePrintDebtor(item)}
-                                                >
-                                                    🖨️ Imprimir
-                                                </button>
-                                            )}
-                                            {item.tipo === 'PEDIDO' && item.estado === 'PENDIENTE' && (
-                                                <button
-                                                    className="btn-print"
-                                                    onClick={() => handlePrintPedido(item)}
-                                                >
-                                                    🖨️ Imprimir
-                                                </button>
-                                            )}
-                                            {item.tipo === 'PEDIDO' && item.estado === 'PENDIENTE' && (
-                                                <button
-                                                    className="btn-pay"
-                                                    style={{ backgroundColor: '#f59e0b', border: '1px solid #d97706' }}
-                                                    onClick={() => handleEditPedido(item)}
-                                                >
-                                                    ✏️ Editar
-                                                </button>
+                                            {(item.tipo === 'FIADO' || item.tipo === 'CHEQUE') && item.fecha_cobro && (
+                                                <small style={{
+                                                    color: new Date(item.fecha_cobro) <= new Date() ? '#dc2626' : '#64748b',
+                                                    fontWeight: new Date(item.fecha_cobro) <= new Date() ? 'bold' : 'normal',
+                                                    fontSize: '0.75rem'
+                                                }}>
+                                                    Vence: {formatDate(item.fecha_cobro)}
+                                                </small>
                                             )}
                                         </div>
-
-                                        {/* Row 2: Finalizar y Cancelar (Solo Pedidos Pendientes) */}
-                                        {item.tipo === 'PEDIDO' && item.estado === 'PENDIENTE' && (
+                                    </td>
+                                    <td data-label="Acciones">
+                                        <div className="action-buttons">
                                             <div className="action-buttons-row">
+                                                {/* 1. Pago */}
+                                                {item.saldo_restante > 0 && (
+                                                    <button className="btn-pay" onClick={() => handleOpenPayment(item)}>
+                                                        💰 Pago
+                                                    </button>
+                                                )}
+
+                                                {/* 2. Ver Detalle */}
                                                 <button
-                                                    className="btn-pay"
-                                                    style={{ backgroundColor: item.monto_pagado > 0 ? '#2563eb' : '#94a3b8', border: '1px solid ' + (item.monto_pagado > 0 ? '#1d4ed8' : '#64748b') }}
-                                                    onClick={() => handleFinalizarPedido(item)}
-                                                    disabled={item.monto_pagado === 0 || isSubmitting}
-                                                    title={item.monto_pagado === 0 ? "Debe registrar un pago parcial antes de finalizar" : "Finalizar pedido y crear venta"}
+                                                    className="btn-details"
+                                                    onClick={() => handleViewDetails(item)}
+                                                    disabled={isLoadingSale}
                                                 >
-                                                    {isSubmitting ? 'Procesando...' : '✅ Finalizar Venta'}
+                                                    👁️ Ver Detalle
                                                 </button>
-                                                <button className="btn-delete" onClick={() => handleCancelarPedido(item)} disabled={isSubmitting}>
-                                                    ❌ Cancelar Pedido
-                                                </button>
+
+                                                {/* 3. Imprimir */}
+                                                {item.tipo === 'FIADO' && (
+                                                    <button
+                                                        className="btn-print"
+                                                        onClick={() => handlePrintDebtor(item)}
+                                                    >
+                                                        🖨️ Imprimir
+                                                    </button>
+                                                )}
+                                                {item.tipo === 'PEDIDO' && item.estado === 'PENDIENTE' && (
+                                                    <button
+                                                        className="btn-print"
+                                                        onClick={() => handlePrintPedido(item)}
+                                                    >
+                                                        🖨️ Imprimir
+                                                    </button>
+                                                )}
+                                                {item.tipo === 'PEDIDO' && item.estado === 'PENDIENTE' && (
+                                                    <button
+                                                        className="btn-pay"
+                                                        style={{ backgroundColor: '#f59e0b', border: '1px solid #d97706' }}
+                                                        onClick={() => handleEditPedido(item)}
+                                                    >
+                                                        ✏️ Editar
+                                                    </button>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
+
+                                            {/* Row 2: Finalizar y Cancelar (Solo Pedidos Pendientes) */}
+                                            {item.tipo === 'PEDIDO' && item.estado === 'PENDIENTE' && (
+                                                <div className="action-buttons-row">
+                                                    <button
+                                                        className="btn-pay"
+                                                        style={{ backgroundColor: item.monto_pagado > 0 ? '#2563eb' : '#94a3b8', border: '1px solid ' + (item.monto_pagado > 0 ? '#1d4ed8' : '#64748b') }}
+                                                        onClick={() => handleFinalizarPedido(item)}
+                                                        disabled={item.monto_pagado === 0 || isSubmitting}
+                                                        title={item.monto_pagado === 0 ? "Debe registrar un pago parcial antes de finalizar" : "Finalizar pedido y crear venta"}
+                                                    >
+                                                        {isSubmitting ? 'Procesando...' : '✅ Finalizar Venta'}
+                                                    </button>
+                                                    <button className="btn-delete" onClick={() => handleCancelarPedido(item)} disabled={isSubmitting}>
+                                                        ❌ Cancelar Pedido
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                         {displayedItems.length === 0 && (
                             <tr><td colSpan="11" style={{ textAlign: 'center' }}>No hay cobros ni pedidos registrados.</td></tr>
                         )}
@@ -558,14 +675,14 @@ export default function CobrosYPedidosPage() {
                     <div className="modal-content" style={{ maxWidth: '600px' }}>
                         <div style={{ backgroundColor: 'var(--color-primary)', color: 'white', padding: '0.8rem 1rem', margin: '-1rem -1rem 0.8rem -1rem', borderRadius: '8px 8px 0 0' }}>
                             <h3 style={{ margin: 0, color: 'white' }}>
-                                {/* Req 3c/3d: UI label uses renamed display name; domain value stays in selectedItem.tipo */}
-                                Registrar Pago ({selectedItem.tipo === 'FIADO' ? 'Cheque' : 'Seña'})
+                                Registrar Pago ({(selectedItem.tipo === 'FIADO' || selectedItem.tipo === 'CHEQUE') ? 'Deuda' : 'Seña'})
                             </h3>
                         </div>
-                        <p>Cliente: <strong>{selectedItem.cliente_nombre}</strong></p>
-                        {/* Req 3c/3d: Display label uses renamed term; routing logic uses original domain value */}
-                        <p>Total {selectedItem.tipo === 'FIADO' ? 'Cheque' : 'Seña'}: <strong>${selectedItem.saldo_restante.toFixed(2)}</strong></p>
-                        <p>Restante a Pagar: <strong style={{ color: remainingDebt === 0 ? 'green' : 'red' }}>${remainingDebt.toFixed(2)}</strong></p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem', padding: '0.5rem', backgroundColor: '#f9fafb', borderRadius: '4px' }}>
+                            <div style={{ margin: 0, lineHeight: 1.2 }}>Cliente: <strong>{selectedItem.cliente_nombre}</strong></div>
+                            <div style={{ margin: 0, lineHeight: 1.2 }}>Deuda Inicial: <strong>${selectedItem.saldo_restante.toFixed(2)}</strong></div>
+                            <div style={{ margin: 0, lineHeight: 1.2 }}>A Pagar: <strong style={{ color: remainingDebt === 0 ? 'green' : 'red' }}>${remainingDebt.toFixed(2)}</strong></div>
+                        </div>
 
                         <div className="payment-form" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                             <select
@@ -632,6 +749,24 @@ export default function CobrosYPedidosPage() {
                             </div>
                         )}
 
+                        {historicalPayments.length > 0 && (
+                            <div style={{ marginBottom: '15px', border: '1px solid #eee', padding: '10px', borderRadius: '4px', backgroundColor: '#fafafa' }}>
+                                <h5 style={{ marginTop: 0, marginBottom: '8px', color: '#555' }}>Historial de Pagos:</h5>
+                                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                    {historicalPayments.map((p, idx) => (
+                                        <li key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd', padding: '6px 4px', fontSize: '0.9rem' }}>
+                                            <span>
+                                                <strong>{formatDate(p.fecha_pago || p.fechaPago)}</strong> - {p.metodo_pago_nombre || p.metodoPagoNombre} - ${p.monto.toFixed(2)}
+                                            </span>
+                                            <button onClick={() => cancelHistoricalPayment(p.id)} style={{ background: 'none', color: '#dc3545', cursor: 'pointer', fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px', border: '1px solid #dc3545' }} disabled={isSubmitting}>
+                                                Anular
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
                         <div className="modal-actions">
                             <button className="secondary" onClick={() => setShowPayModal(false)} disabled={isSubmitting}>Cancelar</button>
                             <button className="primary" onClick={handleRegisterPayment} disabled={payments.length === 0 || isSubmitting}>
@@ -671,6 +806,15 @@ export default function CobrosYPedidosPage() {
                     setItemToFinalize(null);
                 }}
                 isSubmitting={isSubmitting}
+            />
+
+            {/* Blueprint §4&5: Custom cobrar modal for cheque installments */}
+            <CobrarChequesModal
+                isOpen={showCobrarChequesModal}
+                onClose={() => { setShowCobrarChequesModal(false); setCobrarChequesItem(null); }}
+                onSuccess={fetchItems}
+                ventaItem={cobrarChequesItem}
+                paymentMethods={paymentMethods}
             />
         </div>
     );

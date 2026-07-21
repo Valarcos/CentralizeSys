@@ -150,16 +150,16 @@ export default function ReportesPage() {
                                 <div className="sub-value">Incluye ventas cobradas y fiadas</div>
                             </div>
 
-                            <div className="stat-card card-cogs">
-                                <h3>Costo de Mercadería</h3>
-                                <div className="value">{formatCurrency(rc.costoTotalVendido)}</div>
-                                <div className="sub-value">Precio de costo al momento de venta</div>
-                            </div>
-
                             <div className="stat-card card-debt">
                                 <h3>Deudas Pendientes</h3>
                                 <div className="value">{formatCurrency(rc.deudasPendientes)}</div>
                                 <div className="sub-value">Total histórico de fiados activos</div>
+                            </div>
+
+                            <div className="stat-card card-cogs">
+                                <h3>Costo de Mercadería</h3>
+                                <div className="value">{formatCurrency(rc.costoTotalVendido)}</div>
+                                <div className="sub-value">Precio de costo al momento de venta</div>
                             </div>
 
                             <div className="stat-card card-profit">

@@ -20,6 +20,7 @@ public class DeudoresRepository {
     private final NamedParameterJdbcTemplate namedJdbcTemplate;
     private static final String MONTO = "monto";
     private static final String OBSERVACIONES = "observaciones";
+    private static final String DEUDA_ID = "deudaId";
 
     public DeudoresRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -141,7 +142,7 @@ public class DeudoresRepository {
                 """;
 
         return namedJdbcTemplate.query(sql,
-                new MapSqlParameterSource("deudaId", deudaId),
+                new MapSqlParameterSource(DEUDA_ID, deudaId),
                 (rs, rowNum) -> new PagoDeuda(
                         rs.getLong("id"),
                         rs.getLong("deuda_id"),
@@ -192,7 +193,7 @@ public class DeudoresRepository {
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("deudaId", deudaId)
+                .addValue(DEUDA_ID, deudaId)
                 .addValue("metodoPagoId", metodoPagoId)
                 .addValue(MONTO, monto)
                 // fecha_pago handled by sql

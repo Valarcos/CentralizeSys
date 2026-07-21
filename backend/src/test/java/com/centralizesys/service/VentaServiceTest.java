@@ -45,6 +45,10 @@ class VentaServiceTest {
     private DeudoresRepository deudoresRepository;
     @Mock
     private AuditoriaService auditoriaService;
+    @Mock
+    private com.centralizesys.repository.AlertaChequeRepository alertaChequeRepository;
+    @Mock
+    private com.centralizesys.repository.MetodoPagoRepository metodoPagoRepository;
 
     @InjectMocks
     private VentaService ventaService;
@@ -742,5 +746,57 @@ class VentaServiceTest {
         // Should call subtractStock twice for product 1
         verify(stockRepository).subtractStock(100L, 1L, 2L);
         verify(stockRepository).subtractStock(100L, 1L, 3L);
+    }
+
+    // --- GROUP 4: CHEQUES ---
+
+    @Test
+    @DisplayName("UT-20: cobrarCheque sets pagoVentaId and registers audit")
+    void cobrarCheque_Success() {
+        // Given
+        Long chequeId = 1L;
+        Long metodoPagoId = 1L;
+        Long authenticatedUserId = 2L;
+
+        com.centralizesys.model.cheque.AlertaCheque cheque = new com.centralizesys.model.cheque.AlertaCheque(
+                chequeId, 100L, 500.0, java.time.LocalDate.now(), "PENDIENTE", null
+        );
+
+        com.centralizesys.model.sales.MetodoPago metodo = new com.centralizesys.model.sales.MetodoPago();
+        metodo.setId(metodoPagoId);
+        metodo.setActivo(true);
+
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+        when(metodoPagoRepository.findById(metodoPagoId)).thenReturn(Optional.of(metodo));
+        when(ventaRepository.savePagoUnicoReturningId(100L, metodoPagoId, 500.0, authenticatedUserId)).thenReturn(999L);
+
+        // When
+        ventaService.cobrarCheque(chequeId, metodoPagoId, authenticatedUserId);
+
+        // Then
+        verify(alertaChequeRepository).updateEstadoAndPagoVentaId(chequeId, "COBRADO", 999L);
+        verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("COBRO_CHEQUE"), anyString());
+    }
+
+    @Test
+    @DisplayName("UT-21: cancelarCobroCheque restores PENDIENTE and nulls pago_venta_id")
+    void cancelarCobroCheque_Success() {
+        // Given
+        Long chequeId = 1L;
+        Long authenticatedUserId = 2L;
+
+        com.centralizesys.model.cheque.AlertaCheque cheque = new com.centralizesys.model.cheque.AlertaCheque(
+                chequeId, 100L, 500.0, java.time.LocalDate.now(), "COBRADO", 999L
+        );
+
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+
+        // When
+        ventaService.cancelarCobroCheque(chequeId, authenticatedUserId);
+
+        // Then
+        verify(ventaRepository).anularPagoVentaById(999L);
+        verify(alertaChequeRepository).updateEstadoAndPagoVentaId(chequeId, "PENDIENTE", null);
+        verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("CANCELACION_COBRO_CHEQUE"), anyString());
     }
 }

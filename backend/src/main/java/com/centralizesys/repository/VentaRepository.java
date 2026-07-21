@@ -32,6 +32,7 @@ public class VentaRepository {
     private static final String PARAM_START_DATE = "startDate";
     private static final String PARAM_END_DATE = "endDate";
     private static final String FIELD_ANULADO = "anulado";
+    private static final String MONTO = "monto";
 
     public VentaRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -51,7 +52,7 @@ public class VentaRepository {
                 rs.getDouble("descuento_global"),
                 rs.getString("tipo_venta"),
                 usuarioId,
-                rs.getString("estado"),
+                rs.getString(PARAM_ESTADO),
                 getNullableDouble(rs, "costo_total"),
                 getNullableLong(rs, "cantidad_productos")
         );
@@ -120,7 +121,7 @@ public class VentaRepository {
                 rs.getLong("id"),
                 rs.getLong(VENTA_ID_COLUMN),
                 rs.getLong("metodo_pago_id"),
-                rs.getDouble("monto"),
+                rs.getDouble(MONTO),
                 rs.getObject("fecha_pago", LocalDateTime.class),
                 anulado,
                 usuarioIdVal);
@@ -199,8 +200,33 @@ public class VentaRepository {
         namedJdbcTemplate.update(sql, new MapSqlParameterSource()
                 .addValue(VENTA_ID_PARAM, ventaId)
                 .addValue("metodoPagoId", metodoPagoId)
-                .addValue("monto", monto)
+                .addValue(MONTO, monto)
                 .addValue("usuarioId", usuarioId));
+    }
+
+    public Long savePagoUnicoReturningId(Long ventaId, Long metodoPagoId, Double monto, Long usuarioId) {
+        String sql = """
+                INSERT INTO pagos_venta (venta_id, metodo_pago_id, monto, fecha_pago, anulado, usuario_id)
+                VALUES (:ventaId, :metodoPagoId, :monto, CURRENT_TIMESTAMP, false, :usuarioId)
+                """;
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue(VENTA_ID_PARAM, ventaId)
+                .addValue("metodoPagoId", metodoPagoId)
+                .addValue(MONTO, monto)
+                .addValue("usuarioId", usuarioId);
+
+        namedJdbcTemplate.update(sql, params, keyHolder, new String[]{"id"});
+
+        if (keyHolder.getKey() != null) {
+            return keyHolder.getKey().longValue();
+        }
+        return null;
+    }
+
+    public void anularPagoVentaById(Long pagoVentaId) {
+        String sql = "UPDATE pagos_venta SET anulado = true WHERE id = :pagoVentaId";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource("pagoVentaId", pagoVentaId));
     }
 
     // --- READ OPERATIONS ---

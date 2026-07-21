@@ -138,6 +138,11 @@ public abstract class BaseIntegrationTest {
         // Caja Cycle
         jdbcTemplate.execute("DELETE FROM gastos_caja");
 
+        // Cheques Cycle
+        jdbcTemplate.execute("ALTER TABLE alertas_cheques DROP CONSTRAINT IF EXISTS alertas_cheques_estado_check");
+        jdbcTemplate.execute("ALTER TABLE alertas_cheques ADD CONSTRAINT alertas_cheques_estado_check CHECK(estado IN ('PENDIENTE', 'COBRADO', 'ANULADA'))");
+        jdbcTemplate.execute("DELETE FROM alertas_cheques");
+
         // Inventory
         jdbcTemplate.execute("DELETE FROM stock_por_ubicacion");
 

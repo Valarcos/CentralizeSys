@@ -19,11 +19,17 @@ public class MetodoPagoRepository {
     private final RowMapper<MetodoPago> rowMapper = (rs, rowNum) -> new MetodoPago(
             rs.getLong("id"),
             rs.getString("acronimo"),
-            rs.getString("descripcion")
+            rs.getString("descripcion"),
+            rs.getBoolean("activo")
     );
 
     // Used to populate the "Payment Method" dropdown in the frontend.
     public List<MetodoPago> findAll() {
-        return jdbcTemplate.query("SELECT * FROM metodos_pago ORDER BY id", rowMapper);
+        return jdbcTemplate.query("SELECT * FROM metodos_pago WHERE activo = true ORDER BY id", rowMapper);
+    }
+
+    public java.util.Optional<MetodoPago> findById(Long id) {
+        List<MetodoPago> results = jdbcTemplate.query("SELECT * FROM metodos_pago WHERE id = ?", rowMapper, id);
+        return results.isEmpty() ? java.util.Optional.empty() : java.util.Optional.of(results.getFirst());
     }
 }

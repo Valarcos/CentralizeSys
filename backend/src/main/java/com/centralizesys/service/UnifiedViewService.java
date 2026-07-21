@@ -29,10 +29,34 @@ public class UnifiedViewService {
                 d.monto_deuda as saldo_restante,
                 d.estado,
                 v.tipo_venta,
-                (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as cantidad_productos
+                (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as cantidad_productos,
+                NULL as fecha_cobro
             FROM deudores d
             JOIN ventas v ON d.venta_id = v.id
             WHERE d.estado IN ('PENDIENTE', 'PARCIAL')
+            
+            UNION ALL
+            
+            SELECT
+                -- NOTE: CHEQUE is used as the discriminator so the frontend can correctly route
+                -- the "Cobrar" action to POST /alertas/cheques/{id}/cobrar instead of /deudores/.
+                'CHEQUE' as tipo,
+                v.id as id_referencia,
+                v.id as venta_id,
+                v.cliente_nombre,
+                v.fecha as fecha_creacion,
+                v.total_venta as monto_total,
+                (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as costo_total,
+                (SELECT COALESCE(SUM(monto), 0) FROM alertas_cheques WHERE venta_id = v.id AND estado = 'COBRADO') as monto_pagado,
+                (SELECT COALESCE(SUM(monto), 0) FROM alertas_cheques WHERE venta_id = v.id AND estado = 'PENDIENTE') as saldo_restante,
+                'PENDIENTE' as estado,
+                v.tipo_venta,
+                (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = v.id) as cantidad_productos,
+                (SELECT MIN(fecha_cobro) FROM alertas_cheques WHERE venta_id = v.id AND estado = 'PENDIENTE') as fecha_cobro
+            FROM alertas_cheques ac
+            JOIN ventas v ON ac.venta_id = v.id
+            WHERE ac.estado = 'PENDIENTE'
+            GROUP BY v.id, v.cliente_nombre, v.fecha, v.total_venta, v.tipo_venta
         
             UNION ALL
         
@@ -48,7 +72,8 @@ public class UnifiedViewService {
                 p.total_venta - COALESCE((SELECT SUM(monto) FROM pagos_venta WHERE venta_id = p.id AND (anulado = false OR anulado IS NULL)), 0) as saldo_restante,
                 p.estado,
                 p.tipo_venta,
-                (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = p.id AND (anulado = false OR anulado IS NULL)) as cantidad_productos
+                (SELECT COALESCE(SUM(cantidad), 0) FROM detalles_venta WHERE venta_id = p.id AND (anulado = false OR anulado IS NULL)) as cantidad_productos,
+                NULL as fecha_cobro
             FROM ventas p
             WHERE p.estado = 'PENDIENTE'
         

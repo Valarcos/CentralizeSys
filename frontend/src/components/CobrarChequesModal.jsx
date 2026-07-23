@@ -179,9 +179,14 @@ export default function CobrarChequesModal({ isOpen, onClose, onSuccess, ventaIt
                                                 aria-label={`Método de pago para cuota del ${formatDate(cheque.fechaCobro)}`}
                                             >
                                                 <option value="">Método de pago...</option>
-                                                {paymentMethods.map(m => (
-                                                    <option key={m.id} value={m.id}>{m.descripcion}</option>
-                                                ))}
+                                                {paymentMethods
+                                                    .filter(m => {
+                                                        const desc = (m.descripcion || '').toLowerCase();
+                                                        return !desc.includes('cheque') && !desc.includes('e-check');
+                                                    })
+                                                    .map(m => (
+                                                        <option key={m.id} value={m.id}>{m.descripcion}</option>
+                                                    ))}
                                             </select>
                                             <button
                                                 className="ccm-cobrar-btn"
@@ -195,7 +200,10 @@ export default function CobrarChequesModal({ isOpen, onClose, onSuccess, ventaIt
                                     )}
 
                                     {!isPending && cheque.estado === 'COBRADO' && (
-                                        <div className="ccm-installment-action">
+                                        <div className="ccm-installment-action" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                                            <span style={{ fontSize: '0.85rem', color: '#0f766e', backgroundColor: '#ccfbf1', padding: '4px 8px', borderRadius: '4px' }}>
+                                                Método: {cheque.metodoPagoNombre || 'Desconocido'}
+                                            </span>
                                             <button
                                                 className="ccm-cobrar-btn"
                                                 onClick={() => handleCancelarCobro(cheque)}

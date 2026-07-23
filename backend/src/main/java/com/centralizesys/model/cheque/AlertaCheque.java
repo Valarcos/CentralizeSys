@@ -14,4 +14,7 @@ public class AlertaCheque {
     private LocalDate fechaCobro;
     private String estado;
     private Long pagoVentaId;
+
+    // Transient field for UI display
+    private String metodoPagoNombre;
 }

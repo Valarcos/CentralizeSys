@@ -44,3 +44,18 @@ export const formatDate = (dateString) => {
 
     return `${hours}:${minutes}:${seconds} - ${day}/${month}/${year}`;
 };
+
+/**
+ * Formats a date string (YYYY-MM-DD) to a readable format (DD/MM/YYYY) without time.
+ * @param {string} dateString
+ * @returns {string} Formatted date without time
+ */
+export const formatDateOnly = (dateString) => {
+    if (!dateString) return '';
+    const dateStr = dateString.split('T')[0];
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateString;
+};

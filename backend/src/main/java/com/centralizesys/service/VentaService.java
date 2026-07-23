@@ -132,6 +132,13 @@ public class VentaService {
         processedData.setTotalVenta(finalTotal);
         processedData.setDescuentoGlobal(descuentoGlobal);
 
+        double pagosTotal = request.getPagos() != null ? request.getPagos().stream().mapToDouble(VentaRequest.PagoRequest::getMonto).sum() : 0.0;
+        double chequesTotal = request.getCheques() != null ? request.getCheques().stream().mapToDouble(com.centralizesys.model.cheque.AlertaChequeRequest::getMonto).sum() : 0.0;
+        double totalAbonadoRounded = Math.round((pagosTotal + chequesTotal) * 100.0) / 100.0;
+        if (totalAbonadoRounded > finalTotal + 0.01) {
+            throw new BusinessRuleException(String.format("La suma de los pagos y cheques ($%.2f) no puede superar el total de la venta ($%.2f).", totalAbonadoRounded, finalTotal));
+        }
+
         PersistedTransactionInfo txInfo = saveTransactionData(request, processedData);
         List<String> stockAlerts = updateStockFromDetails(processedData.getDetalles());
         handleDebt(txInfo.getVentaId(), request.getClienteNombre(), processedData.getTotalVenta(), txInfo.getPagosPersistidos());
@@ -194,7 +201,7 @@ public class VentaService {
 
         // Save Cheques (Alertas)
         for (AlertaChequeRequest chequeReq : request.getCheques()) {
-            AlertaCheque cheque = new AlertaCheque(null, txInfo.getVentaId(), chequeReq.getMonto(), chequeReq.getFechaCobro(), PENDIENTE, null);
+            AlertaCheque cheque = new AlertaCheque(null, txInfo.getVentaId(), chequeReq.getMonto(), chequeReq.getFechaCobro(), PENDIENTE, null, null);
             alertaChequeRepository.save(cheque);
         }
 
@@ -261,6 +268,28 @@ public class VentaService {
                 "Anulado cobro de Cheque ID " + chequeId + " por $" + cheque.getMonto());
     }
 
+    // TODO: Add backend tests for this logical deletion logic (anularCheque)
+    @Transactional
+    public void anularCheque(Long chequeId, Long authenticatedUserId) {
+        AlertaCheque cheque = alertaChequeRepository.findById(chequeId)
+                .orElseThrow(() -> new ResourceNotFoundException("AlertaCheque", chequeId));
+
+        if ("ANULADA".equals(cheque.getEstado())) {
+            throw new BusinessRuleException("El cheque ya se encuentra anulado.");
+        }
+
+        // Si el cheque ya fue cobrado, deshacemos el pago antes de anularlo completamente
+        if ("COBRADO".equals(cheque.getEstado())) {
+            cancelarCobroCheque(chequeId, authenticatedUserId);
+        }
+
+        // Logical deletion: marcar como ANULADA
+        alertaChequeRepository.updateEstadoAndPagoVentaId(chequeId, "ANULADA", null);
+
+        auditoriaService.registrarAccion(authenticatedUserId, "ANULAR_CHEQUE",
+                "Cheque ID " + chequeId + " anulado de la venta (eliminación lógica).");
+    }
+
     @Transactional
     public Long crearPendiente(VentaRequest request, Long authenticatedUserId) {
         validateRequest(request);
@@ -291,6 +320,19 @@ public class VentaService {
         });
         ventaRepository.saveDetalles(detalles);
         updateStockFromDetails(detalles);
+
+        if (request.getPagos() != null) {
+            for (VentaRequest.PagoRequest pvr : request.getPagos()) {
+                ventaRepository.savePagoUnico(pendingId, pvr.getMetodoPagoId(), pvr.getMonto(), authenticatedUserId);
+            }
+        }
+        if (request.getCheques() != null) {
+            for (AlertaChequeRequest chequeReq : request.getCheques()) {
+                AlertaCheque cheque = new AlertaCheque(null, pendingId, chequeReq.getMonto(), chequeReq.getFechaCobro(), PENDIENTE, null, null);
+                alertaChequeRepository.save(cheque);
+            }
+        }
+
         auditoriaService.registrarAccion(authenticatedUserId, "CREAR_PENDIENTE", "Pedido creado con ID: " + pendingId);
 
         return pendingId;
@@ -306,7 +348,8 @@ public class VentaService {
         if (!PENDIENTE.equals(pendingSale.getEstado())) throw new BusinessRuleException("Solo se pueden registrar pagos en pedidos con estado PENDIENTE.");
 
         Double totalPagadoPrevio = ventaRepository.sumPagosActivosByVentaId(id);
-        double saldoRestante = Math.round((pendingSale.getTotalVenta() - totalPagadoPrevio) * 100.0) / 100.0;
+        Double chequesPendientes = alertaChequeRepository.sumMontoPendienteByVentaId(id);
+        double saldoRestante = Math.round((pendingSale.getTotalVenta() - totalPagadoPrevio - chequesPendientes) * 100.0) / 100.0;
         double totalNuevoPagoRounded = Math.round(totalNuevoPago * 100.0) / 100.0;
 
         if (totalNuevoPagoRounded > saldoRestante + PAYMENT_COMPLETE_EPSILON) {
@@ -315,10 +358,16 @@ public class VentaService {
 
         for (PagoDeudaRequest pago : pagos) {
             if (pago.getMontoPago() != null && pago.getMontoPago() > 0) {
-                ventaRepository.savePagoUnico(id, pago.getMetodoPagoId(), pago.getMontoPago(), usuarioId);
+                if (pago.getFechaCobro() != null) {
+                    // Es un cheque pendiente, no un pago real de contado
+                    AlertaCheque cheque = new AlertaCheque(null, id, pago.getMontoPago(), pago.getFechaCobro(), "PENDIENTE", null, null);
+                    alertaChequeRepository.save(cheque);
+                } else {
+                    ventaRepository.savePagoUnico(id, pago.getMetodoPagoId(), pago.getMontoPago(), usuarioId);
+                }
             }
         }
-        auditoriaService.registrarAccion(usuarioId, "PAGO_PENDIENTE", String.format("Registrado pago de $%.2f en Pedido ID %d.", totalNuevoPago, id));
+        auditoriaService.registrarAccion(usuarioId, "PAGO_PENDIENTE", String.format("Registrado pago/cheque de $%.2f en Pedido ID %d.", totalNuevoPago, id));
     }
 
     @Transactional
@@ -336,7 +385,9 @@ public class VentaService {
         Double finalTotal = Math.round((subtotal - descuentoGlobal) * 100.0) / 100.0;
 
         Double totalPagado = ventaRepository.sumPagosActivosByVentaId(id);
-        if (finalTotal < totalPagado) throw new BusinessRuleException(String.format("El nuevo total ($%.2f) no puede ser menor al monto ya pagado ($%.2f).", finalTotal, totalPagado));
+        Double chequesPendientes = alertaChequeRepository.sumMontoPendienteByVentaId(id);
+        double totalAbonado = Math.round((totalPagado + chequesPendientes) * 100.0) / 100.0;
+        if (finalTotal < totalAbonado) throw new BusinessRuleException(String.format("El nuevo total ($%.2f) no puede ser menor al monto ya abonado ($%.2f).", finalTotal, totalAbonado));
 
         // Return old stock
         List<DetalleVenta> oldDetails = ventaRepository.findDetallesByVentaId(id);
@@ -410,11 +461,15 @@ public class VentaService {
         if (!PENDIENTE.equals(pendingSale.getEstado())) throw new BusinessRuleException("Solo se pueden finalizar pedidos en estado PENDIENTE.");
 
         List<PagoVenta> pagosActivos = ventaRepository.findPagosActivosByVentaId(id);
-        double totalPagado = pagosActivos.stream().mapToDouble(PagoVenta::getMonto).sum();
-        totalPagado = Math.round(totalPagado * 100.0) / 100.0;
+        double totalPagosEfectivos = pagosActivos.stream().mapToDouble(PagoVenta::getMonto).sum();
+        Double chequesPendientes = alertaChequeRepository.sumMontoPendienteByVentaId(id);
+        double totalPagado = Math.round((totalPagosEfectivos + chequesPendientes) * 100.0) / 100.0;
 
         if (totalPagado <= PAYMENT_COMPLETE_EPSILON) {
             throw new BusinessRuleException("El pedido debe tener al menos una seña para ser finalizado.");
+        }
+        if (totalPagado > pendingSale.getTotalVenta() + PAYMENT_COMPLETE_EPSILON) {
+            throw new BusinessRuleException("El monto total abonado supera el total de la venta.");
         }
 
         LocalDateTime nuevaFecha = LocalDateTime.now(ZoneId.of("America/Argentina/Buenos_Aires"));

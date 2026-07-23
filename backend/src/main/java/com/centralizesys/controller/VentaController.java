@@ -42,13 +42,6 @@ public class VentaController {
         return ResponseEntity.status(HttpStatus.CREATED).body(id);
     }
 
-    @PostMapping("/cheques")
-    public ResponseEntity<VentaResponse> registrarVentaConCheques(@RequestBody VentaRequest request) {
-        request.setUsuarioId(SecurityUtils.getAuthenticatedUserId());
-        VentaResponse response = ventaService.registrarVentaConCheques(request);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
-    }
-
     @PostMapping("/{id}/pagos")
     public ResponseEntity<Void> registrarPago(
             @PathVariable Long id,

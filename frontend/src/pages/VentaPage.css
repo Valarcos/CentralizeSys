@@ -487,6 +487,40 @@
     background-color: #0052a3;
 }
 
+/* --- CHEQUE INLINE DATE INPUT --- */
+/* Renders between the amount field and the [+] button when a cheque method is selected */
+.cheque-date-input {
+    height: 42px;
+    padding: 0 0.5rem;
+    margin: 0;
+    border: 2px solid var(--primary-color);
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 0.9rem;
+    flex: 1.2;
+    min-width: 130px;
+    transition: border-color 0.2s;
+    color: var(--text-color);
+    background-color: #ffffff;
+}
+
+.cheque-date-input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+/* Halt-validation error state: red border pulsing to draw attention */
+.cheque-date-error {
+    border-color: var(--color-error, #dc3545) !important;
+    animation: pulse-red-border 0.8s ease-in-out 2;
+}
+
+@keyframes pulse-red-border {
+    0%, 100% { border-color: var(--color-error, #dc3545); }
+    50% { border-color: #ff8a8a; }
+}
+
+
 /* --- TOTALS AREA — Horizontal: Discount Left, Numbers Right --- */
 .totals-area {
     display: flex;

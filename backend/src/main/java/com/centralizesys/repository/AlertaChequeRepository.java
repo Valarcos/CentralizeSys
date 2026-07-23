@@ -22,14 +22,23 @@ public class AlertaChequeRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    private final RowMapper<AlertaCheque> rowMapper = (rs, rowNum) -> new AlertaCheque(
-            rs.getLong("id"),
-            rs.getLong("venta_id"),
-            rs.getDouble("monto"),
-            rs.getDate("fecha_cobro").toLocalDate(),
-            rs.getString("estado"),
-            rs.getObject("pago_venta_id") != null ? rs.getLong("pago_venta_id") : null
-    );
+    private final RowMapper<AlertaCheque> rowMapper = (rs, rowNum) -> {
+        AlertaCheque ac = new AlertaCheque(
+                rs.getLong("id"),
+                rs.getLong("venta_id"),
+                rs.getDouble("monto"),
+                rs.getDate("fecha_cobro").toLocalDate(),
+                rs.getString("estado"),
+                rs.getObject("pago_venta_id") != null ? rs.getLong("pago_venta_id") : null,
+                null // default to null for simple queries
+        );
+        try {
+            ac.setMetodoPagoNombre(rs.getString("metodo_pago_nombre"));
+        } catch (java.sql.SQLException e) {
+            // Field not present in simple queries, ignore
+        }
+        return ac;
+    };
 
     public Long save(AlertaCheque alerta) {
         String sql = "INSERT INTO alertas_cheques (venta_id, monto, fecha_cobro, estado, pago_venta_id) VALUES (?, ?, ?, ?, ?)";
@@ -56,7 +65,14 @@ public class AlertaChequeRepository {
     }
 
     public List<AlertaCheque> findByVentaId(Long ventaId) {
-        String sql = "SELECT * FROM alertas_cheques WHERE venta_id = ? ORDER BY fecha_cobro ASC";
+        String sql = """
+            SELECT ac.*, mp.descripcion as metodo_pago_nombre
+            FROM alertas_cheques ac
+            LEFT JOIN pagos_venta pv ON ac.pago_venta_id = pv.id
+            LEFT JOIN metodos_pago mp ON pv.metodo_pago_id = mp.id
+            WHERE ac.venta_id = ? 
+            ORDER BY ac.fecha_cobro ASC
+        """;
         return jdbcTemplate.query(sql, rowMapper, ventaId);
     }
 
@@ -79,5 +95,15 @@ public class AlertaChequeRepository {
     public void updateEstadoAndPagoVentaId(Long id, String nuevoEstado, Long pagoVentaId) {
         String sql = "UPDATE alertas_cheques SET estado = ?, pago_venta_id = ? WHERE id = ?";
         jdbcTemplate.update(sql, nuevoEstado, pagoVentaId, id);
+    }
+
+    /**
+     * Returns the sum of all cheque amounts for a given sale that are strictly PENDIENTE.
+     * Used to calculate total paid accurately since COBRADO cheques are already represented in pagos_venta.
+     */
+    public double sumMontoPendienteByVentaId(Long ventaId) {
+        String sql = "SELECT COALESCE(SUM(monto), 0) FROM alertas_cheques WHERE venta_id = ? AND estado = 'PENDIENTE'";
+        Double result = jdbcTemplate.queryForObject(sql, Double.class, ventaId);
+        return result != null ? result : 0.0;
     }
 }

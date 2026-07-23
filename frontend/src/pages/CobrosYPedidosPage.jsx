@@ -384,7 +384,10 @@ export default function CobrosYPedidosPage() {
 
     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
     const remainingDebt = selectedItem ? Math.max(0, selectedItem.saldo_restante - totalPaid) : 0;
-    const availableMethods = paymentMethods.filter(m => !payments.some(p => p.methodId === m.id));
+    const availableMethods = paymentMethods.filter(m => {
+        const isCheque = (m.descripcion || '').toLowerCase().includes('cheque') || (m.descripcion || '').toLowerCase().includes('e-check') || (m.descripcion || '').toLowerCase().includes('echeck');
+        return isCheque || !payments.some(p => p.methodId === m.id);
+    });
 
     const handleViewDetails = async (item) => {
         setIsLoadingSale(true);
@@ -1147,7 +1150,10 @@ export default function CobrosYPedidosPage() {
                     {/* Nested CheckoutChequeModal triggered by handleAddPayment */}
                     <CheckoutChequeModal
                         isOpen={showChequeModal}
-                        onClose={() => setShowChequeModal(false)}
+                        onClose={() => {
+                            setShowChequeModal(false);
+                            setSelectedMethodId('');
+                        }}
                         onConfirm={handleChequesConfirm}
                         totalAmount={pendingChequeAmount}
                         clientName={selectedItem.cliente_nombre}

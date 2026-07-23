@@ -97,8 +97,17 @@
 
 .payment-modal-input-full {
     width: 100%;
-    padding: 6px; /* Tighter input padding */
-    margin-bottom: 0; /* Override global index.css margin */
+    padding: 4px 6px !important; /* Tighter input padding, override global spacing */
+    margin-bottom: 0 !important; /* Override global index.css margin */
+    font-size: 0.95em;
+    height: auto;
+}
+
+/* Reduce the row height for elements inside the dropdown list */
+.payment-modal-input-full option {
+    padding: 2px 6px;
+    font-size: 0.95em;
+    min-height: 1.2em;
 }
 
 .payment-modal-btn-add {

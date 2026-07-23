@@ -1065,4 +1065,22 @@ class VentaServiceTest {
 
         verify(ventaRepository, never()).savePagoUnico(anyLong(), anyLong(), anyDouble(), anyLong());
     }
+
+    @Test
+    @DisplayName("E2-UT-06: anularCheque logically deletes the cheque by updating its status to ANULADA")
+    void anularCheque_LogicallyDeletesCheque() {
+        // Arrange
+        Long chequeId = 10L;
+        Long userId = 5L;
+        com.centralizesys.model.cheque.AlertaCheque cheque = new com.centralizesys.model.cheque.AlertaCheque(chequeId, 1L, 150.0, LocalDate.now(), "PENDIENTE", null, null);
+
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+
+        // Act
+        ventaService.anularCheque(chequeId, userId);
+
+        // Assert
+        verify(alertaChequeRepository).updateEstadoAndPagoVentaId(chequeId, "ANULADA", null);
+        verify(auditoriaService).registrarAccion(eq(userId), eq("ANULAR_CHEQUE"), contains("eliminación lógica"));
+    }
 }

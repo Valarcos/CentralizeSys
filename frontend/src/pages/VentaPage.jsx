@@ -708,7 +708,10 @@ export default function VentaPage() {
     const remaining = totals.total - totalPaid;
 
     // Smart Dropdown: Filter out methods that are already used in the current payment stack
-    const availableMethods = paymentMethods.filter(m => !payments.some(p => p.methodId === m.id));
+    const availableMethods = paymentMethods.filter(m => {
+        const isCheque = (m.descripcion || '').toLowerCase().includes('cheque') || (m.descripcion || '').toLowerCase().includes('e-check') || (m.descripcion || '').toLowerCase().includes('echeck');
+        return isCheque || !payments.some(p => p.methodId === m.id);
+    });
 
 
     // Auto-fill amount logic: When selecting a method, autofill with remaining

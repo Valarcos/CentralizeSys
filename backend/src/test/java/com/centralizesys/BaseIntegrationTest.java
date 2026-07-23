@@ -129,6 +129,7 @@ public abstract class BaseIntegrationTest {
         jdbcTemplate.execute("DELETE FROM deudores");
         jdbcTemplate.execute("DELETE FROM pagos_venta");
         jdbcTemplate.execute("DELETE FROM detalles_venta");
+        jdbcTemplate.execute("DELETE FROM alertas_cheques"); // Must delete before ventas due to FK
         jdbcTemplate.execute("DELETE FROM ventas");
 
         // Purchase Cycle (Missing in your previous code)
@@ -141,7 +142,6 @@ public abstract class BaseIntegrationTest {
         // Cheques Cycle
         jdbcTemplate.execute("ALTER TABLE alertas_cheques DROP CONSTRAINT IF EXISTS alertas_cheques_estado_check");
         jdbcTemplate.execute("ALTER TABLE alertas_cheques ADD CONSTRAINT alertas_cheques_estado_check CHECK(estado IN ('PENDIENTE', 'COBRADO', 'ANULADA'))");
-        jdbcTemplate.execute("DELETE FROM alertas_cheques");
 
         // Inventory
         jdbcTemplate.execute("DELETE FROM stock_por_ubicacion");

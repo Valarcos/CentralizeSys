@@ -5,9 +5,9 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import StockWarningModal from '../components/StockWarningModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import CheckoutChequeModal from '../components/CheckoutChequeModal';
 import { generateReceipt } from '../utils/pdfGenerator';
 import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste, enforceMoneyFormat } from '../utils/numericInput';
-import CheckoutChequeModal from '../components/CheckoutChequeModal';
 import './VentaPage.css';
 
 /**
@@ -152,8 +152,9 @@ export default function VentaPage() {
     const [showOverpaidModal, setShowOverpaidModal] = useState(false);
     const [overpaidMaxAllowed, setOverpaidMaxAllowed] = useState(0);
 
-    // Cheque Flow State
+    // Cheque Modal State
     const [showChequeModal, setShowChequeModal] = useState(false);
+    const [pendingChequeAmount, setPendingChequeAmount] = useState(0);
 
     // Req 4: Ref for payment amount input — enables auto-focus + select when a method is chosen.
     const paymentAmountRef = useRef(null);
@@ -290,14 +291,6 @@ export default function VentaPage() {
             return;
         }
 
-        // 1. Stock Validation is now entirely handled by handlePrePaymentCheck
-        // If we reach here, either stock is sufficient or the user chose to bypass it.
-
-        // 2. Debt Validation (This logic needs to be adapted to the current `payments` and `saleType` state)
-        // The original `handleFinalizeSale` already handles `saleType` and `clientName` for 'FIADO'.
-        // The provided snippet's debt validation seems to be for a different state structure (`paymentMethod`, `amountPaid`).
-        // I will keep the existing `setShowDebtModal` logic from `handlePrePaymentCheck` and assume it leads here.
-        // If `saleType` is 'FIADO' and `clientName` is empty, it should be caught earlier or here.
         if (saleType === 'FIADO' && !clientName.trim()) {
             toast.error("Para FIADO, debe ingresar el Nombre del Cliente");
             return;
@@ -306,32 +299,32 @@ export default function VentaPage() {
         const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
         const remaining = totals.total - totalPaid;
 
-        // 3. Payment Validation (If not FIADO, payment must cover total)
-        // This part also needs adaptation. The current system uses `payments` array.
-        // The `handlePrePaymentCheck` already handles the `remaining > 0.01` case by showing `setShowDebtModal`.
-        // If we reach here, either `remaining` is 0 or the user confirmed debt via the modal.
-        // The provided snippet's logic for `paid < total` and `confirmDebt` is for a single payment amount.
-        // I will keep the existing flow where `setShowDebtModal` handles this.
-        // If `saleType` is not 'FIADO' and there's a remaining balance, it should have been caught by `handlePrePaymentCheck`.
-
-        setShowStockModal(false); // Close modal if open
-        setShowDebtModal(false);  // Close debt modal if open
+        setShowStockModal(false);
+        setShowDebtModal(false);
 
         try {
             setIsSubmitting(true);
+
+            // Split payments into standard pagos and cheques for the unified backend endpoint.
+            const pagosPayload = payments
+                .filter(p => !p.fechaCobro)
+                .map(p => ({ metodoPagoId: p.methodId, monto: p.amount }));
+
+            const chequesPayload = payments
+                .filter(p => !!p.fechaCobro)
+                .map(p => ({ monto: p.amount, fechaCobro: p.fechaCobro }));
+
             const saleData = {
                 clienteNombre: clientName,
                 tipoVenta: saleType,
-                descuentoGlobal: globalDiscount, // NEW
+                descuentoGlobal: globalDiscount,
                 items: cartItems.map(item => ({
                     productoId: item.product.id,
                     cantidad: item.quantity,
-                    valorDescuento: item.discount || 0 // NEW
+                    valorDescuento: item.discount || 0
                 })),
-                pagos: payments.map(p => ({
-                    metodoPagoId: p.methodId,
-                    monto: p.amount
-                }))
+                pagos: pagosPayload,
+                cheques: chequesPayload.length > 0 ? chequesPayload : undefined
             };
 
             let response;
@@ -339,15 +332,15 @@ export default function VentaPage() {
                 // 1. Update Cart
                 await api.put(`/ventas/${editingPendingId}`, saleData);
 
-                // 2. Register NEW payments
+                // 2. Register NEW payments (only non-persisted ones, filtering by absence of an id)
                 const newPayments = payments.filter(p => !p.id);
                 if (newPayments.length > 0) {
-                    const pagosPayload = newPayments.map(p => ({
-                        montoPago: p.amount,
-                        metodoPagoId: p.methodId,
-                        observaciones: ""
-                    }));
-                    await api.post(`/ventas/${editingPendingId}/pagos`, pagosPayload);
+                    const pagosNew = newPayments
+                        .filter(p => !p.fechaCobro)
+                        .map(p => ({ montoPago: p.amount, metodoPagoId: p.methodId, observaciones: '' }));
+                    if (pagosNew.length > 0) {
+                        await api.post(`/ventas/${editingPendingId}/pagos`, pagosNew);
+                    }
                 }
 
                 // 3. Finalize
@@ -358,12 +351,10 @@ export default function VentaPage() {
                 toast.success("Venta registrada con éxito");
             }
 
-            // Check for alerts (Negative Stock warning from backend)
             if (response.data.alertas && response.data.alertas.length > 0) {
                 response.data.alertas.forEach(alert => toast(alert, { icon: '⚠️' }));
             }
 
-            // Prepare data for Receipt
             setLastSale({
                 id: response.data.id,
                 date: new Date(),
@@ -374,14 +365,12 @@ export default function VentaPage() {
                     ...i.product,
                     quantity: i.quantity,
                     unitPrice: i.unitPrice,
-                    discount: i.discount // Pass discount for receipt if needed (pdfGenerator update maybe?)
+                    discount: i.discount
                 })),
                 payments: payments,
                 total: totals.total,
-                globalDiscount: globalDiscount // NEW
+                globalDiscount: globalDiscount
             });
-
-            // Do NOT reload yet, wait for user action in Success View
         } catch (error) {
             console.error("Sale Error:", error);
             const msg = error.response?.data?.message || "Error al procesar la venta";
@@ -413,6 +402,14 @@ export default function VentaPage() {
 
         try {
             setIsSubmitting(true);
+            const pagosPayload = payments
+                .filter(p => !p.fechaCobro)
+                .map(p => ({ metodoPagoId: p.methodId, monto: p.amount }));
+
+            const chequesPayload = payments
+                .filter(p => !!p.fechaCobro)
+                .map(p => ({ monto: p.amount, fechaCobro: p.fechaCobro }));
+
             const saleData = {
                 clienteNombre: clientName,
                 tipoVenta: saleType,
@@ -421,7 +418,9 @@ export default function VentaPage() {
                     productoId: item.product.id,
                     cantidad: item.quantity,
                     valorDescuento: item.discount || 0
-                }))
+                })),
+                pagos: pagosPayload,
+                cheques: chequesPayload.length > 0 ? chequesPayload : undefined
             };
 
             let response;
@@ -430,12 +429,16 @@ export default function VentaPage() {
                 // Also save new payments if any
                 const newPayments = payments.filter(p => !p.id);
                 if (newPayments.length > 0) {
-                    const pagosPayload = newPayments.map(p => ({
-                        montoPago: p.amount,
-                        metodoPagoId: p.methodId,
-                        observaciones: ""
-                    }));
-                    await api.post(`/ventas/${editingPendingId}/pagos`, pagosPayload);
+                    const pagosNew = newPayments
+                        .filter(p => !p.fechaCobro)
+                        .map(p => ({
+                            montoPago: p.amount,
+                            metodoPagoId: p.methodId,
+                            observaciones: ""
+                        }));
+                    if (pagosNew.length > 0) {
+                        await api.post(`/ventas/${editingPendingId}/pagos`, pagosNew);
+                    }
                 }
                 toast.success("Pedido pendiente actualizado exitosamente.");
             } else {
@@ -451,38 +454,6 @@ export default function VentaPage() {
         } catch (error) {
             console.error("Pending Sale Error:", error);
             const msg = error.response?.data?.message || "Error al guardar el pedido";
-            toast.error(msg);
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleChequeSale = async (cheques) => {
-        try {
-            setIsSubmitting(true);
-            const saleData = {
-                clienteNombre: clientName,
-                tipoVenta: saleType,
-                descuentoGlobal: globalDiscount,
-                items: cartItems.map(item => ({
-                    productoId: item.product.id,
-                    cantidad: item.quantity,
-                    valorDescuento: item.discount || 0
-                })),
-                cheques: cheques.map(c => ({
-                    monto: parseFloat(c.monto),
-                    fechaCobro: c.fechaCobro
-                }))
-            };
-
-            const response = await api.post('/ventas/cheques', saleData);
-            const dataWithFlag = { ...response.data, isCheque: true };
-            setLastSale(dataWithFlag);
-            setShowChequeModal(false);
-            toast.success("Venta con cheques registrada exitosamente.");
-        } catch (error) {
-            console.error("Cheque Sale Error:", error);
-            const msg = error.response?.data?.message || "Error al registrar la venta con cheques";
             toast.error(msg);
         } finally {
             setIsSubmitting(false);
@@ -640,6 +611,16 @@ export default function VentaPage() {
         }
     };
 
+    // Determines if the currently selected payment method is a cheque type.
+    // This drives the dynamic date input in the payment row.
+    const isSelectedMethodCheque = () => {
+        if (!selectedMethodId) return false;
+        const method = paymentMethods.find(m => m.id === parseInt(selectedMethodId));
+        if (!method) return false;
+        const desc = (method.descripcion || '').toLowerCase();
+        return desc.includes('cheque') || desc.includes('e-check');
+    };
+
     const handleAddPayment = () => {
         if (!selectedMethodId) {
             toast.error("Seleccione un método de pago");
@@ -648,6 +629,13 @@ export default function VentaPage() {
         const amount = parseFloat(paymentAmount);
         if (isNaN(amount) || amount <= 0) {
             toast.error("Ingrese un monto válido");
+            return;
+        }
+
+        // HALT LOGIC: If the selected method is a cheque, open the modal to capture cheques
+        if (isSelectedMethodCheque()) {
+            setPendingChequeAmount(amount);
+            setShowChequeModal(true);
             return;
         }
 
@@ -664,10 +652,27 @@ export default function VentaPage() {
         addPaymentMethod({
             methodId: method.id,
             name: method.descripcion,
-            amount: amount
+            amount: amount,
+            fechaCobro: null
         });
 
         // Reset form
+        setSelectedMethodId('');
+        setPaymentAmount('');
+    };
+
+    const handleChequesConfirm = (chequesArray) => {
+        const method = paymentMethods.find(m => m.id === parseInt(selectedMethodId));
+        chequesArray.forEach(cheque => {
+            addPaymentMethod({
+                methodId: method.id,
+                name: method.descripcion,
+                amount: parseFloat(cheque.monto),
+                fechaCobro: cheque.fechaCobro
+            });
+        });
+
+        setShowChequeModal(false);
         setSelectedMethodId('');
         setPaymentAmount('');
     };
@@ -708,7 +713,21 @@ export default function VentaPage() {
 
     // Auto-fill amount logic: When selecting a method, autofill with remaining
     const handleMethodSelect = (e) => {
-        setSelectedMethodId(e.target.value);
+        const methodId = e.target.value;
+        setSelectedMethodId(methodId);
+
+        const method = paymentMethods.find(m => m.id === parseInt(methodId));
+        if (method) {
+            const desc = (method.descripcion || '').toLowerCase();
+            const isCheque = desc.includes('cheque') || desc.includes('e-check');
+
+            if (isCheque) {
+                setPendingChequeAmount(remaining > 0.01 ? remaining : 0);
+                setShowChequeModal(true);
+                return;
+            }
+        }
+
         if (remaining > 0.01) {
             setPaymentAmount(remaining.toFixed(2));
         } else {
@@ -917,19 +936,39 @@ export default function VentaPage() {
                                 </div>
                                 <div className="item-discount">
                                     <label>Desc. Producto</label>
-                                    <input
-                                        type="text"
-                                        inputMode="decimal"
-                                        value={item.discount || ''}
-                                        onChange={(e) => {
-                                            const val = enforceMoneyFormat(e.target.value);
-                                            updateItemDiscount(item.product.id, val);
-                                        }}
-                                        onKeyDown={blockNonNumericKeys}
-                                        onPaste={sanitizeNumericPaste}
-                                        placeholder="$0"
-                                        className="discount-input"
-                                    />
+                                    <div style={{ display: 'flex', gap: '5px' }}>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={item.unitPrice > 0 && item.discount > 0 ? ((item.discount / item.unitPrice) * 100).toFixed(2).replace(/\.00$/, '') : ''}
+                                            onChange={(e) => {
+                                                const val = enforceMoneyFormat(e.target.value);
+                                                const perc = parseFloat(val) || 0;
+                                                const absDiscount = item.unitPrice * (perc / 100);
+                                                updateItemDiscount(item.product.id, absDiscount.toFixed(2));
+                                            }}
+                                            onKeyDown={blockNonNumericKeys}
+                                            onPaste={sanitizeNumericPaste}
+                                            placeholder="%"
+                                            className="discount-input percentage-input"
+                                            style={{ width: '45px' }}
+                                            title="Descuento en %"
+                                        />
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            value={item.discount || ''}
+                                            onChange={(e) => {
+                                                const val = enforceMoneyFormat(e.target.value);
+                                                updateItemDiscount(item.product.id, val);
+                                            }}
+                                            onKeyDown={blockNonNumericKeys}
+                                            onPaste={sanitizeNumericPaste}
+                                            placeholder="$0"
+                                            className="discount-input absolute-input"
+                                            title="Descuento en $"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                             {/* Row 2: Price, Qty Controls, Total, Remove */}
@@ -1085,25 +1124,45 @@ export default function VentaPage() {
                             onFocus={(e) => e.target.select()}
                             tabIndex="3"
                         />
-                        <button onClick={handleAddPayment} className="add-payment-btn" tabIndex="4" disabled={!!editingPendingId}>+</button>
+                        <button onClick={handleAddPayment} className="add-payment-btn" tabIndex="5" disabled={!!editingPendingId}>+</button>
                     </div>
 
                     <div className="totals-area">
                         <div className="totals-discount-col">
                             <label className="discount-global-label">Desc. Global</label>
-                            <input
-                                type="text"
-                                inputMode="decimal"
-                                value={globalDiscount || ''}
-                                onChange={(e) => {
-                                    const val = enforceMoneyFormat(e.target.value);
-                                    setGlobalDiscount(parseFloat(val) || 0);
-                                }}
-                                onKeyDown={blockNonNumericKeys}
-                                onPaste={sanitizeNumericPaste}
-                                placeholder="$0"
-                                className="discount-global-input"
-                            />
+                            <div style={{ display: 'flex', gap: '5px' }}>
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={totals.subtotal > 0 && globalDiscount > 0 ? ((globalDiscount / totals.subtotal) * 100).toFixed(2).replace(/\.00$/, '') : ''}
+                                    onChange={(e) => {
+                                        const val = enforceMoneyFormat(e.target.value);
+                                        const perc = parseFloat(val) || 0;
+                                        const absDiscount = totals.subtotal * (perc / 100);
+                                        setGlobalDiscount(absDiscount);
+                                    }}
+                                    onKeyDown={blockNonNumericKeys}
+                                    onPaste={sanitizeNumericPaste}
+                                    placeholder="%"
+                                    className="discount-global-input percentage-input"
+                                    style={{ width: '50px' }}
+                                    title="Descuento global en %"
+                                />
+                                <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={globalDiscount || ''}
+                                    onChange={(e) => {
+                                        const val = enforceMoneyFormat(e.target.value);
+                                        setGlobalDiscount(parseFloat(val) || 0);
+                                    }}
+                                    onKeyDown={blockNonNumericKeys}
+                                    onPaste={sanitizeNumericPaste}
+                                    placeholder="$0"
+                                    className="discount-global-input absolute-input"
+                                    title="Descuento global en $"
+                                />
+                            </div>
                         </div>
                         <div className="totals-numbers-col">
                             <div className="totals-line">Subtotal: {formatCurrency(totals.subtotal)}</div>
@@ -1129,22 +1188,6 @@ export default function VentaPage() {
                             style={{ flex: 2, opacity: (!!editingPendingId || cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty) ? 0.5 : 1 }}
                         >
                             {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
-                        </button>
-                        <button
-                            className="pay-btn"
-                            disabled={cartItems.length === 0 || !clientName.trim() || isSubmitting || hasInvalidQty || !!editingPendingId}
-                            onClick={() => {
-                                const issues = checkStockAvailability();
-                                if (issues.length > 0) {
-                                    setAffectedProducts(issues);
-                                    setShowStockModal(true);
-                                } else {
-                                    setShowChequeModal(true);
-                                }
-                            }}
-                            style={{ flex: 1, backgroundColor: '#0d9488', color: 'white', border: '1px solid #0f766e', opacity: (cartItems.length === 0 || !clientName.trim() || isSubmitting || hasInvalidQty || !!editingPendingId) ? 0.5 : 1 }}
-                        >
-                            📋 CHEQUE
                         </button>
                         {/* Req 1: GUARDAR PENDIENTE also blocked when any qty is invalid */}
                         <button
@@ -1229,13 +1272,18 @@ export default function VentaPage() {
                     />
                 )}
 
+                {/* Epic 2: Cheque Modal Integration */}
                 <CheckoutChequeModal
                     isOpen={showChequeModal}
-                    onClose={() => setShowChequeModal(false)}
-                    onConfirm={handleChequeSale}
-                    totalAmount={totals.total}
+                    onClose={() => {
+                        setShowChequeModal(false);
+                        setSelectedMethodId('');
+                    }}
+                    onConfirm={handleChequesConfirm}
+                    totalAmount={pendingChequeAmount}
                     clientName={clientName}
                 />
+
                 {/* Tab switching is now handled by the contextual bottom-nav in AppLayout */}
             </div>
 

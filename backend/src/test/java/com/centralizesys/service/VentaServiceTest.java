@@ -759,7 +759,7 @@ class VentaServiceTest {
         Long authenticatedUserId = 2L;
 
         com.centralizesys.model.cheque.AlertaCheque cheque = new com.centralizesys.model.cheque.AlertaCheque(
-                chequeId, 100L, 500.0, java.time.LocalDate.now(), "PENDIENTE", null
+                chequeId, 100L, 500.0, java.time.LocalDate.now(), "PENDIENTE", null, null
         );
 
         com.centralizesys.model.sales.MetodoPago metodo = new com.centralizesys.model.sales.MetodoPago();
@@ -786,7 +786,7 @@ class VentaServiceTest {
         Long authenticatedUserId = 2L;
 
         com.centralizesys.model.cheque.AlertaCheque cheque = new com.centralizesys.model.cheque.AlertaCheque(
-                chequeId, 100L, 500.0, java.time.LocalDate.now(), "COBRADO", 999L
+                chequeId, 100L, 500.0, java.time.LocalDate.now(), "COBRADO", 999L, null
         );
 
         when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
@@ -798,5 +798,271 @@ class VentaServiceTest {
         verify(ventaRepository).anularPagoVentaById(999L);
         verify(alertaChequeRepository).updateEstadoAndPagoVentaId(chequeId, "PENDIENTE", null);
         verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("CANCELACION_COBRO_CHEQUE"), anyString());
+    }
+
+    // --- GROUP 7: EPIC 1 OVERPAYMENT RULES ---
+
+    @Test
+    @DisplayName("UT-22: registrarVenta throws when pagos + cheques > total")
+    void registrarVenta_Throws_WhenOverpaid() {
+        // Arrange
+        Product p = new Product("C", "Code", 50.0, 50.0, 100.0);
+        p.setId(1L);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(p));
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L); // Total: $100
+
+        VentaRequest.PagoRequest pago = new VentaRequest.PagoRequest();
+        pago.setMonto(60.0);
+        pago.setMetodoPagoId(1L);
+
+        com.centralizesys.model.cheque.AlertaChequeRequest cheque = new com.centralizesys.model.cheque.AlertaChequeRequest();
+        cheque.setMonto(50.0); // 60 + 50 = 110 (Overpaid)
+        cheque.setFechaCobro(java.time.LocalDate.now().plusDays(10));
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+        request.setPagos(List.of(pago));
+        request.setCheques(List.of(cheque));
+
+        // Act & Assert
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
+        assertTrue(ex.getMessage().contains("superar el total"));
+    }
+
+    @Test
+    @DisplayName("UT-23: modificarCarrito allows saving overpaid pending sale (Epic 1 rule)")
+    void modificarCarrito_AllowsOverpaidState() {
+        // Arrange
+        Venta pendingSale = new Venta();
+        pendingSale.setId(99L);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTipoVenta("MINORISTA");
+        when(ventaRepository.findById(99L)).thenReturn(Optional.of(pendingSale));
+
+        Product p = new Product("C", "Code", 50.0, 50.0, 100.0);
+        p.setId(1L);
+        when(productRepository.findById(1L)).thenReturn(Optional.of(p));
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L); // New total: $100
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+        request.setClienteNombre("John");
+
+        // Act
+        assertDoesNotThrow(() -> ventaService.modificarCarrito(99L, request, 1L));
+        verify(ventaRepository).updateTotalesConOCC(99L, 100.0, 0.0);
+    }
+
+    @Test
+    @DisplayName("UT-24: finalizarVenta throws when pagos + cheques > total")
+    void finalizarVenta_Throws_WhenOverpaid() {
+        // Arrange
+        Venta pendingSale = new Venta();
+        pendingSale.setId(99L);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTotalVenta(100.0);
+        when(ventaRepository.findById(99L)).thenReturn(Optional.of(pendingSale));
+
+        com.centralizesys.model.sales.PagoVenta pago = new com.centralizesys.model.sales.PagoVenta();
+        pago.setMonto(60.0);
+        when(ventaRepository.findPagosActivosByVentaId(99L)).thenReturn(List.of(pago));
+        when(alertaChequeRepository.sumMontoPendienteByVentaId(99L)).thenReturn(50.0); // 60 + 50 = 110 > 100
+
+        // Act & Assert
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> ventaService.finalizarVenta(99L, 1L));
+        assertTrue(ex.getMessage().contains("supera el total"));
+    }
+
+    @Test
+    @DisplayName("UT-25: finalizarVenta succeeds when exact match")
+    void finalizarVenta_Succeeds_WhenExactMatch() {
+        // Arrange
+        Venta pendingSale = new Venta();
+        pendingSale.setId(99L);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTotalVenta(100.0);
+        when(ventaRepository.findById(99L)).thenReturn(Optional.of(pendingSale));
+
+        com.centralizesys.model.sales.PagoVenta pago = new com.centralizesys.model.sales.PagoVenta();
+        pago.setMonto(50.0);
+        when(ventaRepository.findPagosActivosByVentaId(99L)).thenReturn(List.of(pago));
+        when(alertaChequeRepository.sumMontoPendienteByVentaId(99L)).thenReturn(50.0); // 50 + 50 = 100
+
+        // Act
+        assertDoesNotThrow(() -> ventaService.finalizarVenta(99L, 1L));
+
+        // Assert
+        verify(ventaRepository).updateFechaAndEstado(eq(99L), any(), eq("ACTIVA"));
+        // Debt repo should not save debt since paid in full
+        verify(deudoresRepository, never()).save(anyLong(), anyString(), anyDouble());
+    }
+
+    // --- GROUP 8: EPIC 2 — registrarPago CHEQUE ROUTING ---
+
+    @Test
+    @DisplayName("E2-UT-01: registrarPago routes payment WITH fechaCobro to alertas_cheques")
+    void registrarPago_RoutesCheque_ToAlertasCheques() {
+        // Arrange
+        Long ventaId = 1L;
+        Long usuarioId = 5L;
+
+        Venta pendingSale = new Venta();
+        pendingSale.setId(ventaId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTotalVenta(500.0);
+
+        when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        when(ventaRepository.sumPagosActivosByVentaId(ventaId)).thenReturn(0.0);
+        // No pre-existing cheques for this venta
+        when(alertaChequeRepository.sumMontoPendienteByVentaId(ventaId)).thenReturn(0.0);
+
+        com.centralizesys.model.debt.PagoDeudaRequest chequePayment = new com.centralizesys.model.debt.PagoDeudaRequest();
+        chequePayment.setMontoPago(200.0);
+        chequePayment.setMetodoPagoId(3L); // Cheque method ID
+        chequePayment.setFechaCobro(LocalDate.now().plusDays(30)); // <-- Has fechaCobro
+
+        // Act
+        ventaService.registrarPago(ventaId, List.of(chequePayment), usuarioId);
+
+        // Assert: Must save to alertas_cheques
+        verify(alertaChequeRepository).save(any(com.centralizesys.model.cheque.AlertaCheque.class));
+        // Must NOT save via the standard cash path
+        verify(ventaRepository, never()).savePagoUnico(anyLong(), anyLong(), anyDouble(), anyLong());
+        // Audit must still fire
+        verify(auditoriaService).registrarAccion(eq(usuarioId), eq("PAGO_PENDIENTE"), anyString());
+    }
+
+    @Test
+    @DisplayName("E2-UT-02: registrarPago routes payment WITHOUT fechaCobro to pagos_venta (standard path)")
+    void registrarPago_RoutesNormal_ToPagosVenta() {
+        // Arrange
+        Long ventaId = 2L;
+        Long usuarioId = 5L;
+
+        Venta pendingSale = new Venta();
+        pendingSale.setId(ventaId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTotalVenta(300.0);
+
+        when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        when(ventaRepository.sumPagosActivosByVentaId(ventaId)).thenReturn(0.0);
+        when(alertaChequeRepository.sumMontoPendienteByVentaId(ventaId)).thenReturn(0.0);
+
+        com.centralizesys.model.debt.PagoDeudaRequest cashPayment = new com.centralizesys.model.debt.PagoDeudaRequest();
+        cashPayment.setMontoPago(150.0);
+        cashPayment.setMetodoPagoId(1L);
+        cashPayment.setFechaCobro(null); // <-- No fechaCobro: standard cash/card
+
+        // Act
+        ventaService.registrarPago(ventaId, List.of(cashPayment), usuarioId);
+
+        // Assert: Must save via standard path
+        verify(ventaRepository).savePagoUnico(ventaId, 1L, 150.0, usuarioId);
+        // Must NOT create a cheque alert
+        verify(alertaChequeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("E2-UT-03: registrarPago with mixed list routes each payment to its correct destination")
+    void registrarPago_MixedList_RoutesEachCorrectly() {
+        // Arrange: $500 sale, $100 cash + $200 cheque
+        Long ventaId = 3L;
+        Long usuarioId = 5L;
+
+        Venta pendingSale = new Venta();
+        pendingSale.setId(ventaId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTotalVenta(500.0);
+
+        when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        when(ventaRepository.sumPagosActivosByVentaId(ventaId)).thenReturn(0.0);
+        when(alertaChequeRepository.sumMontoPendienteByVentaId(ventaId)).thenReturn(0.0);
+
+        com.centralizesys.model.debt.PagoDeudaRequest cashPayment = new com.centralizesys.model.debt.PagoDeudaRequest();
+        cashPayment.setMontoPago(100.0);
+        cashPayment.setMetodoPagoId(1L);
+        cashPayment.setFechaCobro(null);
+
+        com.centralizesys.model.debt.PagoDeudaRequest chequePayment = new com.centralizesys.model.debt.PagoDeudaRequest();
+        chequePayment.setMontoPago(200.0);
+        chequePayment.setMetodoPagoId(3L);
+        chequePayment.setFechaCobro(LocalDate.now().plusDays(15));
+
+        // Act
+        ventaService.registrarPago(ventaId, List.of(cashPayment, chequePayment), usuarioId);
+
+        // Assert: cash goes to pagos_venta
+        verify(ventaRepository).savePagoUnico(ventaId, 1L, 100.0, usuarioId);
+        // cheque goes to alertas_cheques
+        verify(alertaChequeRepository).save(any(com.centralizesys.model.cheque.AlertaCheque.class));
+    }
+
+    @Test
+    @DisplayName("E2-UT-04: registrarPago blocks overpayment even when new payment is a cheque")
+    void registrarPago_Throws_WhenChequeOverpaysBalance() {
+        // Arrange: Sale total $100, already paid $80 cash. Trying to add $30 cheque = total $110 > $100.
+        Long ventaId = 4L;
+
+        Venta pendingSale = new Venta();
+        pendingSale.setId(ventaId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTotalVenta(100.0);
+
+        when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        // $80 already paid in cash
+        when(ventaRepository.sumPagosActivosByVentaId(ventaId)).thenReturn(80.0);
+        // No pre-existing cheques
+        when(alertaChequeRepository.sumMontoPendienteByVentaId(ventaId)).thenReturn(0.0);
+
+        com.centralizesys.model.debt.PagoDeudaRequest overPayingCheque = new com.centralizesys.model.debt.PagoDeudaRequest();
+        overPayingCheque.setMontoPago(30.0); // $80 + $30 = $110 > $100
+        overPayingCheque.setMetodoPagoId(3L);
+        overPayingCheque.setFechaCobro(LocalDate.now().plusDays(10));
+
+        // Act & Assert: The overpayment guard MUST remain active
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class,
+                () -> ventaService.registrarPago(ventaId, List.of(overPayingCheque), 5L));
+        assertTrue(ex.getMessage().contains("saldo restante"),
+                "Error must reference the remaining balance to help the cashier understand the issue");
+
+        // Critical: must NOT save the cheque to alertas_cheques
+        verify(alertaChequeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("E2-UT-05: registrarPago balance check must subtract pre-existing cheques from remaining balance")
+    void registrarPago_BalanceCheck_AccountsForExistingCheques() {
+        // Arrange: Sale $200. Pre-existing cheque of $150 in alertas_cheques.
+        // Only $50 remains. Trying to pay $60 via cash should be blocked.
+        Long ventaId = 5L;
+
+        Venta pendingSale = new Venta();
+        pendingSale.setId(ventaId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTotalVenta(200.0);
+
+        when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        // $0 cash paid
+        when(ventaRepository.sumPagosActivosByVentaId(ventaId)).thenReturn(0.0);
+        // BUT $150 cheque already registered
+        when(alertaChequeRepository.sumMontoPendienteByVentaId(ventaId)).thenReturn(150.0);
+
+        com.centralizesys.model.debt.PagoDeudaRequest overPayingCash = new com.centralizesys.model.debt.PagoDeudaRequest();
+        overPayingCash.setMontoPago(60.0); // $0 + $150 + $60 = $210 > $200
+        overPayingCash.setMetodoPagoId(1L);
+        overPayingCash.setFechaCobro(null);
+
+        // Act & Assert
+        assertThrows(BusinessRuleException.class,
+                () -> ventaService.registrarPago(ventaId, List.of(overPayingCash), 5L),
+                "System must account for pre-existing cheques in the remaining balance calculation");
+
+        verify(ventaRepository, never()).savePagoUnico(anyLong(), anyLong(), anyDouble(), anyLong());
     }
 }

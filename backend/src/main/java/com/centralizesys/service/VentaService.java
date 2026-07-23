@@ -194,7 +194,7 @@ public class VentaService {
 
         // Save Cheques (Alertas)
         for (AlertaChequeRequest chequeReq : request.getCheques()) {
-            AlertaCheque cheque = new AlertaCheque(null, txInfo.getVentaId(), chequeReq.getMonto(), chequeReq.getFechaCobro(), PENDIENTE, null);
+            AlertaCheque cheque = new AlertaCheque(null, txInfo.getVentaId(), chequeReq.getMonto(), chequeReq.getFechaCobro(), PENDIENTE, null, null);
             alertaChequeRepository.save(cheque);
         }
 
@@ -261,6 +261,28 @@ public class VentaService {
                 "Anulado cobro de Cheque ID " + chequeId + " por $" + cheque.getMonto());
     }
 
+    // TODO: Add backend tests for this logical deletion logic (anularCheque)
+    @Transactional
+    public void anularCheque(Long chequeId, Long authenticatedUserId) {
+        AlertaCheque cheque = alertaChequeRepository.findById(chequeId)
+                .orElseThrow(() -> new ResourceNotFoundException("AlertaCheque", chequeId));
+
+        if ("ANULADA".equals(cheque.getEstado())) {
+            throw new BusinessRuleException("El cheque ya se encuentra anulado.");
+        }
+
+        // Si el cheque ya fue cobrado, deshacemos el pago antes de anularlo completamente
+        if ("COBRADO".equals(cheque.getEstado())) {
+            cancelarCobroCheque(chequeId, authenticatedUserId);
+        }
+
+        // Logical deletion: marcar como ANULADA
+        alertaChequeRepository.updateEstadoAndPagoVentaId(chequeId, "ANULADA", null);
+
+        auditoriaService.registrarAccion(authenticatedUserId, "ANULAR_CHEQUE",
+                "Cheque ID " + chequeId + " anulado de la venta (eliminación lógica).");
+    }
+
     @Transactional
     public Long crearPendiente(VentaRequest request, Long authenticatedUserId) {
         validateRequest(request);
@@ -291,6 +313,19 @@ public class VentaService {
         });
         ventaRepository.saveDetalles(detalles);
         updateStockFromDetails(detalles);
+
+        if (request.getPagos() != null) {
+            for (VentaRequest.PagoRequest pvr : request.getPagos()) {
+                ventaRepository.savePagoUnico(pendingId, pvr.getMetodoPagoId(), pvr.getMonto(), authenticatedUserId);
+            }
+        }
+        if (request.getCheques() != null) {
+            for (AlertaChequeRequest chequeReq : request.getCheques()) {
+                AlertaCheque cheque = new AlertaCheque(null, pendingId, chequeReq.getMonto(), chequeReq.getFechaCobro(), PENDIENTE, null, null);
+                alertaChequeRepository.save(cheque);
+            }
+        }
+
         auditoriaService.registrarAccion(authenticatedUserId, "CREAR_PENDIENTE", "Pedido creado con ID: " + pendingId);
 
         return pendingId;
@@ -315,10 +350,16 @@ public class VentaService {
 
         for (PagoDeudaRequest pago : pagos) {
             if (pago.getMontoPago() != null && pago.getMontoPago() > 0) {
-                ventaRepository.savePagoUnico(id, pago.getMetodoPagoId(), pago.getMontoPago(), usuarioId);
+                if (pago.getFechaCobro() != null) {
+                    // Es un cheque pendiente, no un pago real de contado
+                    AlertaCheque cheque = new AlertaCheque(null, id, pago.getMontoPago(), pago.getFechaCobro(), "PENDIENTE", null, null);
+                    alertaChequeRepository.save(cheque);
+                } else {
+                    ventaRepository.savePagoUnico(id, pago.getMetodoPagoId(), pago.getMontoPago(), usuarioId);
+                }
             }
         }
-        auditoriaService.registrarAccion(usuarioId, "PAGO_PENDIENTE", String.format("Registrado pago de $%.2f en Pedido ID %d.", totalNuevoPago, id));
+        auditoriaService.registrarAccion(usuarioId, "PAGO_PENDIENTE", String.format("Registrado pago/cheque de $%.2f en Pedido ID %d.", totalNuevoPago, id));
     }
 
     @Transactional

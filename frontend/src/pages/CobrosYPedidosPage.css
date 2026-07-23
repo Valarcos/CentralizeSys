@@ -43,3 +43,171 @@
     width: 60px;
     text-align: center;
 }
+
+/* =============================================================================
+   Payment Modal (Registrar Pago)
+   Scoped classes to enforce layout consistency and responsiveness without inline patches.
+   =============================================================================*/
+
+.payment-modal-container {
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow-hover);
+    padding: 6px; /* Reduced from 12px (half) */
+    max-width: 700px;
+    width: 90%;
+    animation: slideUp 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px; /* Reduced from 8px */
+}
+
+.payment-modal-header {
+    background-color: var(--color-primary);
+    color: white;
+    padding: 6px 12px; /* Adjusted header padding */
+    margin: -6px -6px 0 -6px; /* Matches container padding */
+    border-radius: 8px 8px 0 0;
+}
+
+.payment-modal-header h3 {
+    margin: 0;
+    color: white;
+}
+
+.payment-modal-info {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 6px 12px; /* Tighter vertical padding */
+    background-color: #f9fafb;
+    border-radius: 4px;
+}
+
+.payment-modal-info div {
+    margin: 0;
+    line-height: 1.2;
+}
+
+.payment-modal-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px; /* Matches container gap */
+}
+
+.payment-modal-input-full {
+    width: 100%;
+    padding: 6px; /* Tighter input padding */
+    margin-bottom: 0; /* Override global index.css margin */
+}
+
+.payment-modal-btn-add {
+    width: 100%;
+    background-color: #6c757d;
+    color: white;
+    border: 2px solid #5a6268;
+    padding: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.payment-modal-btn-add:hover:not(:disabled) {
+    background-color: #5a6268;
+}
+
+.payment-modal-btn-add:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.payment-modal-list-container {
+    border: 1px solid #ddd;
+    padding: 4px 8px; /* Reduced from 12px to minimize perceived gaps */
+    border-radius: 4px;
+    background-color: #fafafa;
+}
+
+.payment-modal-list-container.cheques-list {
+    border-color: #14b8a6;
+    background-color: #f0fdfa;
+}
+
+.payment-modal-list-container h5 {
+    margin-top: 0;
+    margin-bottom: 4px; /* Reduced from 8px */
+    color: #555;
+}
+
+.payment-modal-list-container.cheques-list h5 {
+    color: #0f766e;
+}
+
+.payment-modal-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 100px; /* Reduced from 120px so normal lists show ~3 rows */
+    overflow-y: auto;  /* Enables smooth scrolling */
+}
+
+.payment-modal-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding: 2px 8px; /* Reduced vertical padding from 6px to 2px for tight fit */
+    font-size: 0.9rem;
+}
+
+.payment-modal-list li:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* Overrides the global min-height: 48px in index.css for inline list buttons */
+.payment-modal-list-btn {
+    min-height: auto;
+    padding: 0px 6px !important;
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+.payment-modal-list.cheques-list {
+    max-height: 140px; /* Increased to allow 4 rows for cheques specifically */
+}
+
+.payment-modal-list.cheques-list li {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    flex-wrap: nowrap;
+    border-bottom: 1px solid #ccfbf1;
+    background-color: transparent;
+    padding: 4px 6px;
+}
+
+.payment-modal-actions {
+    display: flex;
+    gap: 6px; /* Matches container gap */
+    justify-content: flex-end;
+    margin-top: -2px; /* Pulled slightly up to reduce gap between list and buttons */
+}
+
+/* Responsiveness */
+@media (max-width: 600px) {
+    .payment-modal-info {
+        grid-template-columns: 1fr;
+    }
+    .payment-modal-form {
+        grid-template-columns: 1fr;
+    }
+    .payment-modal-actions {
+        flex-direction: column;
+    }
+    .payment-modal-actions button {
+        width: 100%;
+    }
+}

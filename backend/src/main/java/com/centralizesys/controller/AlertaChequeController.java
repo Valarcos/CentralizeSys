@@ -4,6 +4,7 @@ import com.centralizesys.model.cheque.AlertaCheque;
 import com.centralizesys.repository.AlertaChequeRepository;
 import com.centralizesys.service.VentaService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,6 +43,13 @@ public class AlertaChequeController {
     public ResponseEntity<Void> cancelarCobroCheque(@PathVariable Long id) {
         Long currentUserId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
         ventaService.cancelarCobroCheque(id, currentUserId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/cheques/{id}")
+    public ResponseEntity<Void> anularCheque(@PathVariable Long id) {
+        Long currentUserId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
+        ventaService.anularCheque(id, currentUserId);
         return ResponseEntity.ok().build();
     }
 

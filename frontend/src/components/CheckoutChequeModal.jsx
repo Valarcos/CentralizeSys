@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import './CheckoutChequeModal.css';
 import { blockNonNumericKeys, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
 
@@ -6,18 +7,89 @@ export default function CheckoutChequeModal({ isOpen, onClose, onConfirm, totalA
     const [cheques, setCheques] = useState([{ monto: '', fechaCobro: '' }]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const listRef = useRef(null);
+    const lastMontoRef = useRef(null);
+    const modalRef = useRef(null);
 
-    if (!isOpen) return null;
+    // Initial pre-fill and focus
+    useEffect(() => {
+        if (isOpen) {
+            if (cheques.length === 1 && !cheques[0].monto && totalAmount > 0) {
+                setCheques([{ monto: totalAmount.toFixed(2), fechaCobro: '' }]);
+            }
+            setTimeout(() => {
+                if (lastMontoRef.current) {
+                    lastMontoRef.current.focus();
+                    lastMontoRef.current.select();
+                }
+            }, 50);
+        } else {
+            setCheques([{ monto: '', fechaCobro: '' }]);
+        }
+    }, [isOpen, totalAmount]);
 
-    const handleAddCheque = () => {
-        setCheques([...cheques, { monto: '', fechaCobro: '' }]);
-    };
-
+    // Auto-scroll on new cheque
     useEffect(() => {
         if (listRef.current) {
             listRef.current.scrollTop = listRef.current.scrollHeight;
         }
     }, [cheques.length]);
+
+    // Focus Trap
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Tab' && modalRef.current) {
+                const focusableElements = modalRef.current.querySelectorAll(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                );
+                if (focusableElements.length === 0) return;
+
+                const firstElement = focusableElements[0];
+                const lastElement = focusableElements[focusableElements.length - 1];
+
+                if (e.shiftKey) {
+                    if (document.activeElement === firstElement) {
+                        lastElement.focus();
+                        e.preventDefault();
+                    }
+                } else {
+                    if (document.activeElement === lastElement) {
+                        firstElement.focus();
+                        e.preventDefault();
+                    }
+                }
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener('keydown', handleKeyDown);
+        }
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen]);
+
+    if (!isOpen) return null;
+
+    const handleAddCheque = () => {
+        const hasEmptyDate = cheques.some(c => !c.fechaCobro);
+        if (hasEmptyDate) {
+            toast.error("Ingrese fecha de cobro del cheque");
+            return;
+        }
+
+        const totalIngresado = cheques.reduce((sum, c) => sum + (parseFloat(c.monto) || 0), 0);
+        const restante = Math.max(0, totalAmount - totalIngresado);
+
+        setCheques([...cheques, { monto: restante > 0 ? restante.toFixed(2) : '', fechaCobro: '' }]);
+
+        // Auto focus the new input
+        setTimeout(() => {
+            if (lastMontoRef.current) {
+                lastMontoRef.current.focus();
+                lastMontoRef.current.select();
+            }
+        }, 50);
+    };
 
     const handleRemoveCheque = (index) => {
         const newCheques = [...cheques];
@@ -46,7 +118,6 @@ export default function CheckoutChequeModal({ isOpen, onClose, onConfirm, totalA
     };
 
     const handleConfirm = async () => {
-        if (!isTotalValid) return;
         if (!validCheques) return;
 
         setIsSubmitting(true);
@@ -59,7 +130,7 @@ export default function CheckoutChequeModal({ isOpen, onClose, onConfirm, totalA
 
     return (
         <div className="modal-overlay">
-            <div className="modal-content cheque-modal-content">
+            <div className="modal-content cheque-modal-content" ref={modalRef}>
                 <div className="modal-header-cheque">
                     <h2>Cobro con Cheques</h2>
                 </div>
@@ -93,6 +164,7 @@ export default function CheckoutChequeModal({ isOpen, onClose, onConfirm, totalA
                                     inputMode="decimal"
                                     placeholder="$"
                                     value={cheque.monto}
+                                    ref={index === cheques.length - 1 ? lastMontoRef : null}
                                     onChange={(e) => handleChequeChange(index, 'monto', enforceMoneyFormat(e.target.value))}
                                     onFocus={(e) => handleMontoFocus(e, index)}
                                     onKeyDown={blockNonNumericKeys}
@@ -101,6 +173,7 @@ export default function CheckoutChequeModal({ isOpen, onClose, onConfirm, totalA
                                 <label>Fecha de Cobro</label>
                                 <input
                                     type="date"
+                                    className="cheque-date-input"
                                     value={cheque.fechaCobro}
                                     onChange={(e) => handleChequeChange(index, 'fechaCobro', e.target.value)}
                                     min={new Date().toISOString().split('T')[0]} // Prevents past dates based on client's local TZ
@@ -139,9 +212,9 @@ export default function CheckoutChequeModal({ isOpen, onClose, onConfirm, totalA
                     <button
                         className="confirm-btn"
                         onClick={handleConfirm}
-                        disabled={!isTotalValid || !validCheques || isSubmitting}
+                        disabled={!validCheques || isSubmitting}
                     >
-                        {isSubmitting ? 'Procesando...' : 'Confirmar Venta'}
+                        {isSubmitting ? 'Procesando...' : 'Confirmar Cheques'}
                     </button>
                 </div>
             </div>

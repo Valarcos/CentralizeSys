@@ -120,7 +120,7 @@ class UsuarioControllerTest {
         u1.setNombre("User 1");
         u1.setRol(com.centralizesys.model.auth.UsuarioRole.EMPLEADO);
 
-        List<Usuario> users = Arrays.asList(u1);
+        List<Usuario> users = List.of(u1);
 
         given(usuarioService.getAll()).willReturn(users);
 
@@ -141,16 +141,16 @@ class UsuarioControllerTest {
     @Test
     @WithMockUser(username = "owner@test.com", roles = { "OWNER" })
     void deleteUser_AsOwner_Success() throws Exception {
-        mockMvc.perform(delete("/api/usuarios/5"))
+        mockMvc.perform(delete("/api/usuarios/6"))
                 .andExpect(status().isNoContent());
 
-        verify(usuarioService).delete(5L);
+        verify(usuarioService).delete(6L);
     }
 
     @Test
     @WithMockUser(username = "emp@test.com", roles = { "EMPLEADO" })
     void deleteUser_AsEmployee_Forbidden() throws Exception {
-        mockMvc.perform(delete("/api/usuarios/5"))
+        mockMvc.perform(delete("/api/usuarios/7"))
                 .andExpect(status().isForbidden());
     }
 
@@ -212,12 +212,12 @@ class UsuarioControllerTest {
                 "Updated Name", "updated@test.com", "newpass", "EMPLEADO", "5678"
         );
 
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/usuarios/5")
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/usuarios/6")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNoContent());
 
-        verify(usuarioService).update(5L, request);
+        verify(usuarioService).update(6L, request);
     }
 
     @Test
@@ -227,7 +227,7 @@ class UsuarioControllerTest {
                 "Updated Name", "updated@test.com", "newpass", "EMPLEADO", "5678"
         );
 
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/usuarios/5")
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/usuarios/7")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());

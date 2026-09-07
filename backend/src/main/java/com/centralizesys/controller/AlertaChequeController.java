@@ -1,5 +1,6 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.aspect.Idempotent;
 import com.centralizesys.model.cheque.AlertaCheque;
 import com.centralizesys.repository.AlertaChequeRepository;
 import com.centralizesys.service.VentaService;
@@ -32,6 +33,7 @@ public class AlertaChequeController {
         return ResponseEntity.ok(alertas);
     }
 
+    @Idempotent
     @PostMapping("/cheques/{id}/cobrar")
     public ResponseEntity<Void> cobrarCheque(@PathVariable Long id, @RequestParam Long metodoPagoId) {
         Long currentUserId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
@@ -39,6 +41,7 @@ public class AlertaChequeController {
         return ResponseEntity.ok().build();
     }
 
+    @Idempotent
     @PostMapping("/cheques/{id}/cancelar-cobro")
     public ResponseEntity<Void> cancelarCobroCheque(@PathVariable Long id) {
         Long currentUserId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();
@@ -46,6 +49,7 @@ public class AlertaChequeController {
         return ResponseEntity.ok().build();
     }
 
+    @Idempotent
     @DeleteMapping("/cheques/{id}")
     public ResponseEntity<Void> anularCheque(@PathVariable Long id) {
         Long currentUserId = com.centralizesys.security.SecurityUtils.getAuthenticatedUserId();

@@ -1,5 +1,6 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.aspect.Idempotent;
 import com.centralizesys.model.client.ClienteResponse;
 import com.centralizesys.service.ClienteService;
 import org.springframework.http.ResponseEntity;
@@ -45,6 +46,7 @@ public class ClienteController {
         return ResponseEntity.ok(ventaService.getVentasByClienteId(id));
     }
 
+    @Idempotent
     @PutMapping("/{id}/nombre")
     public ResponseEntity<Void> updateNombre(@PathVariable Long id, @RequestBody java.util.Map<String, String> payload) {
         String nuevoNombre = payload.get("nombre");

@@ -1,5 +1,6 @@
 package com.centralizesys.service;
 
+import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.model.product.StockLocation;
 import com.centralizesys.repository.StockRepository;
 import com.centralizesys.security.SecurityUtils;
@@ -25,6 +26,7 @@ public class StockService {
 
     @Transactional
     public void addStock(Long productoId, Long ubicacionId, Long cantidad) {
+        if (cantidad == null || cantidad <= 0) throw new BusinessRuleException("La cantidad a agregar debe ser mayor a cero.");
         stockRepository.addStock(productoId, ubicacionId, cantidad);
 
         Long userId = SecurityUtils.getAuthenticatedUserId();
@@ -37,6 +39,7 @@ public class StockService {
 
     @Transactional
     public void subtractStock(Long productoId, Long ubicacionId, Long cantidad) {
+        if (cantidad == null || cantidad <= 0) throw new BusinessRuleException("La cantidad a restar debe ser mayor a cero.");
         stockRepository.subtractStock(ubicacionId, productoId, cantidad);
 
         Long userId = SecurityUtils.getAuthenticatedUserId();

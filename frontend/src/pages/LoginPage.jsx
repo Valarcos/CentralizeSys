@@ -8,6 +8,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const loadingRef = useRef(false);
     const isMounted = useRef(true);
     const navigate = useNavigate();
 
@@ -37,6 +38,8 @@ export default function LoginPage() {
             return;
         }
 
+        if (loadingRef.current) return;
+        loadingRef.current = true;
         if (isMounted.current) setLoading(true);
 
         try {
@@ -59,6 +62,7 @@ export default function LoginPage() {
         } catch (error) {
             console.error('Login error:', error);
         } finally {
+            loadingRef.current = false;
             if (isMounted.current) setLoading(false);
         }
     };

@@ -57,9 +57,11 @@ export default function AdminPage() {
         fetchUsers();
     };
 
-    const handleDeleteConfirm = async () => {
-        if (!deletingUser || isDeleting) return;
+    const isDeletingRef = useRef(false);
 
+    const handleDeleteConfirm = async () => {
+        if (!deletingUser || isDeletingRef.current) return;
+        isDeletingRef.current = true;
         try {
             if (isMounted.current) setIsDeleting(true);
             await api.delete(`/usuarios/${deletingUser.id}`);
@@ -75,6 +77,7 @@ export default function AdminPage() {
             // Vector 2: Force re-fetch on failure to resync state
             fetchUsers();
         } finally {
+            isDeletingRef.current = false;
             if (isMounted.current) setIsDeleting(false);
         }
     };

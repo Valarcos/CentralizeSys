@@ -51,7 +51,9 @@ export default function GastosVariosSection({ onGastosChanged, filterParams = DE
 
     // Submitting states
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingRef = useRef(false);
     const [isCanceling, setIsCanceling] = useState(false);
+    const isCancelingRef = useRef(false);
 
     // Expanded texts state for "Ver más / Ver menos"
     const [expandedMotivos, setExpandedMotivos] = useState(new Set());
@@ -137,7 +139,7 @@ export default function GastosVariosSection({ onGastosChanged, filterParams = DE
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (isSubmitting) return;
+        if (isSubmittingRef.current || isSubmitting) return;
 
         if (!monto || isNaN(monto) || Number(monto) <= 0) {
             toast.error("El monto debe ser un número positivo");
@@ -157,6 +159,7 @@ export default function GastosVariosSection({ onGastosChanged, filterParams = DE
         };
 
         try {
+            isSubmittingRef.current = true;
             setIsSubmitting(true);
             await api.post('/gastos', payload);
             toast.success("Gasto registrado correctamente");
@@ -182,6 +185,7 @@ export default function GastosVariosSection({ onGastosChanged, filterParams = DE
             // Vector 2: Force refetch on failure
             loadGastos();
         } finally {
+            isSubmittingRef.current = false;
             if (isMounted.current) setIsSubmitting(false);
         }
     };
@@ -195,24 +199,29 @@ export default function GastosVariosSection({ onGastosChanged, filterParams = DE
     const handleCancelSubmit = async (e) => {
         e.preventDefault();
 
-        if (isCanceling) return;
+        if (isCancelingRef.current || isCanceling) return;
 
         try {
+            isCancelingRef.current = true;
             setIsCanceling(true);
             await api.post(`/gastos/${cancelGasto.id}/anular`, { razonAnulacion: cancelReason });
             toast.success("Gasto anulado correctamente");
+
+            // Cierre y refresco
             if (isMounted.current) {
                 setIsCancelModalOpen(false);
                 setCancelGasto(null);
+                setCancelReason('');
             }
 
-            loadGastos();
             if (onGastosChanged) onGastosChanged();
+            loadGastos();
         } catch (error) {
             console.error("Error canceling gasto:", error);
             // Vector 2: Force refetch on failure
             loadGastos();
         } finally {
+            isCancelingRef.current = false;
             if (isMounted.current) setIsCanceling(false);
         }
     };

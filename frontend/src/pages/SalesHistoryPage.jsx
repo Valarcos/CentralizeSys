@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 import { formatCurrency, formatDate } from '../utils/format';
 import SalesDetailModal from '../components/SalesDetailModal';
@@ -228,9 +228,11 @@ export default function SalesHistoryPage() {
     };
 
     const [isCancelling, setIsCancelling] = useState(false);
+    const isCancellingRef = useRef(false);
 
     const confirmAnularVenta = async () => {
-        if (!saleToCancel) return;
+        if (!saleToCancel || isCancellingRef.current) return;
+        isCancellingRef.current = true;
         setIsCancelling(true);
         try {
             await api.post(`/ventas/${saleToCancel}/anular`);
@@ -243,6 +245,7 @@ export default function SalesHistoryPage() {
             setSaleToCancel(null);
             loadSales(); // Auto-refresh in case it was a concurrency issue
         } finally {
+            isCancellingRef.current = false;
             if (isMounted.current) setIsCancelling(false);
         }
     };

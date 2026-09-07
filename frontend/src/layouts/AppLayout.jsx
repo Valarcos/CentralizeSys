@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import LogoutModal from '../components/LogoutModal';
 import api from '../services/api';
 import './AppLayout.css';
@@ -8,6 +8,7 @@ export default function AppLayout() {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const isLoggingOutRef = useRef(false);
     const [userName, setUserName] = useState('');
     const [userRole, setUserRole] = useState('');
     const [salesActiveTab, setSalesActiveTab] = useState('catalog');
@@ -22,7 +23,8 @@ export default function AppLayout() {
     }, [location.pathname]);
 
     const handleLogout = async () => {
-        if (isLoggingOut) return;
+        if (isLoggingOutRef.current) return;
+        isLoggingOutRef.current = true;
         setIsLoggingOut(true);
         try {
             await api.post('/auth/logout');

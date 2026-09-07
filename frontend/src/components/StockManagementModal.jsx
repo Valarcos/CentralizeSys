@@ -19,6 +19,7 @@ export default function StockManagementModal({ product, onClose, onSuccess, allo
     const [allLocations, setAllLocations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [adjusting, setAdjusting] = useState(false);
+    const adjustingRef = useRef(false);
     const isMounted = useRef(true);
 
     // Adjustment form state
@@ -81,6 +82,8 @@ export default function StockManagementModal({ product, onClose, onSuccess, allo
     };
 
     const executeAdjust = async (qty, locationId, op) => {
+        if (adjustingRef.current) return;
+        adjustingRef.current = true;
         try {
             if (isMounted.current) setAdjusting(true);
             const endpoint = op === 'add' ? '/stock/add' : '/stock/subtract';
@@ -106,6 +109,7 @@ export default function StockManagementModal({ product, onClose, onSuccess, allo
             // Vector 2: Force re-fetch on failure to resync state
             await refreshStock();
         } finally {
+            adjustingRef.current = false;
             if (isMounted.current) setAdjusting(false);
         }
     };
@@ -113,7 +117,6 @@ export default function StockManagementModal({ product, onClose, onSuccess, allo
     const handleAdjust = async (e) => {
         e.preventDefault();
 
-        if (adjusting) return;
         const qty = parseInt(quantity, 10);
         if (!qty || qty <= 0) {
             toast.error('Ingrese una cantidad válida mayor a 0');

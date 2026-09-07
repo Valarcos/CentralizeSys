@@ -61,6 +61,7 @@ export default function CobrosYPedidosPage() {
     const [viewItemInfo, setViewItemInfo] = useState(null);
     const [isLoadingSale, setIsLoadingSale] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingRef = useRef(false);
 
     // Confirmation Modals
     const [itemToFinalize, setItemToFinalize] = useState(null);
@@ -337,13 +338,14 @@ export default function CobrosYPedidosPage() {
     };
 
     const handleRegisterPayment = async () => {
-        if (isSubmitting) return;
+        if (isSubmittingRef.current || isSubmitting) return;
         if (payments.length === 0 && queuedPaymentsToRemove.length === 0 && queuedChequesToCobrar.length === 0 && queuedChequesToRemove.length === 0) {
             return toast.error("No hay cambios para registrar");
         }
 
-        setIsSubmitting(true);
         try {
+            isSubmittingRef.current = true;
+            setIsSubmitting(true);
             // 1. Process historical payment deletions
             for (const pagoId of queuedPaymentsToRemove) {
                 if (selectedItem.tipo === 'FIADO') {
@@ -393,6 +395,7 @@ export default function CobrosYPedidosPage() {
             // Error handled by global api interceptor
             fetchItems(); // refresh state to avoid desync
         } finally {
+            isSubmittingRef.current = false;
             if (isMounted.current) setIsSubmitting(false);
         }
     };
@@ -564,9 +567,10 @@ export default function CobrosYPedidosPage() {
     };
 
     const confirmFinalizePedido = async () => {
-        if (!itemToFinalize || isSubmitting) return;
-        if (isMounted.current) setIsSubmitting(true);
+        if (!itemToFinalize || isSubmittingRef.current || isSubmitting) return;
         try {
+            isSubmittingRef.current = true;
+            if (isMounted.current) setIsSubmitting(true);
             await api.post(`/ventas/${itemToFinalize.id_referencia}/finalizar`);
             toast.success("Pedido finalizado con éxito.");
             if (isMounted.current) {
@@ -579,6 +583,7 @@ export default function CobrosYPedidosPage() {
             // Error handled by global api interceptor
             fetchItems();
         } finally {
+            isSubmittingRef.current = false;
             if (isMounted.current) setIsSubmitting(false);
         }
     };
@@ -588,9 +593,10 @@ export default function CobrosYPedidosPage() {
     };
 
     const confirmCancelPedido = async () => {
-        if (!itemToCancel || isSubmitting) return;
-        if (isMounted.current) setIsSubmitting(true);
+        if (!itemToCancel || isSubmittingRef.current || isSubmitting) return;
         try {
+            isSubmittingRef.current = true;
+            if (isMounted.current) setIsSubmitting(true);
             await api.post(`/ventas/${itemToCancel.id_referencia}/cancelar`);
             toast.success("Pedido cancelado exitosamente. Stock retornado.");
             fetchItems();
@@ -600,8 +606,11 @@ export default function CobrosYPedidosPage() {
             fetchItems();
         } finally {
             if (isMounted.current) {
-                setIsSubmitting(false);
                 setItemToCancel(null);
+                isSubmittingRef.current = false;
+                setIsSubmitting(false);
+            } else {
+                isSubmittingRef.current = false;
             }
         }
     };

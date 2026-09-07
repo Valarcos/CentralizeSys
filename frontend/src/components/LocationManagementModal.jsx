@@ -28,9 +28,11 @@ export default function LocationManagementModal({ onClose, onLocationAdded }) {
         }
     };
 
+    const submittingRef = useRef(false);
+
     const handleCreate = async (e) => {
         e.preventDefault();
-        if (submitting) return;
+        if (submittingRef.current) return;
         if (!newLocationName.trim()) return;
 
         // Frontend validation for number-only as per backend rule
@@ -39,6 +41,7 @@ export default function LocationManagementModal({ onClose, onLocationAdded }) {
             return;
         }
 
+        submittingRef.current = true;
         try {
             if (isMounted.current) setSubmitting(true);
             const response = await api.post('/locations', { nombre: newLocationName });
@@ -53,6 +56,7 @@ export default function LocationManagementModal({ onClose, onLocationAdded }) {
             // Vector 2: Force re-fetch on failure to sync state
             fetchLocations();
         } finally {
+            submittingRef.current = false;
             if (isMounted.current) setSubmitting(false);
         }
     };

@@ -35,7 +35,9 @@ api.interceptors.response.use(
             || error.message
             || 'Error en la solicitud';
 
-        toast.error(message);
+        if (!error.config?.silent) {
+            toast.error(message);
+        }
 
         // Auto-logout on 401 Unauthorized
         if (error.response?.status === 401) {

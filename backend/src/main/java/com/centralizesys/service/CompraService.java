@@ -63,7 +63,13 @@ public class CompraService {
         // 4. Persist (DB Inserts)
         Long compraId = saveTransaction(request, result);
 
-        // 5. Update Stock (DB Writes)
+        /*
+         * TODO: Phase 3 (Suspended) - Invoke payment save
+         * validatePagos(request.getPagos(), result.getTotalCompra());
+         * compraRepository.savePagos(request.getPagos(), compraId);
+         */
+
+
         // [MOVED] Stock update is now a distinct step after persistence preparation
         updateStockFromDetails(request.getItems());
 
@@ -252,4 +258,25 @@ public class CompraService {
             }
         }
     }
+    /*
+     * TODO: Phase 3 - Multiple Payments for Purchases (SUSPENDED)
+     * Pending client UI definitions.
+     *
+     * private void validatePagos(List<com.centralizesys.model.purchase.CompraRequest.PagoCompraRequest> pagos, Double totalCompra) {
+     *     if (pagos == null || pagos.isEmpty()) return;
+     *     double totalPagado = 0.0;
+     *     for (com.centralizesys.model.purchase.CompraRequest.PagoCompraRequest pago : pagos) {
+     *         if (pago.getMonto() == null || pago.getMonto() <= 0) {
+     *             throw new com.centralizesys.exception.BusinessRuleException("El monto del pago debe ser mayor a cero.");
+     *         }
+     *         if (pago.getMetodoPagoId() == null) {
+     *             throw new com.centralizesys.exception.BusinessRuleException("El m�todo de pago es obligatorio.");
+     *         }
+     *         totalPagado += pago.getMonto();
+     *     }
+     *     if (Math.abs(totalPagado - totalCompra) > 0.001) {
+     *         throw new com.centralizesys.exception.BusinessRuleException("El total de los pagos no coincide con el total de la compra.");
+     *     }
+     * }
+     */
 }

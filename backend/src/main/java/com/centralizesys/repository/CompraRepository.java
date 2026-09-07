@@ -63,4 +63,25 @@ public class CompraRepository {
             return c;
         });
     }
+    /*
+     * TODO: Phase 3 - Multiple Payments for Purchases (SUSPENDED)
+     * Pending client UI definitions.
+     *
+     * public void savePagos(List<com.centralizesys.model.purchase.CompraRequest.PagoCompraRequest> pagos, Long compraId) {
+     *     if (pagos == null || pagos.isEmpty()) return;
+     *
+     *     String sql = "INSERT INTO pagos_compra (compra_id, metodo_pago_id, monto, fecha_pago) VALUES (:compraId, :metodoPagoId, :monto, :fecha)";
+     *
+     *     java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneId.of("America/Argentina/Buenos_Aires"));
+     *     org.springframework.jdbc.core.namedparam.SqlParameterSource[] batch = pagos.stream().map(p ->
+     *         new org.springframework.jdbc.core.namedparam.MapSqlParameterSource()
+     *             .addValue("compraId", compraId)
+     *             .addValue("metodoPagoId", p.getMetodoPagoId())
+     *             .addValue("monto", p.getMonto())
+     *             .addValue("fecha", now)
+     *     ).toArray(org.springframework.jdbc.core.namedparam.SqlParameterSource[]::new);
+     *
+     *     namedJdbcTemplate.batchUpdate(sql, batch);
+     * }
+     */
 }

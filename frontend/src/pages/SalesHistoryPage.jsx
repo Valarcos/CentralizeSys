@@ -115,15 +115,13 @@ export default function SalesHistoryPage() {
     const handleOpenDetails = async (saleId) => {
         try {
             const res = await api.get(`/ventas/${saleId}`);
-            // If it's a FIADO sale, we need the debt info for the modal's printing feature
+            // Check if there is a debt associated with this sale
             let debtorInfo = null;
-            if (res.data.tipoVenta === 'FIADO') {
-                try {
-                    const deudorRes = await api.get(`/deudores/venta/${saleId}`);
-                    debtorInfo = deudorRes.data;
-                } catch (err) {
-                    console.error("Error fetching debtor info for modal:", err);
-                }
+            try {
+                const deudorRes = await api.get(`/deudores/venta/${saleId}`, { silent: true });
+                debtorInfo = deudorRes.data;
+            } catch (err) {
+                // If it fails with 404, there is no debt. Proceed with standard receipt.
             }
             if (isMounted.current) setSelectedSale({ ...res.data, debtorInfo });
         } catch (error) {
@@ -182,21 +180,19 @@ export default function SalesHistoryPage() {
                 globalSurcharge: Math.max(0, Number(sale.recargoGlobal) || 0)
             };
 
-            // If FIADO, fetch debt info and print Debt Receipt
-            if (sale.tipoVenta === 'FIADO') {
-                let debtorInfo = null;
-                let pagosDeuda = [];
-                try {
-                    const deudorRes = await api.get(`/deudores/venta/${saleId}`);
-                    debtorInfo = deudorRes.data;
-                    const pagosDeudaRes = await api.get(`/deudores/${debtorInfo.id}/pagos`);
-                    pagosDeuda = pagosDeudaRes.data;
-                } catch (err) {
-                    console.error("Error fetching debtor info for direct print:", err);
-                    toast.error("No se pudo cargar la información de la deuda.");
-                    setIsPrinting(false);
-                    return;
-                }
+            // Check if there's a debt associated with this sale to print the Debt Receipt
+            let debtorInfo = null;
+            let pagosDeuda = [];
+            try {
+                const deudorRes = await api.get(`/deudores/venta/${saleId}`, { silent: true });
+                debtorInfo = deudorRes.data;
+                const pagosDeudaRes = await api.get(`/deudores/${debtorInfo.id}/pagos`);
+                pagosDeuda = pagosDeudaRes.data;
+            } catch (err) {
+                // If it fails with 404, there is no debt. Proceed with standard receipt.
+            }
+
+            if (debtorInfo) {
 
                 const debtorData = {
                     ventaId: debtorInfo.ventaId,
@@ -447,7 +443,7 @@ export default function SalesHistoryPage() {
                 <SalesDetailModal
                     sale={selectedSale}
                     onClose={() => setSelectedSale(null)}
-                    printMode={selectedSale.tipoVenta === 'FIADO' ? 'debtor' : 'ticket'}
+                    printMode={selectedSale.debtorInfo ? 'debtor' : 'ticket'}
                     debtorInfo={selectedSale.debtorInfo}
                 />
             )}

@@ -139,23 +139,23 @@ public class DeudoresRepository {
      * MAINTENANCE WARNING:
      * - Do NOT move this calculation back to the Java Service layer without implementing
      *   strict distributed locking.
-     * - The `<= 0.01` floating point epsilon bounds are critically required to prevent
-     *   PostgreSQL 'deudores_estado_check' constraint violations caused by numeric drift.
+     * - The `< 0.001` floating point epsilon bounds are critically required to prevent
+     *   PostgreSQL 'deudores_estado_check' constraint violations caused by numeric drift, while safely handling 1-cent differences.
      */
     public int deductDeudaAtomic(Long id, Double appliedAmount, Double montoOriginal) {
         String sql = """
             UPDATE deudores 
             SET monto_deuda = CASE 
-                                 WHEN (monto_deuda - :appliedAmount) <= 0.01 THEN 0
+                                 WHEN (monto_deuda - :appliedAmount) < 0.001 THEN 0
                                  ELSE (monto_deuda - :appliedAmount)
                               END,
                 estado = CASE 
-                            WHEN (monto_deuda - :appliedAmount) <= 0.01 THEN 'PAGADO'
-                            WHEN (monto_deuda - :appliedAmount) >= (:montoOriginal - 0.01) THEN 'PENDIENTE'
+                            WHEN (monto_deuda - :appliedAmount) < 0.001 THEN 'PAGADO'
+                            WHEN (monto_deuda - :appliedAmount) > (:montoOriginal - 0.001) THEN 'PENDIENTE'
                             ELSE 'PARCIAL'
                          END,
                 fecha_pago = CURRENT_TIMESTAMP
-            WHERE id = :id AND monto_deuda >= (:appliedAmount - 0.01)
+            WHERE id = :id AND monto_deuda > (:appliedAmount - 0.001)
         """;
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("id", id)
@@ -171,19 +171,19 @@ public class DeudoresRepository {
      * requiring the debt to be restored safely without race conditions.
      *
      * MAINTENANCE WARNING:
-     * - The `>= (:montoOriginal - 0.01)` epsilon bounds are required to prevent float drift
+     * - The `> (:montoOriginal - 0.001)` epsilon bounds are required to prevent float drift
      *   from exceeding the original debt total, which would violate DB constraints.
      */
     public int addDeudaAtomic(Long id, Double addedAmount, Double montoOriginal) {
         String sql = """
             UPDATE deudores 
             SET monto_deuda = CASE 
-                                 WHEN (monto_deuda + :addedAmount) >= (:montoOriginal - 0.01) THEN :montoOriginal
+                                 WHEN (monto_deuda + :addedAmount) > (:montoOriginal - 0.001) THEN :montoOriginal
                                  ELSE (monto_deuda + :addedAmount)
                               END,
                 estado = CASE 
-                            WHEN (monto_deuda + :addedAmount) <= 0.01 THEN 'PAGADO'
-                            WHEN (monto_deuda + :addedAmount) >= (:montoOriginal - 0.01) THEN 'PENDIENTE'
+                            WHEN (monto_deuda + :addedAmount) < 0.001 THEN 'PAGADO'
+                            WHEN (monto_deuda + :addedAmount) > (:montoOriginal - 0.001) THEN 'PENDIENTE'
                             ELSE 'PARCIAL'
                          END
             WHERE id = :id

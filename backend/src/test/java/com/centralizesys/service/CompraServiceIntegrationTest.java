@@ -309,4 +309,55 @@ class CompraServiceIntegrationTest extends BaseIntegrationTest {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList("SELECT id FROM productos WHERE codigo = 'VAR-1'");
         assertEquals(2, rows.size(), "Schema should allow 2 products with same code but different costs");
     }
+
+    @Test
+    @DisplayName("IT-09: Rejection of Negative Quantities")
+    void transaction_RollsBack_OnNegativeQuantity() {
+        CompraItemRequest item = new CompraItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(-10L); // Negative
+        item.setCostoUnitario(50.0);
+        item.setUbicacionId(locationIdA);
+
+        CompraRequest request = new CompraRequest();
+        request.setUsuarioId(testUserId);
+        request.setItems(List.of(item));
+
+        assertThrows(BusinessRuleException.class, () -> compraService.registrarCompra(request));
+
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM compras", Integer.class);
+        assertEquals(0, count, "Transaction should be rolled back/aborted");
+    }
+
+    @Test
+    @DisplayName("IT-10: Rejection of Zero Quantities")
+    void transaction_RollsBack_OnZeroQuantity() {
+        CompraItemRequest item = new CompraItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(0L); // Zero
+        item.setCostoUnitario(50.0);
+        item.setUbicacionId(locationIdA);
+
+        CompraRequest request = new CompraRequest();
+        request.setUsuarioId(testUserId);
+        request.setItems(List.of(item));
+
+        assertThrows(BusinessRuleException.class, () -> compraService.registrarCompra(request));
+    }
+
+    @Test
+    @DisplayName("IT-11: Rejection of Negative Costs")
+    void transaction_RollsBack_OnNegativeCost() {
+        CompraItemRequest item = new CompraItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(10L);
+        item.setCostoUnitario(-50.0); // Negative
+        item.setUbicacionId(locationIdA);
+
+        CompraRequest request = new CompraRequest();
+        request.setUsuarioId(testUserId);
+        request.setItems(List.of(item));
+
+        assertThrows(BusinessRuleException.class, () -> compraService.registrarCompra(request));
+    }
 }

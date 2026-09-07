@@ -67,7 +67,7 @@ public class DeudoresService {
         DeudaResponse deuda = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(Constants.ERR_DEBT_NOT_FOUND, id));
 
-        if (totalPago > deuda.getMontoDeuda() + 0.01) {
+        if (totalPago > deuda.getMontoDeuda() + 0.001) {
             throw new BusinessRuleException(String.format("El monto del pago ($%.2f) supera la deuda pendiente ($%.2f).", totalPago, deuda.getMontoDeuda()));
         }
 
@@ -87,6 +87,11 @@ public class DeudoresService {
     private double calculateTotalPayment(List<PagoDeudaRequest> pagos) {
         if (pagos == null || pagos.isEmpty()) {
             throw new BusinessRuleException("Debe ingresar al menos un pago.");
+        }
+        for (PagoDeudaRequest pago : pagos) {
+            if (pago.getMontoPago() != null && pago.getMontoPago() < 0) {
+                throw new BusinessRuleException("Un pago de deuda no puede tener monto negativo.");
+            }
         }
         // ONLY sum cash/transfers. Cheques do NOT reduce the debt instantly.
         double totalPago = pagos.stream()
@@ -162,22 +167,6 @@ public class DeudoresService {
             String obs = pago.getObservaciones();
             if (obs != null && obs.length() > 255) obs = obs.substring(0, 255);
             repository.insertarPagoDeuda(id, pago.getMetodoPagoId(), pago.getMontoPago(), obs, usuarioId);
-        }
-    }
-
-    /**
-     * Helper to determine status based purely on the remaining money.
-     * This ensures the DB state never gets "stuck" in PAGADO if money is still
-     * owed.
-     */
-    private DebtStatus calculateStatus(Double currentDebt, Double originalDebt) {
-        // Floating point safety check (0.01 margin)
-        if (currentDebt <= 0.01) {
-            return DebtStatus.PAGADO;
-        } else if (originalDebt != null && Math.abs(currentDebt - originalDebt) <= 0.01) {
-            return DebtStatus.PENDIENTE;
-        } else {
-            return DebtStatus.PARCIAL;
         }
     }
 

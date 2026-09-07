@@ -1,5 +1,6 @@
 package com.centralizesys.service;
 
+import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
 import com.centralizesys.model.dto.PageResponse;
 import com.centralizesys.model.gastos.GastoCaja;
@@ -32,6 +33,7 @@ public class GastoCajaService {
 
     @Transactional
     public Long crearGasto(GastoCajaRequest request, Long authenticatedUserId) {
+        if (request.getMonto() == null || request.getMonto() <= 0) throw new BusinessRuleException("El monto del gasto debe ser mayor a cero.");
         GastoCaja gasto = new GastoCaja();
         gasto.setMonto(request.getMonto());
         gasto.setMotivo(request.getMotivo());

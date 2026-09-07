@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.LockedException;
@@ -57,6 +58,7 @@ public class AuthController {
         this.activeTokenCacheService = activeTokenCacheService;
     }
 
+    @PreAuthorize("permitAll()")
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request,
                                               HttpServletRequest httpRequest) {
@@ -104,6 +106,7 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(jwt, user.getEmail(), user.getNombre(), user.getRol().name()));
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
@@ -125,11 +128,13 @@ public class AuthController {
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<String> handleBadCredentials(BadCredentialsException e) {
+        log.warn("Intento de inicio de sesión fallido: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Credenciales incorrectas");
     }
 
     @ExceptionHandler(LockedException.class)
     public ResponseEntity<String> handleLockedException(LockedException e) {
+        log.warn("Intento de inicio de sesión en cuenta bloqueada: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
                 "Su cuenta ha sido bloqueada temporalmente por múltiples intentos fallidos. " +
                         "Intente nuevamente más tarde.");

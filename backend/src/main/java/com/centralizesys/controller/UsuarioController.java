@@ -1,5 +1,6 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.aspect.Idempotent;
 import com.centralizesys.model.auth.LoginRequest;
 import com.centralizesys.model.auth.RegisterRequest;
 import com.centralizesys.model.auth.Usuario;
@@ -46,6 +47,7 @@ public class UsuarioController {
      * Endpoint to register new admin users.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @Idempotent
     @PostMapping("/register")
     public ResponseEntity<Void> register(@RequestBody RegisterRequest request) {
         usuarioService.registrarUsuario(
@@ -78,6 +80,7 @@ public class UsuarioController {
      * Admin Only.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @Idempotent
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         usuarioService.delete(id);
@@ -89,6 +92,7 @@ public class UsuarioController {
      * Admin Only.
      */
     @PreAuthorize("hasAnyRole('ADMIN', 'OWNER')")
+    @Idempotent
     @PutMapping("/{id}")
     public ResponseEntity<Void> update(@PathVariable Long id,
                                        @RequestBody com.centralizesys.model.auth.UpdateUserRequest request) {

@@ -112,7 +112,7 @@ export default function CheckoutChequeModal({ isOpen, onClose, onConfirm, totalA
     const totalIngresado = cheques.reduce((sum, c) => sum + (parseFloat(c.monto) || 0), 0);
     const restante = Math.max(0, totalAmount - totalIngresado);
     const validCheques = cheques.every(c => parseFloat(c.monto) > 0 && c.fechaCobro);
-    const isTotalValid = Math.abs(totalAmount - totalIngresado) < 0.01;
+    const isTotalValid = Math.abs(totalAmount - totalIngresado) < 0.001;
 
     const handleMontoFocus = (e, index) => {
         e.target.select(); // Highlight the whole content

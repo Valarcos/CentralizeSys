@@ -147,10 +147,13 @@ export default function InventarioPage() {
         setEditingProduct(null);
         fetchProducts(page);
     };
+    const isDeletingRef = useRef(false);
+
     const handleDeleteConfirm = async () => {
-        if (!deletingProduct || isDeleting) return;
+        if (!deletingProduct || isDeletingRef.current) return;
+        isDeletingRef.current = true;
+        setIsDeleting(true);
         try {
-            setIsDeleting(true);
             await api.delete(`/productos/${deletingProduct.id}`);
             toast.success('Producto eliminado correctamente');
             setShowDeleteModal(false);
@@ -163,6 +166,7 @@ export default function InventarioPage() {
             // Vector 2: Force re-fetch on failure to resync state
             fetchProducts(page);
         } finally {
+            isDeletingRef.current = false;
             if (isMounted.current) setIsDeleting(false);
         }
     };

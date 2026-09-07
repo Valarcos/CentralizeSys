@@ -13,6 +13,7 @@ export default function UserFormModal({ user, onSuccess, onCancel }) {
         rol: 'EMPLEADO'
     });
     const [loading, setLoading] = useState(false);
+    const loadingRef = useRef(false);
     const [errors, setErrors] = useState({});
     const nombreInputRef = useRef(null);
     const isMounted = useRef(true);
@@ -68,9 +69,9 @@ export default function UserFormModal({ user, onSuccess, onCancel }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (loading) return;
+        if (loadingRef.current) return;
         if (!validate()) return;
-
+        loadingRef.current = true;
         setLoading(true);
         try {
             if (isEditing) {
@@ -99,6 +100,7 @@ export default function UserFormModal({ user, onSuccess, onCancel }) {
             console.error('Error saving user:', error);
             // Error handled by global api interceptor
         } finally {
+            loadingRef.current = false;
             if (isMounted.current) setLoading(false);
         }
     };

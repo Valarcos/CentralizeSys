@@ -13,6 +13,7 @@ export default function BackupPage() {
     // Reboot UX State
     const [isRebooting, setIsRebooting] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
+    const isCreatingRef = useRef(false);
     const [rebootMessage, setRebootMessage] = useState('');
     const [errorModalMessage, setErrorModalMessage] = useState('');
 
@@ -89,8 +90,9 @@ export default function BackupPage() {
 
 
     const handleCreateBackup = async () => {
-        if (isCreating) return;
+        if (isCreatingRef.current || isCreating) return;
         try {
+            isCreatingRef.current = true;
             setIsCreating(true);
             await api.post('/backups/create');
             toast.success('Respaldo creado correctamente');
@@ -101,6 +103,7 @@ export default function BackupPage() {
             // Vector 2: Force re-fetch on failure to resync state
             fetchBackups();
         } finally {
+            isCreatingRef.current = false;
             if (isMounted.current) setIsCreating(false);
         }
     };

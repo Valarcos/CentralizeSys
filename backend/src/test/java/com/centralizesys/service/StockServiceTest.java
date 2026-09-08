@@ -5,6 +5,7 @@ import com.centralizesys.repository.StockRepository;
 import com.centralizesys.security.SecurityUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -89,5 +90,39 @@ class StockServiceTest {
                 eq(userId),
                 eq("STOCK_SUBTRACT"),
                 contains("Quitado stock: -3 unidades"));
+    }
+
+    @Test
+    @DisplayName("addStock: Throws BusinessRuleException when quantity is zero or negative")
+    void addStock_Throws_WhenQuantityIsZeroOrNegative() {
+        Long productId = 1L;
+        Long locationId = 10L;
+
+        com.centralizesys.exception.BusinessRuleException ex1 = org.junit.jupiter.api.Assertions.assertThrows(
+                com.centralizesys.exception.BusinessRuleException.class,
+                () -> stockService.addStock(productId, locationId, 0L));
+        org.junit.jupiter.api.Assertions.assertTrue(ex1.getMessage().toLowerCase().contains("mayor a cero"));
+
+        com.centralizesys.exception.BusinessRuleException ex2 = org.junit.jupiter.api.Assertions.assertThrows(
+                com.centralizesys.exception.BusinessRuleException.class,
+                () -> stockService.addStock(productId, locationId, -5L));
+        org.junit.jupiter.api.Assertions.assertTrue(ex2.getMessage().toLowerCase().contains("mayor a cero"));
+    }
+
+    @Test
+    @DisplayName("subtractStock: Throws BusinessRuleException when quantity is zero or negative")
+    void subtractStock_Throws_WhenQuantityIsZeroOrNegative() {
+        Long productId = 1L;
+        Long locationId = 10L;
+
+        com.centralizesys.exception.BusinessRuleException ex1 = org.junit.jupiter.api.Assertions.assertThrows(
+                com.centralizesys.exception.BusinessRuleException.class,
+                () -> stockService.subtractStock(productId, locationId, 0L));
+        org.junit.jupiter.api.Assertions.assertTrue(ex1.getMessage().toLowerCase().contains("mayor a cero"));
+
+        com.centralizesys.exception.BusinessRuleException ex2 = org.junit.jupiter.api.Assertions.assertThrows(
+                com.centralizesys.exception.BusinessRuleException.class,
+                () -> stockService.subtractStock(productId, locationId, -5L));
+        org.junit.jupiter.api.Assertions.assertTrue(ex2.getMessage().toLowerCase().contains("mayor a cero"));
     }
 }

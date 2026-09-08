@@ -5,6 +5,7 @@ import com.centralizesys.exception.ResourceNotFoundException;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.model.sales.VentaRequest;
 import com.centralizesys.model.sales.TipoVenta;
+import com.centralizesys.model.debt.PagoDeudaRequest;
 import com.centralizesys.repository.DeudoresRepository;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.repository.StockRepository;
@@ -227,5 +228,44 @@ class VentaServiceValidationTest {
 
         assertTrue(ex.getMessage().toLowerCase().contains("inactivo") || ex.getMessage().toLowerCase().contains("eliminado") || ex.getMessage().toLowerCase().contains("activo"),
                 "Error message must indicate that the client is not active");
+    }
+
+    @Test
+    @DisplayName("UT-26: registrarVenta throws BusinessRuleException when payment amount is negative")
+    void registrarVenta_Throws_WhenPaymentAmountIsNegative() {
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        VentaRequest.PagoRequest pago = new VentaRequest.PagoRequest();
+        pago.setMetodoPagoId(1L);
+        pago.setMonto(-100.0);
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+        request.setPagos(List.of(pago));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
+
+        assertTrue(ex.getMessage().toLowerCase().contains("negativo"),
+                "Error message must indicate the payment is negative");
+    }
+
+    @Test
+    @DisplayName("UT-27: registrarPago throws BusinessRuleException when pending payment amount is negative or zero")
+    void registrarPago_Throws_WhenPaymentAmountIsNegativeOrZero() {
+        // Zero payment
+        PagoDeudaRequest pagoZero = new PagoDeudaRequest();
+        pagoZero.setMetodoPagoId(1L);
+        pagoZero.setMontoPago(0.0);
+
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarPago(1L, List.of(pagoZero), 1L));
+
+        // Negative payment
+        PagoDeudaRequest pagoNeg = new PagoDeudaRequest();
+        pagoNeg.setMetodoPagoId(1L);
+        pagoNeg.setMontoPago(-50.0);
+
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarPago(1L, List.of(pagoNeg), 1L));
     }
 }

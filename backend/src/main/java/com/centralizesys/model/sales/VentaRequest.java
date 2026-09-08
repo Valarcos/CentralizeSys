@@ -68,6 +68,7 @@ public class VentaRequest {
     @Data
     @NoArgsConstructor
     public static class PagoRequest {
+        private Long id; // Null for new payments, populated for existing
         private Long metodoPagoId; // ID from metodos_pago table
         private Double monto = 0.0;
 

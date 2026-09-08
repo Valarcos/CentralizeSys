@@ -83,7 +83,13 @@ class ReportRepositoryTest extends BaseIntegrationTest {
             VALUES (200.0, 'Impuestos aduaneros', '2026-10-16 11:00:00', '2026-10-16 11:00:00', 'Admin', 1, 'Ajuste Importación', false)
         """);
 
-        // 3. Add a normal 'Sueldos' Gasto Vario for $500
+        // 3. Add a VOIDED 'Ajuste Importación' Gasto Vario for $300
+        jdbcTemplate.update("""
+            INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
+            VALUES (300.0, 'Cancelado por error', '2026-10-16 11:30:00', '2026-10-16 11:30:00', 'Admin', 1, 'Ajuste Importación', true)
+        """);
+
+        // 4. Add a normal 'Sueldos' Gasto Vario for $500
         jdbcTemplate.update("""
             INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
             VALUES (500.0, 'Sueldo', '2026-10-16 12:00:00', '2026-10-16 12:00:00', 'Admin', 1, 'Sueldos', false)
@@ -95,7 +101,8 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         // Assert
         ReportesEstadisticasDTO.FlujoDeCaja fc = dto.getFlujoDeCaja();
 
-        // Egresos (compras) should be 1000 + 200 (Ajuste Importación) = 1200
+        // Egresos (compras) should be 1000 + 200 (Active Ajuste Importación) = 1200
+        // The 300 voided adjustment must be ignored!
         assertThat(fc.getEgresosEfectivo()).isEqualTo(1200.0);
 
         // Gastos Varios should only be 500 (Sueldos)

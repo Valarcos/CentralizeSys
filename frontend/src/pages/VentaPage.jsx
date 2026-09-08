@@ -79,8 +79,6 @@ export default function VentaPage() {
         initialClientName,
         initialClientId,
         cartVersion,
-        deletedPayments,
-        deletedCheques,
         saldoGenerado,
         setSaldoGenerado,
         loadCartFromPendingSale
@@ -234,6 +232,14 @@ export default function VentaPage() {
         prevCartLength.current = cartItems.length;
     }, [cartItems.length]);
 
+    // Req: Auto-scroll to bottom of payment stack when a NEW payment is added
+    const paymentStackRef = useRef(null);
+    useEffect(() => {
+        if (paymentStackRef.current) {
+            paymentStackRef.current.scrollTop = paymentStackRef.current.scrollHeight;
+        }
+    }, [payments.length]);
+
     // Req 1: Local display buffer for quantity inputs.
     // useCart's updateQuantity guards against values < 1, so storing '' in cart state is not possible.
     // This Map (productId -> displayString) acts as an independent controlled-input buffer.
@@ -355,8 +361,10 @@ export default function VentaPage() {
         }
     };
 
+    const isSubmittingRef = useRef(false);
+
     const handleFinalizeSale = async () => {
-        if (isSubmitting) return;
+        if (isSubmittingRef.current) return;
 
         // 0. Empty check
         if (!cartItems || cartItems.length === 0) {
@@ -375,16 +383,17 @@ export default function VentaPage() {
         setShowDebtModal(false);
 
         try {
+            isSubmittingRef.current = true;
             setIsSubmitting(true);
 
             // Split payments into standard pagos and cheques for the unified backend endpoint.
             const pagosPayload = payments
                 .filter(p => !p.fechaCobro)
-                .map(p => ({ metodoPagoId: p.methodId, monto: p.amount }));
+                .map(p => ({ id: p.id || null, metodoPagoId: p.methodId, monto: p.amount }));
 
             const chequesPayload = payments
                 .filter(p => !!p.fechaCobro)
-                .map(p => ({ monto: p.amount, fechaCobro: p.fechaCobro }));
+                .map(p => ({ id: p.id || null, monto: p.amount, fechaCobro: p.fechaCobro }));
 
             const saleData = {
                 version: cartVersion,
@@ -415,32 +424,10 @@ export default function VentaPage() {
 
             let response;
             if (editingPendingId) {
-                // Deletions
-                for (const pid of deletedPayments) {
-                    await api.delete(`/ventas/${editingPendingId}/pagos/${pid}`);
-                }
-                for (const cid of deletedCheques) {
-                    await api.delete(`/alertas/cheques/${cid}`);
-                }
-
-                // 1. Update Cart
+                // 1. Update Cart (which now atomically processes payments)
                 await api.put(`/ventas/${editingPendingId}`, saleData);
 
-                // 2. Register NEW payments (only non-persisted ones, filtering by absence of an id)
-                const newPayments = payments.filter(p => !p.id);
-                if (newPayments.length > 0) {
-                    const pagosNew = newPayments.map(p => ({
-                        montoPago: p.amount,
-                        metodoPagoId: p.methodId,
-                        fechaCobro: p.fechaCobro || null,
-                        observaciones: ''
-                    }));
-                    if (pagosNew.length > 0) {
-                        await api.post(`/ventas/${editingPendingId}/pagos`, pagosNew);
-                    }
-                }
-
-                // 3. Finalize
+                // 2. Finalize
                 response = await api.post(`/ventas/${editingPendingId}/finalizar`);
                 toast.success("Pedido finalizado con éxito");
             } else {
@@ -486,7 +473,10 @@ export default function VentaPage() {
             const msg = error.response?.data?.message;
             if (msg) toast.error(msg);
         } finally {
-            if (isMounted.current) setIsSubmitting(false);
+            if (isMounted.current) {
+                isSubmittingRef.current = false;
+                setIsSubmitting(false);
+            }
         }
     };
 
@@ -497,15 +487,17 @@ export default function VentaPage() {
      * Kept inside VentaPage to maintain closure over fresh React state.
      */
     const executeSaveAsPending = async (overrideClientId, overrideClientName) => {
+        if (isSubmittingRef.current) return;
         try {
+            isSubmittingRef.current = true;
             setIsSubmitting(true);
             const pagosPayload = payments
                 .filter(p => !p.fechaCobro)
-                .map(p => ({ metodoPagoId: p.methodId, monto: p.amount }));
+                .map(p => ({ id: p.id || null, metodoPagoId: p.methodId, monto: p.amount }));
 
             const chequesPayload = payments
                 .filter(p => !!p.fechaCobro)
-                .map(p => ({ monto: p.amount, fechaCobro: p.fechaCobro }));
+                .map(p => ({ id: p.id || null, monto: p.amount, fechaCobro: p.fechaCobro }));
 
             const finalClientId = overrideClientId !== undefined ? overrideClientId : (selectedClientObj?.id || null);
             const finalClientName = overrideClientName !== undefined ? overrideClientName : clientName;
@@ -538,27 +530,7 @@ export default function VentaPage() {
             };
 
             if (editingPendingId) {
-                for (const pid of deletedPayments) {
-                    await api.delete(`/ventas/${editingPendingId}/pagos/${pid}`);
-                }
-                for (const cid of deletedCheques) {
-                    await api.delete(`/alertas/cheques/${cid}`);
-                }
-
                 await api.put(`/ventas/${editingPendingId}`, saleData);
-                // Also save new payments if any
-                const newPayments = payments.filter(p => !p.id);
-                if (newPayments.length > 0) {
-                    const pagosNew = newPayments.map(p => ({
-                        montoPago: p.amount,
-                        metodoPagoId: p.methodId,
-                        fechaCobro: p.fechaCobro || null,
-                        observaciones: ""
-                    }));
-                    if (pagosNew.length > 0) {
-                        await api.post(`/ventas/${editingPendingId}/pagos`, pagosNew);
-                    }
-                }
                 toast.success("Pedido pendiente actualizado exitosamente.");
                 isRedirectingRef.current = true;
                 navigate('/cobros-y-pedidos', { state: { highlightedSaleId: editingPendingId } });
@@ -573,6 +545,7 @@ export default function VentaPage() {
             if (msg) toast.error(msg);
         } finally {
             if (isMounted.current) {
+                isSubmittingRef.current = false;
                 setIsSubmitting(false);
                 setPendingAction(null); // Always clear intent after execution
             }
@@ -580,7 +553,7 @@ export default function VentaPage() {
     };
 
     const handleSaveAsPending = async () => {
-        if (isSubmitting) return;
+        if (isSubmittingRef.current) return;
 
         if (!cartItems || cartItems.length === 0) {
             toast.error("El carrito está vacío");
@@ -1388,7 +1361,7 @@ export default function VentaPage() {
 
                 {/* PAYMENT STACK */}
                 <div className="payment-section">
-                    <div className="payment-stack">
+                    <div className="payment-stack" ref={paymentStackRef}>
                         {payments.map((p) => (
                             <div key={p._internalId} className="payment-item">
                                 <span className="payment-name">{p.name}</span>

@@ -1,15 +1,13 @@
 package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
-import com.centralizesys.exception.ResourceNotFoundException;
+import com.centralizesys.model.cheque.AlertaCheque;
+import com.centralizesys.model.cheque.AlertaChequeRequest;
+import com.centralizesys.model.debt.DeudaResponse;
+import com.centralizesys.model.debt.PagoDeudaRequest;
 import com.centralizesys.model.product.Product;
 import com.centralizesys.model.product.StockLocation;
-import com.centralizesys.model.returns.DevolucionRequest;
-import com.centralizesys.model.sales.DetalleVenta;
-import com.centralizesys.model.sales.Venta;
-import com.centralizesys.model.sales.VentaRequest;
-import com.centralizesys.model.sales.VentaResponse;
-import com.centralizesys.model.sales.TipoVenta;
+import com.centralizesys.model.sales.*;
 import com.centralizesys.repository.DeudoresRepository;
 import com.centralizesys.repository.ProductRepository;
 import com.centralizesys.repository.StockRepository;
@@ -22,7 +20,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -183,6 +180,12 @@ class VentaServiceOrchestrationTest {
         when(stockRepository.findByProductId(1L)).thenReturn(
                 List.of(new StockLocation(1L, 1L, 1L, "Loc", 100L)));
 
+        // Stubs required by processPagosVenta: SALDO method lookup + the payment method itself
+        MetodoPago saldoMethod = new MetodoPago(9L, "SALDO", "Saldo a Favor", true);
+        when(metodoPagoRepository.findByAcronimo("SALDO")).thenReturn(Optional.of(saldoMethod));
+        MetodoPago efectivo = new MetodoPago(1L, "EFE", "Efectivo", true);
+        when(metodoPagoRepository.findById(1L)).thenReturn(Optional.of(efectivo));
+
         VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
         item.setProductoId(1L);
         item.setCantidad(2L); // Total 200
@@ -195,7 +198,7 @@ class VentaServiceOrchestrationTest {
         request.setClienteNombre("Client");
         request.setUsuarioId(7L);
         request.setItems(List.of(item));
-        request.setPagos(List.of(pago)); // <--- Add this line!
+        request.setPagos(List.of(pago));
 
         // Act
         VentaResponse response = ventaService.registrarVenta(request);
@@ -208,7 +211,7 @@ class VentaServiceOrchestrationTest {
         // Verify Interactions
         verify(ventaRepository).saveVenta(any(Venta.class));
         verify(ventaRepository).saveDetalles(anyList());
-        verify(ventaRepository).savePagos(anyList()); // Empty list is fine
+        verify(ventaRepository).savePagos(anyList()); // Full payment list persisted via savePagos
         verify(auditoriaService).registrarAccion(eq(7L), eq("VENTA"), contains("200.0"));
     }
 
@@ -220,6 +223,7 @@ class VentaServiceOrchestrationTest {
         p.setId(1L);
         when(productRepository.findByIdIncludingInactive(1L)).thenReturn(Optional.of(p));
         when(ventaRepository.saveVenta(any())).thenReturn(500L);
+        when(ventaRepository.findVendedorNombre(any())).thenReturn("Admin Test");
 
         when(stockRepository.findByProductId(1L)).thenReturn(
                 List.of(new StockLocation(1L, 1L, 1L, "Loc", 100L)));
@@ -228,7 +232,7 @@ class VentaServiceOrchestrationTest {
         item.setProductoId(1L);
         item.setCantidad(1L); // Total $100
 
-        com.centralizesys.model.cheque.AlertaChequeRequest chequeReq = new com.centralizesys.model.cheque.AlertaChequeRequest();
+        AlertaChequeRequest chequeReq = new AlertaChequeRequest();
         chequeReq.setMonto(100.0);
         chequeReq.setFechaCobro(java.time.LocalDate.now().plusDays(10));
 
@@ -241,12 +245,13 @@ class VentaServiceOrchestrationTest {
         // Act
         VentaResponse response = ventaService.registrarVenta(request);
 
-        // Assert
+        // Assert: sale was persisted with correct total
         assertEquals(500L, response.getId());
         assertEquals(100.0, response.getTotalVenta());
 
-        // Verify Alerta Cheque was saved!
+        // The cheque must be routed to alertas_cheques, not pagos_venta
         verify(alertaChequeRepository).save(any(com.centralizesys.model.cheque.AlertaCheque.class));
+        verify(ventaRepository, never()).savePagos(anyList());
         verify(auditoriaService).registrarAccion(eq(7L), eq("VENTA"), contains("100.0"));
     }
 
@@ -258,6 +263,7 @@ class VentaServiceOrchestrationTest {
         p.setId(1L);
         when(productRepository.findByIdIncludingInactive(1L)).thenReturn(Optional.of(p));
         when(ventaRepository.saveVenta(any())).thenReturn(500L);
+        when(ventaRepository.findVendedorNombre(any())).thenReturn("Admin Test");
         when(stockRepository.findByProductId(1L)).thenReturn(
                 List.of(new StockLocation(1L, 1L, 1L, "Loc", 100L)));
 
@@ -279,10 +285,11 @@ class VentaServiceOrchestrationTest {
         // Act
         ventaService.registrarVenta(request);
 
-        // Assert
+        // Assert: the service must have looked up the client by name and then saved it
         verify(clienteRepository).findByNombre("Casual User");
+        // eq() required because save(any(), 7L) mixes raw + matcher which Mockito rejects
         verify(clienteRepository).save(any(), eq(7L));
-        assertEquals(123L, request.getClienteId(), "Request should have its clienteId hydrated");
+        assertEquals(123L, request.getClienteId(), "Request should have its clienteId hydrated after auto-registration");
     }
 
     // --- GROUP 4: CHEQUES ---
@@ -295,11 +302,11 @@ class VentaServiceOrchestrationTest {
         Long metodoPagoId = 1L;
         Long authenticatedUserId = 2L;
 
-        com.centralizesys.model.cheque.AlertaCheque cheque = new com.centralizesys.model.cheque.AlertaCheque(
+        AlertaCheque cheque = new AlertaCheque(
                 chequeId, 100L, 500.0, java.time.LocalDate.now(), "PENDIENTE", null, null
         );
 
-        com.centralizesys.model.sales.MetodoPago metodo = new com.centralizesys.model.sales.MetodoPago();
+        MetodoPago metodo = new MetodoPago();
         metodo.setId(metodoPagoId);
         metodo.setActivo(true);
 
@@ -312,7 +319,7 @@ class VentaServiceOrchestrationTest {
         // When
         ventaService.cobrarCheque(chequeId, metodoPagoId, authenticatedUserId);
 
-        // Then
+        // Then: the cheque status must be updated atomically to COBRADO with the new pago ID
         verify(alertaChequeRepository).updateEstadoAndPagoVentaIdAtomic(eq(chequeId), eq("COBRADO"), eq(999L), eq("PENDIENTE"));
         verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("COBRO_CHEQUE"), anyString());
     }
@@ -335,8 +342,8 @@ class VentaServiceOrchestrationTest {
         // When
         ventaService.cancelarCobroCheque(chequeId, authenticatedUserId);
 
-        // Then
-        verify(ventaRepository).anularPagoVentaById(999L);
+        // Then: the payment must be annulled and the cheque returned to PENDIENTE state
+        verify(ventaRepository).anularPagoVentaById(eq(999L));
         verify(alertaChequeRepository).updateEstadoAndPagoVentaIdAtomic(eq(chequeId), eq("PENDIENTE"), isNull(), eq("COBRADO"));
         verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("CANCELACION_COBRO_CHEQUE"), anyString());
     }
@@ -400,7 +407,7 @@ class VentaServiceOrchestrationTest {
         // Act
         assertDoesNotThrow(() -> ventaService.modificarCarrito(99L, request, 1L));
 
-        verify(ventaRepository).updatePendingSaleHeader(eq(99L), eq(100.0), eq(0.0), eq(0.0), eq(0.0), eq(999L), eq("John"), eq("MINORISTA"));
+        verify(ventaRepository).updatePendingSaleHeader(99L, 100.0, 0.0, 0.0, 0.0, 999L, "John", "MINORISTA");
     }
 
     @Test
@@ -438,7 +445,71 @@ class VentaServiceOrchestrationTest {
 
         // Assert
 
-        verify(ventaRepository).updatePendingSaleHeader(eq(99L), eq(50.0), eq(0.0), eq(0.0), eq(0.0), eq(88L), eq("Changed Client"), eq("MAYORISTA"));
+        verify(ventaRepository).updatePendingSaleHeader(99L, 50.0, 0.0, 0.0, 0.0, 88L, "Changed Client", "MAYORISTA");
+    }
+
+    @Test
+    @DisplayName("UT-23c: modificarCarrito atomic delta update for payments")
+    void modificarCarrito_AtomicDeltaPayments() {
+        // Arrange
+        Venta pendingSale = new Venta();
+        pendingSale.setId(99L);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTipoVenta("MINORISTA");
+        pendingSale.setVersion(0);
+        when(ventaRepository.findById(99L)).thenReturn(Optional.of(pendingSale));
+        when(ventaRepository.lockVentaForUpdate(99L, "PENDIENTE")).thenReturn(true);
+
+        VentaRequest request = new VentaRequest();
+
+        // Mock product to avoid finalTotal < totalAbonado rule
+        Product p = Product.builder().codigo("C").descripcion("Code").precioCosto(50.0).precioMayorista(100.0).precioMinorista(100.0).build();
+        p.setId(1L);
+        when(productRepository.findByIdIncludingInactive(1L)).thenReturn(Optional.of(p));
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        request.setItems(List.of(item));
+
+        // Mock existing payments in DB: ID 10 and 20
+        com.centralizesys.model.sales.PagoVenta existingP1 = new com.centralizesys.model.sales.PagoVenta();
+        existingP1.setId(10L);
+        existingP1.setMetodoPagoId(1L);
+        com.centralizesys.model.sales.PagoVenta existingP2 = new com.centralizesys.model.sales.PagoVenta();
+        existingP2.setId(20L);
+        existingP2.setMetodoPagoId(1L);
+
+        when(ventaRepository.findPagosActivosByVentaId(99L)).thenReturn(List.of(existingP1, existingP2));
+        when(metodoPagoRepository.findById(1L)).thenReturn(Optional.of(new com.centralizesys.model.sales.MetodoPago(1L, "EFECTIVO", "Efectivo", true)));
+        when(metodoPagoRepository.findByAcronimo("SALDO")).thenReturn(Optional.of(new com.centralizesys.model.sales.MetodoPago(9L, "SALDO", "Saldo a Favor", true)));
+        when(alertaChequeRepository.findByVentaId(99L)).thenReturn(List.of());
+
+        // Request payload: Keep ID 10, Omit ID 20, Add new payment
+        VentaRequest.PagoRequest pKeep = new VentaRequest.PagoRequest();
+        pKeep.setId(10L); // Kept
+        pKeep.setMetodoPagoId(1L);
+        pKeep.setMonto(50.0);
+
+        VentaRequest.PagoRequest pNew = new VentaRequest.PagoRequest();
+        pNew.setId(null); // New
+        pNew.setMetodoPagoId(1L);
+        pNew.setMonto(50.0);
+
+        request.setPagos(List.of(pKeep, pNew));
+
+        // Act
+        ventaService.modificarCarrito(99L, request, 1L);
+
+        // Assert
+        // ID 20 was omitted, so it must be annulled
+        verify(ventaRepository).updatePagoAnulado(20L);
+        // ID 10 was kept, so it must NOT be annulled
+        verify(ventaRepository, never()).updatePagoAnulado(10L);
+
+        // New payment should be saved
+        verify(ventaRepository).savePagoUnico(99L, 1L, 50.0, 1L);
     }
 
     @Test
@@ -470,20 +541,21 @@ class VentaServiceOrchestrationTest {
         pendingSale.setId(99L);
         pendingSale.setEstado("PENDIENTE");
         pendingSale.setTotalVenta(100.0);
+        pendingSale.setSaldoGenerado(0.0); // Required: finalizarVenta reads saldoGenerado; null causes NPE in arithmetic
         when(ventaRepository.findById(99L)).thenReturn(Optional.of(pendingSale));
 
         com.centralizesys.model.sales.PagoVenta pago = new com.centralizesys.model.sales.PagoVenta();
         pago.setMonto(50.0);
         when(ventaRepository.findPagosActivosByVentaId(99L)).thenReturn(List.of(pago));
         when(ventaRepository.updateFechaAndEstadoAtomic(anyLong(), any(), anyString(), anyString())).thenReturn(1);
-        when(alertaChequeRepository.sumMontoPendienteByVentaId(99L)).thenReturn(50.0); // 50 + 50 = 100
+        when(alertaChequeRepository.sumMontoPendienteByVentaId(99L)).thenReturn(50.0); // 50 + 50 = 100 exactly
 
-        // Act
+        // Act: must not throw; total paid == total sale
         assertDoesNotThrow(() -> ventaService.finalizarVenta(99L, 1L));
 
-        // Assert
+        // Assert: state transition must have been attempted with correct arguments
         verify(ventaRepository).updateFechaAndEstadoAtomic(eq(99L), any(), eq("ACTIVA"), eq("PENDIENTE"));
-        // Debt repo should not save debt since paid in full
+        // Debt repo must NOT save debt since paid in full
         verify(deudoresRepository, never()).save(anyLong(), anyString(), any(), anyDouble());
     }
 
@@ -502,11 +574,16 @@ class VentaServiceOrchestrationTest {
         pendingSale.setTotalVenta(500.0);
 
         when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        // registrarPago acquires a pessimistic lock before processing
+        when(ventaRepository.lockVentaForUpdate(ventaId, "PENDIENTE")).thenReturn(true);
+        // The service always looks up SALDO method in processPagoPendienteRecords
+        MetodoPago saldoMethod = new MetodoPago(9L, "SALDO", "Saldo a Favor", true);
+        when(metodoPagoRepository.findByAcronimo("SALDO")).thenReturn(Optional.of(saldoMethod));
+        // Stub the cheque's payment method (ID=3)
+        MetodoPago chequeMetodo = new MetodoPago(3L, "CHQ", "Cheque", true);
+        when(metodoPagoRepository.findById(3L)).thenReturn(Optional.of(chequeMetodo));
 
-        // No pre-existing cheques for this venta
-
-
-        com.centralizesys.model.debt.PagoDeudaRequest chequePayment = new com.centralizesys.model.debt.PagoDeudaRequest();
+        PagoDeudaRequest chequePayment = new PagoDeudaRequest();
         chequePayment.setMontoPago(200.0);
         chequePayment.setMetodoPagoId(3L); // Cheque method ID
         chequePayment.setFechaCobro(LocalDate.now().plusDays(30)); // <-- Has fechaCobro
@@ -514,7 +591,7 @@ class VentaServiceOrchestrationTest {
         // Act
         ventaService.registrarPago(ventaId, List.of(chequePayment), usuarioId);
 
-        // Assert: Must save to alertas_cheques
+        // Assert: payment with fechaCobro must be routed to alertas_cheques
         verify(alertaChequeRepository).save(any(com.centralizesys.model.cheque.AlertaCheque.class));
         // Must NOT save via the standard cash path
         verify(ventaRepository, never()).savePagoUnico(anyLong(), anyLong(), anyDouble(), anyLong());
@@ -641,7 +718,7 @@ class VentaServiceOrchestrationTest {
         // Act & Assert (Relaxed validation)
         assertDoesNotThrow(() -> ventaService.registrarPago(ventaId, List.of(overPayingCash), 5L));
 
-        verify(ventaRepository, times(1)).savePagoUnico(eq(ventaId), eq(1L), eq(60.0), eq(5L));
+        verify(ventaRepository, times(1)).savePagoUnico(ventaId, 1L, 60.0, 5L);
     }
 
     @Test
@@ -650,7 +727,7 @@ class VentaServiceOrchestrationTest {
         // Arrange
         Long chequeId = 10L;
         Long userId = 5L;
-        com.centralizesys.model.cheque.AlertaCheque cheque = new com.centralizesys.model.cheque.AlertaCheque(chequeId, 1L, 150.0, LocalDate.now(), "PENDIENTE", null, null);
+        AlertaCheque cheque = new AlertaCheque(chequeId, 1L, 150.0, LocalDate.now(), "PENDIENTE", null, null);
 
         when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
 
@@ -659,7 +736,7 @@ class VentaServiceOrchestrationTest {
         // Act
         ventaService.anularCheque(chequeId, userId);
 
-        // Assert
+        // Assert: the cheque must be logically deleted (status=ANULADA, pagoVentaId=null)
         verify(alertaChequeRepository).updateEstadoAndPagoVentaIdAtomic(eq(chequeId), eq("ANULADA"), isNull(), eq("PENDIENTE"));
         verify(auditoriaService).registrarAccion(eq(userId), eq("ANULAR_CHEQUE"), contains("eliminación lógica"));
     }
@@ -671,7 +748,7 @@ class VentaServiceOrchestrationTest {
         Long authenticatedUserId = 10L;
         Long metodoPagoId = 1L; // Cashing to Efectivo
 
-        com.centralizesys.model.cheque.AlertaCheque cheque = new com.centralizesys.model.cheque.AlertaCheque();
+        AlertaCheque cheque = new AlertaCheque();
         cheque.setId(chequeId);
         cheque.setVentaId(100L);
         cheque.setMonto(500.0);
@@ -679,7 +756,7 @@ class VentaServiceOrchestrationTest {
         cheque.setEstado("PENDIENTE");
         cheque.setTipoOrigen("DEUDA_FIADO");
 
-        com.centralizesys.model.debt.DeudaResponse mockDeuda = new com.centralizesys.model.debt.DeudaResponse();
+        DeudaResponse mockDeuda = new DeudaResponse();
         mockDeuda.setId(300L);
         mockDeuda.setMontoDeuda(1000.0);
         mockDeuda.setMontoOriginal(1000.0);
@@ -699,8 +776,8 @@ class VentaServiceOrchestrationTest {
         // Act
         ventaService.cobrarCheque(chequeId, metodoPagoId, authenticatedUserId);
 
-        // Assert
-        verify(deudoresRepository).deductDeudaAtomic(300L, 500.0, 1000.0);
+        // Assert: debt must be deducted atomically and cheque linked to the new pago_deuda record
+        verify(deudoresRepository).deductDeudaAtomic(eq(300L), eq(500.0), eq(1000.0));
         verify(alertaChequeRepository).updateEstadoAndPagoDeudaIdAtomic(eq(chequeId), eq("COBRADO"), eq(999L), anyString());
         verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("COBRO_CHEQUE_DEUDA"), anyString());
     }
@@ -711,7 +788,7 @@ class VentaServiceOrchestrationTest {
         Long chequeId = 2L;
         Long authenticatedUserId = 10L;
 
-        com.centralizesys.model.cheque.AlertaCheque cheque = new com.centralizesys.model.cheque.AlertaCheque();
+        AlertaCheque cheque = new AlertaCheque();
         cheque.setId(chequeId);
         cheque.setVentaId(100L);
         cheque.setMonto(500.0);
@@ -720,7 +797,7 @@ class VentaServiceOrchestrationTest {
         cheque.setPagoDeudaId(999L);
         cheque.setTipoOrigen("DEUDA_FIADO");
 
-        com.centralizesys.model.debt.DeudaResponse mockDeuda = new com.centralizesys.model.debt.DeudaResponse();
+        DeudaResponse mockDeuda = new DeudaResponse();
         mockDeuda.setId(300L);
         mockDeuda.setMontoDeuda(500.0); // Had $1000 original, $500 paid
         mockDeuda.setMontoOriginal(1000.0);
@@ -733,9 +810,9 @@ class VentaServiceOrchestrationTest {
         // Act
         ventaService.cancelarCobroCheque(chequeId, authenticatedUserId);
 
-        // Assert
-        verify(deudoresRepository).addDeudaAtomic(300L, 500.0, 1000.0);
-        verify(deudoresRepository).updatePagoAnulado(999L);
+        // Assert: debt must be restored and the linked pago_deuda annulled
+        verify(deudoresRepository).addDeudaAtomic(eq(300L), eq(500.0), eq(1000.0));
+        verify(deudoresRepository).updatePagoAnulado(eq(999L));
         verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("CANCELACION_COBRO_CHEQUE_DEUDA"), anyString());
     }
 

@@ -324,4 +324,178 @@ class VentaServiceIntegrationTest extends BaseIntegrationTest {
                 "SELECT cantidad_stock FROM productos WHERE id = ?", Long.class, testProductId);
         assertEquals(100L, stockRestored, "Stock MUST be restored upon cancellation");
     }
+
+    @Test
+    @DisplayName("IT-09: modificarCarrito performs atomic delta updates on payments")
+    void modificarCarrito_PerformsAtomicDeltaUpdates() {
+        // Arrange
+        // Create a pending sale with 1 payment and 1 cheque
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(1L);
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Pending Client");
+        request.setItems(List.of(item));
+        request.setUsuarioId(testUserId);
+
+        Long cashMethodId = 1L; // Assuming cash is 1 (efectivo)
+
+        VentaRequest.PagoRequest p1 = new VentaRequest.PagoRequest();
+        p1.setMetodoPagoId(cashMethodId);
+        p1.setMonto(50.0);
+        request.setPagos(List.of(p1));
+
+        com.centralizesys.model.cheque.AlertaChequeRequest c1 = new com.centralizesys.model.cheque.AlertaChequeRequest();
+        c1.setMonto(50.0);
+        c1.setFechaCobro(java.time.LocalDate.now().plusDays(10));
+        request.setCheques(List.of(c1));
+
+        Long pendingId = ventaService.crearPendiente(request, testUserId);
+
+        // Retrieve generated IDs for payments/cheques
+        Long oldPagoId = jdbcTemplate.queryForObject("SELECT id FROM pagos_venta WHERE venta_id = ? AND anulado = false LIMIT 1", Long.class, pendingId);
+        Long oldChequeId = jdbcTemplate.queryForObject("SELECT id FROM alertas_cheques WHERE venta_id = ? AND estado = 'PENDIENTE' LIMIT 1", Long.class, pendingId);
+
+        // Act - Modificar carrito: Keep the payment, delete the cheque, add a new payment
+        VentaRequest modifyRequest = new VentaRequest();
+        modifyRequest.setClienteNombre("Pending Client");
+        modifyRequest.setItems(List.of(item));
+
+        VentaRequest.PagoRequest pKeep = new VentaRequest.PagoRequest();
+        pKeep.setId(oldPagoId); // Important: pass the ID to keep it
+        pKeep.setMetodoPagoId(cashMethodId);
+        pKeep.setMonto(50.0);
+
+        VentaRequest.PagoRequest pNew = new VentaRequest.PagoRequest();
+        pNew.setMetodoPagoId(cashMethodId);
+        pNew.setMonto(50.0);
+
+        modifyRequest.setPagos(List.of(pKeep, pNew));
+        // Omit cheques to trigger deletion of oldChequeId
+
+        ventaService.modificarCarrito(pendingId, modifyRequest, testUserId);
+
+        // Assert
+        // The old payment should still be active
+        Boolean pagoAnulado = jdbcTemplate.queryForObject("SELECT anulado FROM pagos_venta WHERE id = ?", Boolean.class, oldPagoId);
+        assertFalse(pagoAnulado, "Old payment should be preserved (anulado = false)");
+
+        // The old cheque should be anulado
+        String chequeEstado = jdbcTemplate.queryForObject("SELECT estado FROM alertas_cheques WHERE id = ?", String.class, oldChequeId);
+        assertEquals("ANULADA", chequeEstado, "Omitted old cheque should be marked ANULADA");
+
+        // There should be a total of 2 active payments now
+        Integer activePaymentsCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM pagos_venta WHERE venta_id = ? AND anulado = false", Integer.class, pendingId);
+        assertEquals(2, activePaymentsCount, "Should have 2 active payments");
+    }
+
+    @Test
+    @DisplayName("IT-10: Rejection of Negative Payments")
+    void transaction_RollsBack_OnNegativePayment() {
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(1L);
+
+        VentaRequest.PagoRequest pago = new VentaRequest.PagoRequest();
+        pago.setMetodoPagoId(1L);
+        pago.setMonto(-100.0); // Negative payment
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Negative Payer");
+        request.setItems(List.of(item));
+        request.setPagos(List.of(pago));
+        request.setUsuarioId(testUserId);
+
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
+
+        Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM ventas", Integer.class);
+        assertEquals(0, count, "Transaction should be rolled back/aborted");
+    }
+
+    @Test
+    @DisplayName("IT-11: Rejection of Zero Payments")
+    void transaction_RollsBack_OnZeroPayment() {
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(1L);
+
+        VentaRequest.PagoRequest pago = new VentaRequest.PagoRequest();
+        pago.setMetodoPagoId(1L);
+        pago.setMonto(0.0); // Zero payment
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Zero Payer");
+        request.setItems(List.of(item));
+        request.setPagos(List.of(pago));
+        request.setUsuarioId(testUserId);
+
+        // VentaService's validatePagos doesn't currently strictly throw for 0 in registrarVenta,
+        // but if it is configured to reject 0 (or if we enforce it), this should pass.
+        // If it allows 0, we can adjust the expectation, but zero payments shouldn't be valid.
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
+    }
+
+    @Test
+    @DisplayName("IT-12: Rejection of Negative Sales Quantities")
+    void transaction_RollsBack_OnNegativeQuantity() {
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(-5L); // Negative quantity
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Negative Buyer");
+        request.setItems(List.of(item));
+        request.setUsuarioId(testUserId);
+
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
+    }
+
+    @Test
+    @DisplayName("IT-13: Rejection of Negative Discount")
+    void transaction_RollsBack_OnNegativeDiscount() {
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(1L);
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Discount Tester");
+        request.setItems(List.of(item));
+        request.setDescuentoGlobal(-50.0); // Negative discount
+        request.setUsuarioId(testUserId);
+
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
+    }
+
+    @Test
+    @DisplayName("IT-14: Rejection of Negative Surcharge")
+    void transaction_RollsBack_OnNegativeSurcharge() {
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(1L);
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Surcharge Tester");
+        request.setItems(List.of(item));
+        request.setRecargoGlobal(-20.0); // Negative surcharge
+        request.setUsuarioId(testUserId);
+
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
+    }
+
+    @Test
+    @DisplayName("IT-15: Rejection of Negative Saldo Generado")
+    void transaction_RollsBack_OnNegativeSaldoGenerado() {
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(testProductId);
+        item.setCantidad(1L);
+
+        VentaRequest request = new VentaRequest();
+        request.setClienteNombre("Saldo Tester");
+        request.setItems(List.of(item));
+        request.setSaldoGenerado(-100.0); // Negative saldo generado
+        request.setUsuarioId(testUserId);
+
+        assertThrows(BusinessRuleException.class, () -> ventaService.registrarVenta(request));
+    }
 }

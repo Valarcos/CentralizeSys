@@ -8,8 +8,6 @@ export default function useCart() {
     const [payments, setPayments] = useState([]);
     const [saleType, setSaleState] = useState('MINORISTA'); // 'MINORISTA' | 'MAYORISTA'
     const [cartVersion, setCartVersion] = useState(null); // Optimistic locking
-    const [deletedPayments, setDeletedPayments] = useState([]);
-    const [deletedCheques, setDeletedCheques] = useState([]);
 
     const [globalDiscount, setGlobalDiscount] = useState(0);
     const [globalSurcharge, setGlobalSurcharge] = useState(0);
@@ -109,17 +107,7 @@ export default function useCart() {
     }, []);
 
     const removePaymentMethod = useCallback((internalId) => {
-        setPayments(prev => {
-            const p = prev.find(item => item._internalId === internalId);
-            if (p && p.id) {
-                if (p.isCheque) {
-                    setDeletedCheques(d => [...d, p.id]);
-                } else {
-                    setDeletedPayments(d => [...d, p.id]);
-                }
-            }
-            return prev.filter(item => item._internalId !== internalId);
-        });
+        setPayments(prev => prev.filter(item => item._internalId !== internalId));
     }, []);
 
     const totals = useMemo(() => {
@@ -238,8 +226,6 @@ export default function useCart() {
         globalSurcharge,
         setGlobalSurcharge,
         cartVersion,
-        deletedPayments,
-        deletedCheques,
         saldoGenerado,
         setSaldoGenerado,
         removeFromCart,

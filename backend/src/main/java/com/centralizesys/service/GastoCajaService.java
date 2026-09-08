@@ -38,6 +38,7 @@ public class GastoCajaService {
         gasto.setMonto(request.getMonto());
         gasto.setMotivo(request.getMotivo());
         gasto.setCategoria(request.getCategoria());
+        gasto.setCompraId(request.getCompraId());
 
         gasto.setFechaGasto(request.getFechaGasto());
         gasto.setFechaRegistro(LocalDateTime.now(ZoneId.of("America/Argentina/Buenos_Aires")));

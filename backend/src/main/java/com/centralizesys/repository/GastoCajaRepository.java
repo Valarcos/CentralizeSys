@@ -33,6 +33,8 @@ public class GastoCajaRepository {
         Number usuarioId = (Number) rs.getObject("registrado_por_usuario_id");
         gasto.setRegistradoPorUsuarioId(usuarioId != null ? usuarioId.longValue() : null);
         gasto.setCategoria(rs.getString("categoria"));
+        Number compraId = (Number) rs.getObject("compra_id");
+        gasto.setCompraId(compraId != null ? compraId.longValue() : null);
         gasto.setAnulado(rs.getBoolean("anulado"));
         gasto.setRazonAnulacion(rs.getString("razon_anulacion"));
 
@@ -48,9 +50,9 @@ public class GastoCajaRepository {
     public Long save(GastoCaja gasto) {
         String sql = """
                 INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, 
-                                         persona_involucrada, registrado_por_usuario_id, categoria, anulado)
+                                         persona_involucrada, registrado_por_usuario_id, compra_id, categoria, anulado)
                 VALUES (:monto, :motivo, :fechaGasto, :fechaRegistro, 
-                        :personaInvolucrada, :registradoPorUsuarioId, :categoria, false)
+                        :personaInvolucrada, :registradoPorUsuarioId, :compraId, :categoria, false)
                 """;
 
         MapSqlParameterSource params = new MapSqlParameterSource()
@@ -60,6 +62,7 @@ public class GastoCajaRepository {
                 .addValue("fechaRegistro", gasto.getFechaRegistro())
                 .addValue("personaInvolucrada", gasto.getPersonaInvolucrada())
                 .addValue("registradoPorUsuarioId", gasto.getRegistradoPorUsuarioId())
+                .addValue("compraId", gasto.getCompraId())
                 .addValue("categoria", gasto.getCategoria());
 
         KeyHolder keyHolder = new GeneratedKeyHolder();

@@ -9,7 +9,7 @@ import './ProductFormModal.css';
  * For new products, includes location selection and quantity input.
  * @param {boolean} isPurchaseContext - If true, hides initial stock fields (prevents double entry)
  */
-export default function ProductFormModal({ product, isVariant = false, isPurchaseContext = false, initialCost, onSuccess, onCancel }) {
+export default function ProductFormModal({ product, isVariant = false, isPurchaseContext = false, initialCost, onSuccess, onCancel, globalProvider = '' }) {
     const isEditing = !!product && !isVariant;
     const firstInputRef = useRef(null);
     const isMounted = useRef(true);
@@ -22,6 +22,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
     const [formData, setFormData] = useState({
         codigo: product?.codigo || '',
         descripcion: product?.descripcion || '',
+        proveedor: product?.proveedor || '',
         precioCosto: initialCost !== undefined ? initialCost : (isVariant ? '' : (product?.precioCosto || '')),
         precioMayorista: product?.precioMayorista || '',
         precioMinorista: product?.precioMinorista || '',
@@ -31,6 +32,7 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
 
     const [errors, setErrors] = useState({});
     const [saving, setSaving] = useState(false);
+    const savingRef = useRef(false);
 
     // Smart Form state (create mode only)
     const [isLoadingCode, setIsLoadingCode] = useState(false);
@@ -38,6 +40,70 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
     const [codeEvaluated, setCodeEvaluated] = useState(isEditing); // editing = already evaluated
     // Smart lookup is only active when creating a brand-new product (not editing, not variant mode)
     const isSmartLookupEnabled = !isEditing && !isVariant;
+
+    // Currency & Price Calculator State
+    const [showCalculator, setShowCalculator] = useState(false);
+    const [calcMode, setCalcMode] = useState('percent'); // 'percent', 'multiplier', 'fixed'
+    const [calcValue, setCalcValue] = useState('');
+
+    const applyCalculator = () => {
+        const val = parseFloat(calcValue);
+        if (isNaN(val) || val <= 0) {
+            toast.error('Ingrese un valor numérico válido mayor a 0');
+            return;
+        }
+
+        setFormData(prev => {
+            const applyMath = (baseStr) => {
+                if (!baseStr) return '';
+                const base = parseFloat(baseStr);
+                if (isNaN(base)) return '';
+
+                let result = base;
+                if (calcMode === 'percent') {
+                    result = base * (1 + val / 100);
+                } else if (calcMode === 'multiplier') {
+                    result = base * val;
+                } else if (calcMode === 'fixed') {
+                    result = base + val;
+                }
+                return result.toFixed(2);
+            };
+
+            return {
+                ...prev,
+                precioCosto: applyMath(prev.precioCosto),
+                precioMayorista: applyMath(prev.precioMayorista),
+                precioMinorista: applyMath(prev.precioMinorista)
+            };
+        });
+
+        let msg = '';
+        if (calcMode === 'percent') msg = `Precios aumentados un ${val}%`;
+        if (calcMode === 'multiplier') msg = `Precios multiplicados por ${val}`;
+        if (calcMode === 'fixed') msg = `Se sumaron $${val} a los precios`;
+
+        toast.success(msg);
+        setShowCalculator(false);
+        setCalcValue('');
+    };
+
+    const loadUbicaciones = async () => {
+        try {
+            const response = await api.get('/locations');
+            if (!isMounted.current) return;
+            setUbicaciones(response.data);
+            // Auto-select first location if only one exists
+            if (response.data.length === 1) {
+                setFormData(prev => ({ ...prev, ubicacionId: response.data[0].id.toString() }));
+            }
+        } catch (error) {
+            console.error('Error fetching locations:', error);
+            // Error handled by global api interceptor
+        } finally {
+            if (isMounted.current) setLoadingUbicaciones(false);
+        }
+    };
 
     // Load ubicaciones on mount (only for new products AND if NOT in purchase context)
     useEffect(() => {
@@ -54,23 +120,6 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
     useEffect(() => {
         firstInputRef.current?.focus();
     }, []);
-
-    const loadUbicaciones = async () => {
-        try {
-            const response = await api.get('/locations');
-            if (!isMounted.current) return;
-            setUbicaciones(response.data);
-            // Auto-select first location if only one exists
-            if (response.data.length === 1) {
-                setFormData(prev => ({ ...prev, ubicacionId: response.data[0].id.toString() }));
-            }
-        } catch (error) {
-            console.error('Error loading ubicaciones:', error);
-            // Error handled by global api interceptor
-        } finally {
-            if (isMounted.current) setLoadingUbicaciones(false);
-        }
-    };
 
     /**
      * Smart Form: Called when the user tabs away from the codigo field in create mode.
@@ -167,9 +216,9 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
             }
         }
 
-        // For new products: ubicacion and cantidad are required ONLY if NOT in purchase context
-        if (!isEditing && !isPurchaseContext) {
-            if (!formData.ubicacionId) {
+        // For new products: ubicacion is required ONLY if NOT in purchase context
+        if (!isEditing) {
+            if (!isPurchaseContext && !formData.ubicacionId) {
                 newErrors.ubicacionId = 'Debe seleccionar una ubicación.';
             }
 
@@ -186,18 +235,19 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (saving) return;
+        if (savingRef.current || saving) return;
         if (!validate()) {
             toast.error('Por favor, corrija los errores del formulario.');
             return;
         }
 
-        setSaving(true);
-
         try {
+            savingRef.current = true;
+            setSaving(true);
             const payload = {
-                codigo: formData.codigo.trim(),
-                descripcion: formData.descripcion.trim(),
+                codigo: (formData.codigo || '').trim(),
+                descripcion: (formData.descripcion || '').trim(),
+                proveedor: isPurchaseContext ? (globalProvider || '').trim() : (formData.proveedor || '').trim(),
                 precioCosto: parseFloat(formData.precioCosto),
                 precioMayorista: formData.precioMayorista ? parseFloat(formData.precioMayorista) : null,
                 precioMinorista: parseFloat(formData.precioMinorista)
@@ -220,11 +270,12 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                 toast.success('Producto creado correctamente');
             }
 
-            if (isMounted.current) onSuccess(savedProduct);
+            if (isMounted.current) onSuccess(savedProduct, isPurchaseContext ? parseInt(formData.cantidad) : null);
         } catch (error) {
             console.error('Error saving product:', error);
             // The global api.js interceptor automatically displays toast.error for API rejections
         } finally {
+            savingRef.current = false;
             if (isMounted.current) setSaving(false);
         }
     };
@@ -298,7 +349,69 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                             )}
                         </div>
 
+                        {/* Proveedor - Hidden in purchase context to auto-inherit global supplier */}
+                        {!isPurchaseContext && (
+                            <div className="form-group">
+                                <label htmlFor="proveedor">Proveedor</label>
+                                <input
+                                    id="proveedor"
+                                    name="proveedor"
+                                    type="text"
+                                    value={formData.proveedor}
+                                    onChange={handleChange}
+                                    placeholder="Nombre del proveedor"
+                                    maxLength={255}
+                                />
+                            </div>
+                        )}
+
                         {/* Precios Row */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowCalculator(!showCalculator)}
+                                style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}
+                            >
+                                💱 Convertir Divisa / Inflación
+                            </button>
+                        </div>
+
+                        {showCalculator && (
+                            <div style={{ background: '#e9ecef', padding: '10px', borderRadius: '4px', marginBottom: '1rem' }}>
+                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <label style={{ whiteSpace: 'nowrap', fontWeight: 'bold' }}>Ajuste:</label>
+                                    <select
+                                        value={calcMode}
+                                        onChange={e => { setCalcMode(e.target.value); setCalcValue(''); }}
+                                        style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid #ccc' }}
+                                    >
+                                        <option value="percent">Porcentaje (%)</option>
+                                        <option value="fixed">Suma Fija ($)</option>
+                                        <option value="multiplier">Multiplicador (x)</option>
+                                    </select>
+
+                                    <input
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder={calcMode === 'percent' ? 'Ej: 15' : calcMode === 'multiplier' ? 'Ej: 1450' : 'Ej: 500'}
+                                        value={calcValue}
+                                        onChange={e => setCalcValue(enforceMoneyFormat(e.target.value))}
+                                        onKeyDown={blockNonNumericKeys}
+                                        onPaste={sanitizeNumericPaste}
+                                        style={{ padding: '0.4rem', border: '1px solid #ccc', borderRadius: '4px', width: '120px' }}
+                                    />
+                                    <button type="button" onClick={applyCalculator} className="btn-primary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
+                                        Aplicar a Precios
+                                    </button>
+                                </div>
+                                <small style={{ display: 'block', marginTop: '0.5rem', color: '#666' }}>
+                                    {calcMode === 'percent' && 'Suma el porcentaje indicado al costo y precios actuales.'}
+                                    {calcMode === 'multiplier' && 'Multiplica el costo y precios actuales por este valor.'}
+                                    {calcMode === 'fixed' && 'Suma este monto fijo exacto al costo y a los precios de venta.'}
+                                </small>
+                            </div>
+                        )}
+
                         <div className="form-row prices-row">
                             <div className="form-group">
                                 <label htmlFor="precioCosto">
@@ -372,48 +485,54 @@ export default function ProductFormModal({ product, isVariant = false, isPurchas
                             </div>
                         </div>
 
-                        {/* Stock Section - Only for new products AND NOT in purchase context */}
-                        {!isEditing && !isPurchaseContext && (
+                        {/* Stock Section - Only for new products (including purchase context for cantidadAComprar) */}
+                        {!isEditing && (
                             <div className="stock-section">
-                                <h3>📍 Ubicación del Stock Inicial</h3>
+                                {isPurchaseContext ? (
+                                    <h3>📍 Cantidad a Comprar</h3>
+                                ) : (
+                                    <h3>📍 Ubicación del Stock Inicial</h3>
+                                )}
 
                                 <div className="form-row stock-row">
-                                    <div className="form-group">
-                                        <label htmlFor="ubicacionId">
-                                            Ubicación <span className="required">*</span>
-                                        </label>
-                                        {loadingUbicaciones ? (
-                                            <p className="loading-text">Cargando ubicaciones...</p>
-                                        ) : ubicaciones.length === 0 ? (
-                                            <p className="warning-text">
-                                                No hay ubicaciones registradas.
-                                                Contacte al administrador para agregar ubicaciones.
-                                            </p>
-                                        ) : (
-                                            <select
-                                                id="ubicacionId"
-                                                name="ubicacionId"
-                                                value={formData.ubicacionId}
-                                                onChange={handleChange}
-                                                aria-invalid={!!errors.ubicacionId}
-                                                tabIndex="6"
-                                            >
-                                                <option value="">-- Seleccione ubicación --</option>
-                                                {(ubicaciones || []).filter(u => u.activo !== false).map(ub => (
-                                                    <option key={ub.id} value={ub.id}>
-                                                        {ub.nombre}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        )}
-                                        {errors.ubicacionId && (
-                                            <span className="error-message">{errors.ubicacionId}</span>
-                                        )}
-                                    </div>
+                                    {!isPurchaseContext && (
+                                        <div className="form-group">
+                                            <label htmlFor="ubicacionId">
+                                                Ubicación <span className="required">*</span>
+                                            </label>
+                                            {loadingUbicaciones ? (
+                                                <p className="loading-text">Cargando ubicaciones...</p>
+                                            ) : ubicaciones.length === 0 ? (
+                                                <p className="warning-text">
+                                                    No hay ubicaciones registradas.
+                                                    Contacte al administrador para agregar ubicaciones.
+                                                </p>
+                                            ) : (
+                                                <select
+                                                    id="ubicacionId"
+                                                    name="ubicacionId"
+                                                    value={formData.ubicacionId}
+                                                    onChange={handleChange}
+                                                    aria-invalid={!!errors.ubicacionId}
+                                                    tabIndex="6"
+                                                >
+                                                    <option value="">-- Seleccione ubicación --</option>
+                                                    {(ubicaciones || []).filter(u => u.activo !== false).map(ub => (
+                                                        <option key={ub.id} value={ub.id}>
+                                                            {ub.nombre}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            {errors.ubicacionId && (
+                                                <span className="error-message">{errors.ubicacionId}</span>
+                                            )}
+                                        </div>
+                                    )}
 
                                     <div className="form-group">
                                         <label htmlFor="cantidad">
-                                            Cantidad <span className="required">*</span>
+                                            {isPurchaseContext ? 'Cantidad a Comprar' : 'Cantidad'} <span className="required">*</span>
                                         </label>
                                         <input
                                             id="cantidad"

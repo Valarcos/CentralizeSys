@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
 import { formatCurrency } from '../utils/format';
 import toast from 'react-hot-toast';
+import ImportAssistantModal from './ImportAssistantModal';
 import './GastosVariosSection.css';
 
 const DEFAULT_FILTER_PARAMS = {};
@@ -78,7 +79,7 @@ export default function GastosVariosSection({ onGastosChanged, filterParams = DE
     const personaRef = useRef(null);
     const submitBtnRef = useRef(null);
 
-    const categorias = ['Servicios', 'Sueldos', 'Retiro Dueño', 'Otros'];
+    const categorias = ['Servicios', 'Sueldos', 'Retiro Dueño', 'Ajuste Importación', 'Otros'];
 
     const loadGastos = useCallback(async () => {
         setLoading(true);
@@ -272,9 +273,42 @@ export default function GastosVariosSection({ onGastosChanged, filterParams = DE
         return 'Historial Gastos';
     };
 
+    const [showImportAssistant, setShowImportAssistant] = useState(false);
+
+    const handleImportAssistantConfirm = async (diferencia, costoFinal, compraAsociada) => {
+        const payload = {
+            monto: diferencia,
+            motivo: compraAsociada
+                ? `Ajuste de Importación (Factura: ${compraAsociada.nroComprobante})`
+                : `Ajuste de Importación (Factura Real: $${costoFinal.toFixed(2)})`,
+            fechaGasto: getLocalDatetimeLocal() ? new Date(getLocalDatetimeLocal() + '-03:00').toISOString() : null,
+            categoria: 'Ajuste Importación',
+            personaInvolucrada: 'Ajuste Automático',
+            compraId: compraAsociada ? compraAsociada.id : null
+        };
+
+        try {
+            await api.post('/gastos', payload);
+            toast.success("Ajuste de importación registrado correctamente");
+            loadGastos();
+            if (onGastosChanged) onGastosChanged();
+            setShowImportAssistant(false);
+        } catch (error) {
+            console.error("Error saving import adjustment:", error);
+        }
+    };
+
     return (
         <div className="report-section gastos">
-            <h2 className="report-section-title">💸 GASTOS VARIOS y RETIROS</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 className="report-section-title" style={{ margin: 0 }}>💸 GASTOS VARIOS y RETIROS</h2>
+                <button
+                    onClick={() => setShowImportAssistant(true)}
+                    style={{ padding: '0.5rem 1rem', background: '#ffc107', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                    ⛴️ Asistente de Importación
+                </button>
+            </div>
 
             <div className="gastos-container">
                 <div className="gastos-form-card">
@@ -485,6 +519,14 @@ export default function GastosVariosSection({ onGastosChanged, filterParams = DE
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showImportAssistant && (
+                <ImportAssistantModal
+                    isStandalone={true}
+                    onConfirm={handleImportAssistantConfirm}
+                    onClose={() => setShowImportAssistant(false)}
+                />
             )}
         </div>
     );

@@ -4,6 +4,7 @@ import com.centralizesys.model.purchase.Compra;
 import com.centralizesys.model.purchase.DetalleCompra;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.BeanPropertySqlParameterSource;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.core.namedparam.SqlParameterSourceUtils;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Repository
 public class CompraRepository {
@@ -62,6 +64,27 @@ public class CompraRepository {
             c.setUsuarioId(rs.getObject("usuario_id") != null ? rs.getLong("usuario_id") : null);
             return c;
         });
+    }
+
+    public Optional<Compra> findByNroComprobante(String nroComprobante) {
+        String sql = """
+            SELECT c.*, 
+                   COALESCE((SELECT SUM(g.monto) FROM gastos_caja g WHERE g.compra_id = c.id AND g.anulado = false), 0.0) as total_ajustes
+            FROM compras c 
+            WHERE c.nro_comprobante = :nroComprobante LIMIT 1
+        """;
+        List<Compra> results = namedJdbcTemplate.query(sql, new MapSqlParameterSource("nroComprobante", nroComprobante), (rs, rowNum) -> {
+            Compra c = new Compra();
+            c.setId(rs.getLong("id"));
+            c.setFecha(rs.getObject("fecha", java.time.LocalDateTime.class));
+            c.setProveedor(rs.getString("proveedor"));
+            c.setNroComprobante(rs.getString("nro_comprobante"));
+            c.setTotalCompra(rs.getDouble("total_compra"));
+            c.setUsuarioId(rs.getObject("usuario_id") != null ? rs.getLong("usuario_id") : null);
+            c.setTotalAjustes(rs.getDouble("total_ajustes"));
+            return c;
+        });
+        return results.stream().findFirst();
     }
     /*
      * TODO: Phase 3 - Multiple Payments for Purchases (SUSPENDED)

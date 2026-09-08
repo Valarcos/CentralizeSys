@@ -154,4 +154,48 @@ class CompraRepositoryTest extends BaseIntegrationTest {
         assertThat(found.getTotalCompra()).isEqualTo(999.99);
         assertThat(found.getUsuarioId()).isEqualTo(userId);
     }
+
+    @Test
+    @DisplayName("findByNroComprobante - maps fields and correctly sums totalAjustes from linked gastos_caja")
+    void findByNroComprobante_sumsTotalAjustes() {
+        // Arrange
+        Long userId = createTestUser();
+        LocalDateTime today = LocalDateTime.of(2026, java.time.Month.FEBRUARY, 10, 12, 0).truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+
+        Compra compra = new Compra();
+        compra.setFecha(today);
+        compra.setProveedor("Supplier A");
+        compra.setNroComprobante("FACT-999");
+        compra.setTotalCompra(1000.00);
+        compra.setUsuarioId(userId);
+        long compraId = compraRepository.saveCompra(compra);
+
+        // Add 2 valid adjustments linked to this compra
+        jdbcTemplate.update("""
+            INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, compra_id, categoria, anulado)
+            VALUES (100.0, 'Flete', '2026-02-10 13:00:00', '2026-02-10 13:00:00', 'Admin', ?, ?, 'Ajuste Importación', false)
+        """, userId, compraId);
+
+        jdbcTemplate.update("""
+            INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, compra_id, categoria, anulado)
+            VALUES (50.0, 'Impuestos', '2026-02-10 14:00:00', '2026-02-10 14:00:00', 'Admin', ?, ?, 'Ajuste Importación', false)
+        """, userId, compraId);
+
+        // Add 1 voided adjustment (should be ignored)
+        jdbcTemplate.update("""
+            INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, compra_id, categoria, anulado)
+            VALUES (300.0, 'Cancelado', '2026-02-10 15:00:00', '2026-02-10 15:00:00', 'Admin', ?, ?, 'Ajuste Importación', true)
+        """, userId, compraId);
+
+        // Act
+        java.util.Optional<Compra> result = compraRepository.findByNroComprobante("FACT-999");
+
+        // Assert
+        assertThat(result).isPresent();
+        Compra found = result.get();
+        assertThat(found.getNroComprobante()).isEqualTo("FACT-999");
+        assertThat(found.getTotalCompra()).isEqualTo(1000.00);
+        // Valid adjustments: 100 + 50 = 150
+        assertThat(found.getTotalAjustes()).isEqualTo(150.00);
+    }
 }

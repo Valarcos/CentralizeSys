@@ -38,6 +38,12 @@ class ProductServiceTest {
     private Product buildProduct(Long id, String codigo, String descripcion,
                                  Double costo, Double mayorista, Double minorista,
                                  Long stock, boolean activo) {
+        return buildProduct(id, codigo, descripcion, costo, mayorista, minorista, stock, activo, null);
+    }
+
+    private Product buildProduct(Long id, String codigo, String descripcion,
+                                 Double costo, Double mayorista, Double minorista,
+                                 Long stock, boolean activo, String proveedor) {
         return Product.builder()
                 .id(id)
                 .codigo(codigo)
@@ -47,6 +53,7 @@ class ProductServiceTest {
                 .precioMinorista(minorista)
                 .cantidadStock(stock)
                 .activo(activo)
+                .proveedor(proveedor)
                 .build();
     }
 
@@ -483,5 +490,45 @@ class ProductServiceTest {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> service.update(99L, p, 1L));
+    }
+
+    // --- Proveedor Tests (Phase 2-5) ---
+
+    @Test
+    @DisplayName("Create saves product with proveedor")
+    void create_WithProveedor_Success() {
+        Product p = Product.builder().codigo("CODE").descripcion("Desc").precioCosto(10.0).precioMayorista(10.0).precioMinorista(20.0).proveedor("Supplier A").build();
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(Collections.emptyList());
+        when(repository.findAllByCodigo("CODE")).thenReturn(Collections.emptyList());
+        when(repository.save(p)).thenReturn(p);
+
+        Product created = service.create(p);
+        assertNotNull(created);
+        assertEquals("Supplier A", created.getProveedor());
+        verify(repository).save(p);
+    }
+
+    @Test
+    @DisplayName("Update cascades proveedor to all siblings")
+    void update_CascadeUpdate_AllSiblingsReceiveNewProveedor() {
+        Product existing = buildProduct(1L, "CODE", "Old Desc", 10.0, 20.0, 30.0, 0L, true, "Old Supplier");
+        Product sibling1 = buildProduct(2L, "CODE", "Old Desc", 15.0, 20.0, 30.0, 0L, true, "Old Supplier");
+
+        Product updateReq = Product.builder().codigo("CODE").descripcion("New Desc").precioCosto(12.0).precioMayorista(25.0).precioMinorista(35.0).proveedor("New Supplier").build();
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existing));
+        when(repository.findSiblingsByFamily("CODE", null)).thenReturn(List.of(existing, sibling1));
+
+        service.update(1L, updateReq, 99L);
+
+        // Verify target product
+        verify(repository).save(existing);
+        assertEquals("New Supplier", existing.getProveedor());
+
+        // Verify sibling 1
+        verify(repository).save(argThat(p ->
+                p.getId() == 2L &&
+                        p.getProveedor().equals("New Supplier")
+        ));
     }
 }

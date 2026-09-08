@@ -51,6 +51,7 @@ class GastoCajaServiceTest {
         request.setMonto(150.5);
         request.setMotivo("Luz");
         request.setCategoria("Servicios");
+        request.setCompraId(99L);
 
         Usuario mockUser = new Usuario();
         mockUser.setNombre("Admin Pedro");
@@ -72,6 +73,7 @@ class GastoCajaServiceTest {
         assertEquals("Luz", savedGasto.getMotivo());
         assertEquals("Servicios", savedGasto.getCategoria());
         assertEquals("Admin Pedro", savedGasto.getPersonaInvolucrada());
+        assertEquals(99L, savedGasto.getCompraId());
         assertNotNull(savedGasto.getFechaGasto());
         assertNotNull(savedGasto.getFechaRegistro());
         assertEquals(10L, savedGasto.getRegistradoPorUsuarioId());

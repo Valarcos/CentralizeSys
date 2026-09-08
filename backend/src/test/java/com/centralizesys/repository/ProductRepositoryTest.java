@@ -21,12 +21,13 @@ class ProductRepositoryTest extends BaseIntegrationTest {
     void save_InsertsNewProduct() {
         // Manually create object WITHOUT ID for save test
         // 5-arg constructor leaves audit fields as null/0L by default
-        Product p = Product.builder().codigo("A-001").descripcion("Test Product").precioCosto(50.0).precioMayorista(80.0).precioMinorista(100.0).build();
+        Product p = Product.builder().codigo("A-001").descripcion("Test Product").precioCosto(50.0).precioMayorista(80.0).precioMinorista(100.0).proveedor("Supplier A").build();
 
         Product saved = productRepository.save(p);
 
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getCodigo()).isEqualTo("A-001");
+        assertThat(saved.getProveedor()).isEqualTo("Supplier A");
 
         // Assert Audit Fields are populated correctly by the Repository mapping
         assertThat(saved.getFechaCreacion()).isNotNull();
@@ -86,16 +87,18 @@ class ProductRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Update modifies existing product")
+    @DisplayName("Update modifies existing product including proveedor")
     void update_ModifiesProduct() {
         Long id = createTestProduct("C-001", 300.0, 0L);
         Product saved = productRepository.findById(id).orElseThrow();
 
         saved.setDescripcion("Updated Description");
+        saved.setProveedor("Updated Supplier");
         productRepository.save(saved); // Should trigger update because ID is present
 
         Product updated = productRepository.findById(id).orElseThrow();
         assertThat(updated.getDescripcion()).isEqualTo("Updated Description");
+        assertThat(updated.getProveedor()).isEqualTo("Updated Supplier");
     }
 
     @Test

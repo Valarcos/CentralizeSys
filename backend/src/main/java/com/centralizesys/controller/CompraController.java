@@ -1,5 +1,6 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.model.purchase.Compra;
 import com.centralizesys.model.purchase.CompraRequest;
 import com.centralizesys.model.purchase.CompraResponse;
 import com.centralizesys.service.CompraService;
@@ -27,5 +28,11 @@ public class CompraController {
         request.setUsuarioId(com.centralizesys.security.SecurityUtils.getAuthenticatedUserId());
         CompraResponse response = compraService.registrarCompra(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/factura/{nro}")
+    public ResponseEntity<Compra> buscarPorFactura(@PathVariable String nro) {
+        com.centralizesys.model.purchase.Compra compra = compraService.findByNroComprobante(nro);
+        return ResponseEntity.ok(compra);
     }
 }

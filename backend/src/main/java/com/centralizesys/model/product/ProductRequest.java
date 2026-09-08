@@ -11,6 +11,7 @@ public class ProductRequest {
     private Double precioCosto = 0.0;
     private Double precioMayorista = 0.0;
     private Double precioMinorista = 0.0;
+    private String proveedor;
 
     public void setPrecioCosto(Double precioCosto) {
         this.precioCosto = (precioCosto != null) ? precioCosto : 0.0;

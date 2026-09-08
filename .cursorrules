@@ -39,6 +39,9 @@
     *   **Nulls:** Do not use `Optional.get()` without `orElseThrow()`.
 *   **React Hook Refactoring (Temporal Dead Zone):** Whenever converting a standard `function` into a `const` arrow function (e.g. wrapping with `useCallback`), you MUST explicitly verify that the new `const` definition physically precedes ALL `useEffect` blocks or other hooks that reference it. Never introduce `ReferenceError: Cannot access before initialization` bugs.
 *   **React Defensive Programming:** Good and standard defensive programming MUST be used in React. Always guard against `undefined` or empty states during initial render cycles before `useEffect` hooks populate data (e.g., `if (!item || array.length === 0) return null;` or conditional rendering).
+*   **Frontend Submit Security (Double Measure):** ALL mutating actions triggered by buttons MUST implement a dual-layer lock:
+    1. An asynchronous lock (`isSubmitting` / `setIsSubmitting(true)`) to show UI loading states.
+    2. A synchronous DOM reference lock (`isSubmittingRef = useRef(false)`) that immediately halts the function execution (`if (isSubmittingRef.current || isSubmitting) return;`) before the API call, setting it to `true` synchronously to bypass React's batch rendering delay.
 *   **Global Idempotency (Double-Click Prevention):** ALL mutating endpoints (`@PostMapping`, `@PutMapping`, `@PatchMapping`, `@DeleteMapping`) MUST be protected against double-click/replay exploits. The system uses a generic `IdempotencyAspect` with an in-memory Caffeine cache (5-second TTL) that hashes the User ID, HTTP Method, URI, and the deep hash of the JSON payload. Do NOT bypass this or implement custom DB idempotency unless a long-lived transaction (e.g. 30 days) explicitly demands an `Idempotency-Key` DB table.
 
 ---
@@ -280,6 +283,14 @@
         *   **Description:** Sales history PDFs always showed "Sistema" for auto-generated or poorly joined sales records. Additionally, `costo_snapshot` of products was not being registered at the time of sale.
         *   **Resolution:** Implemented a robust `findVendedorNombre` LEFT JOIN in `VentaRepository` safely handling IDs and nulls. Added `costoSnapshot` to `DetalleVenta` model, `VentaRepository` INSERT statement, and extracted it correctly during `processItems` (`producto.getPrecioCosto()`).
         *   **Status:** RESOLVED. PDFs now accurately show the seller, and cost is snapshotted for future margin reports.
+
+    *   **Issue 9: Atomic Product Creation in Purchase Context (UI Desync & Ghost Products)**
+        *   **Requirement:** When creating a new product from the `StockEntryModal` (Purchase), the product should ideally be treated as a "draft" until the purchase is confirmed, avoiding ghost products with 0 stock if the modal is canceled.
+        *   **Current Issue:** Products created inside the purchase flow are immediately persisted via `POST /api/productos`. If the user cancels the purchase, the product remains in DB. Furthermore, because the creation happens in a child modal without triggering a refresh on the parent `InventarioPage`, the UI desyncs and the 0-stock product remains invisible until manual refresh.
+        *   **Resolution Plan (Tech Debt):**
+            *   *Short term:* Pass a `onProductCreated` callback or generic `onClose` refresh trigger to update the parent inventory list when modals close.
+            *   *Long term:* Refactor `CompraRequest` to accept a `List<DraftProduct>` for items that don't exist yet, deferring their creation to the transactional `CompraService.registrarCompra()` method so everything rolls back together if canceled.
+        *   **Status:** UNRESOLVED.
 
 ---
 

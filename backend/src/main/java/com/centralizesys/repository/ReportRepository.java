@@ -284,18 +284,17 @@ public class ReportRepository {
             ) AS all_cash_in
         """;
 
-        // Cash Out: money paid to suppliers (Inventory)
-        String cashOutSql = """
-            SELECT COALESCE(SUM(c.total_compra), 0.0) AS egresos_efectivo
-            FROM compras c
-            WHERE 1=1
-        """ + dateFilter.replace(FECHA_FIELD, "c.fecha");
+        // Cash Out: money paid to suppliers (Inventory purchases + Import Adjustments)
+        String cashOutSql = "SELECT (\n" +
+                "    COALESCE((SELECT SUM(c.total_compra) FROM compras c WHERE 1=1 " + dateFilter.replace(FECHA_FIELD, "c.fecha") + "), 0.0) +\n" +
+                "    COALESCE((SELECT SUM(g.monto) FROM gastos_caja g WHERE g.anulado = false AND g.categoria = 'Ajuste Importación' " + buildJoinDateFilter("g.fecha_gasto", dateFilter) + "), 0.0)\n" +
+                ") AS egresos_efectivo\n";
 
-        // Cash Out: gastos varios y retiros
+        // Cash Out: gastos varios y retiros (excluding import adjustments since they belong to inventory purchases)
         String gastosVariosSql = """
             SELECT COALESCE(SUM(g.monto), 0.0) AS gastos_varios
             FROM gastos_caja g
-            WHERE g.anulado = false
+            WHERE g.anulado = false AND (g.categoria IS NULL OR g.categoria != 'Ajuste Importación')
         """ + buildJoinDateFilter("g.fecha_gasto", dateFilter);
 
         Double cashIn = namedJdbcTemplate.queryForObject(cashInSql, params, Double.class);

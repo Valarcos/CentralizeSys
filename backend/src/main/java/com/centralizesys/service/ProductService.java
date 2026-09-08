@@ -110,6 +110,12 @@ public class ProductService {
         if (product.getPrecioCosto() == null || product.getPrecioCosto() < 0) {
             throw new BusinessRuleException("El costo debe ser 0 o mayor.");
         }
+
+        if (product.getProveedor() != null && !product.getProveedor().isBlank()) {
+            product.setProveedor(com.centralizesys.util.StringUtil.safeTruncate(product.getProveedor().trim(), 255));
+        } else {
+            product.setProveedor(null); // Normalize empty strings to null for consistent DB state
+        }
     }
 
     @Transactional
@@ -206,6 +212,7 @@ public class ProductService {
             sibling.setDescripcion(product.getDescripcion());
             sibling.setPrecioMinorista(product.getPrecioMinorista());
             sibling.setPrecioMayorista(product.getPrecioMayorista());
+            sibling.setProveedor(product.getProveedor());
             sibling.setActualizadoPor(resolvedUserId);
             if (codeChanged) {
                 sibling.setCodigo(product.getCodigo());

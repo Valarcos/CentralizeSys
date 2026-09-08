@@ -112,6 +112,26 @@ class GastoCajaServiceTest {
         verify(usuarioRepository, never()).findById(anyLong());
     }
 
+    @Test
+    @DisplayName("crearGasto: Throws BusinessRuleException when amount is zero or negative")
+    void crearGasto_Throws_WhenAmountIsZeroOrNegative() {
+        GastoCajaRequest request = new GastoCajaRequest();
+        request.setMonto(0.0);
+        request.setMotivo("Retiro nulo");
+        request.setCategoria("Gastos");
+
+        com.centralizesys.exception.BusinessRuleException ex1 = assertThrows(
+                com.centralizesys.exception.BusinessRuleException.class,
+                () -> gastoCajaService.crearGasto(request, 1L));
+        assertTrue(ex1.getMessage().toLowerCase().contains("mayor a cero"));
+
+        request.setMonto(-50.0);
+        com.centralizesys.exception.BusinessRuleException ex2 = assertThrows(
+                com.centralizesys.exception.BusinessRuleException.class,
+                () -> gastoCajaService.crearGasto(request, 1L));
+        assertTrue(ex2.getMessage().toLowerCase().contains("mayor a cero") || ex2.getMessage().toLowerCase().contains("negativo"));
+    }
+
     // -----------------------------------------------------------------------
     // anularGasto
     // -----------------------------------------------------------------------

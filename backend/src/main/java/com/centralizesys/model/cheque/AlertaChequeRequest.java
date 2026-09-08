@@ -8,6 +8,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AlertaChequeRequest {
+    private Long id; // Null for new cheques
     private Double monto = 0.0;
     private LocalDate fechaCobro;
 

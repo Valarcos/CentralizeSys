@@ -132,6 +132,19 @@ class DeudoresServiceTest {
     }
 
     @Test
+    @DisplayName("UT-33: registrarPago throws BusinessRuleException when payment amount is negative")
+    void registrarPago_Throws_WhenNegativeAmount() {
+        Long deudaId = 100L;
+
+        com.centralizesys.model.debt.PagoDeudaRequest negativePayment = new com.centralizesys.model.debt.PagoDeudaRequest();
+        negativePayment.setMontoPago(-50.0);
+        negativePayment.setMetodoPagoId(1L);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> deudoresService.registrarPago(deudaId, java.util.List.of(negativePayment), 1L));
+        assertTrue(ex.getMessage().toLowerCase().contains("negativo") || ex.getMessage().toLowerCase().contains("mayor a cero"));
+    }
+
+    @Test
     @DisplayName("UT-34: registrarPago blocks deactivated payment methods (Vector 14)")
     void registrarPago_BlocksDeactivatedMethod() {
         // Given

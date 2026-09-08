@@ -113,6 +113,38 @@ class DeudoresRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
+    @DisplayName("deductDeudaAtomic - correctly processes partial payment")
+    void deductDeudaAtomic_processesPartialPayment() {
+        Long ventaId = createTestSale();
+        deudoresRepository.save(ventaId, "Test Partial", null, 100.0);
+        Long debtId = deudoresRepository.findAll().getFirst().getId();
+
+        int updatedRows = deudoresRepository.deductDeudaAtomic(debtId, 40.0, 100.0);
+        assertThat(updatedRows).isEqualTo(1);
+
+        Optional<DeudaResponse> updated = deudoresRepository.findById(debtId);
+        assertThat(updated.get().getMontoDeuda()).isEqualTo(60.0);
+        assertThat(updated.get().getEstado()).isEqualTo("PARCIAL");
+    }
+
+    @Test
+    @DisplayName("deductDeudaAtomic - marks as PAGADO within 0.001 epsilon tolerance")
+    void deductDeudaAtomic_handlesEpsilonTolerance() {
+        Long ventaId = createTestSale();
+        deudoresRepository.save(ventaId, "Test Epsilon", null, 100.0);
+        Long debtId = deudoresRepository.findAll().getFirst().getId();
+
+        // 99.999 is within 0.001 of 100.0. The debt should become 0 and PAGADO
+        int updatedRows = deudoresRepository.deductDeudaAtomic(debtId, 99.9992, 100.0);
+        assertThat(updatedRows).isEqualTo(1);
+
+        Optional<DeudaResponse> updated = deudoresRepository.findById(debtId);
+        // Using exactly 0.0 assertion to ensure SQL CAST or 0 replacement worked
+        assertThat(updated.get().getMontoDeuda()).isEqualTo(0.0);
+        assertThat(updated.get().getEstado()).isEqualTo("PAGADO");
+    }
+
+    @Test
     @DisplayName("findAll - returns debts ordered by ID DESC")
     void findAll_returnsOrderedDescending() {
         // Arrange

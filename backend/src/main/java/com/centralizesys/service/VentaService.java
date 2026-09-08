@@ -47,7 +47,7 @@ public class VentaService {
     private static final String ACTIVA = "ACTIVA";
     private static final String MINORISTA = "MINORISTA";
     private static final String VENTA_PENDIENTE = "Venta Pendiente";
-    private static final double PAYMENT_COMPLETE_EPSILON = 0.01;
+    private static final double PAYMENT_COMPLETE_EPSILON = 0.001;
     private static final String COBRADO = "COBRADO";
     private static final String ALERTA_CHEQUE = "AlertaCheque";
     private static final String SALDO_ACRONIMO = "SALDO";
@@ -172,7 +172,7 @@ public class VentaService {
         double totalAbonadoRounded = Math.round((pagosTotal + chequesTotal) * 100.0) / 100.0;
 
         Double saldoGenerado = request.getSaldoGenerado();
-        if (totalAbonadoRounded > finalTotal + saldoGenerado + 0.01) {
+        if (totalAbonadoRounded > finalTotal + saldoGenerado + PAYMENT_COMPLETE_EPSILON) {
             throw new BusinessRuleException(String.format("La suma de los pagos y cheques ($%.2f) no puede superar el total de la venta más el saldo generado ($%.2f).", totalAbonadoRounded, finalTotal + saldoGenerado));
         }
 
@@ -530,12 +530,11 @@ public class VentaService {
 
         // Formula: Total = Subtotal - Descuento + Recargo
         Double finalTotal = Math.round((subtotal - descuentoGlobal + recargoGlobal) * 100.0) / 100.0;
-
-        Double totalPagado = ventaRepository.sumPagosActivosByVentaId(id);
-        Double chequesPendientes = alertaChequeRepository.sumMontoPendienteByVentaId(id);
+        Double totalPagado = request.getPagos() != null ? request.getPagos().stream().mapToDouble(VentaRequest.PagoRequest::getMonto).sum() : 0.0;
+        Double chequesPendientes = request.getCheques() != null ? request.getCheques().stream().mapToDouble(com.centralizesys.model.cheque.AlertaChequeRequest::getMonto).sum() : 0.0;
         double totalAbonado = Math.round((totalPagado + chequesPendientes) * 100.0) / 100.0;
         Double saldoGenerado = request.getSaldoGenerado();
-        if (finalTotal + saldoGenerado < totalAbonado) throw new BusinessRuleException(String.format("El nuevo total más el saldo generado ($%.2f) no puede ser menor al monto ya abonado ($%.2f).", finalTotal + saldoGenerado, totalAbonado));
+        if (finalTotal + saldoGenerado < totalAbonado) throw new BusinessRuleException(String.format("El nuevo total más el saldo generado ($%.2f) no puede ser menor al monto abonado ($%.2f).", finalTotal + saldoGenerado, totalAbonado));
 
         if (!oldDetails.isEmpty()) {
             for (DetalleVenta d : oldDetails) {
@@ -544,7 +543,6 @@ public class VentaService {
                 stockRepository.addStock(d.getProductoId(), primaryLocId, d.getCantidad());
             }
         }
-
         ventaRepository.marcarDetallesComoAnulados(id);
 
         List<DetalleVenta> detalles = processedData.getDetalles();
@@ -552,6 +550,57 @@ public class VentaService {
         ventaRepository.saveDetalles(detalles);
 
         List<String> stockAlerts = updateStockFromDetails(detalles);
+
+        // ATOMIC PAYMENT PROCESSING (Delta Updates to preserve history)
+        List<PagoVenta> activePagos = ventaRepository.findPagosActivosByVentaId(id);
+        java.util.Set<Long> requestPagoIds = request.getPagos() != null
+                ? request.getPagos().stream().map(VentaRequest.PagoRequest::getId).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet())
+                : java.util.Collections.emptySet();
+
+        for (PagoVenta p : activePagos) {
+            if (!requestPagoIds.contains(p.getId())) {
+                metodoPagoRepository.findById(p.getMetodoPagoId())
+                        .filter(mp -> SALDO_ACRONIMO.equals(mp.getAcronimo()))
+                        .ifPresent(mp -> {
+                            if (pendingSale.getClienteId() != null) {
+                                clienteRepository.addSaldo(pendingSale.getClienteId(), Math.abs(p.getMonto()));
+                            }
+                        });
+                ventaRepository.updatePagoAnulado(p.getId());
+            }
+        }
+
+        List<AlertaCheque> activeCheques = alertaChequeRepository.findByVentaId(id).stream().filter(c -> PENDIENTE.equals(c.getEstado())).toList();
+        java.util.Set<Long> requestChequeIds = request.getCheques() != null
+                ? request.getCheques().stream().map(com.centralizesys.model.cheque.AlertaChequeRequest::getId).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet())
+                : java.util.Collections.emptySet();
+
+        for (AlertaCheque c : activeCheques) {
+            if (!requestChequeIds.contains(c.getId())) {
+                alertaChequeRepository.updateEstadoAtomic(c.getId(), ANULADA, PENDIENTE);
+            }
+        }
+
+        // Add new payments from request
+        if (request.getPagos() != null) {
+            List<VentaRequest.PagoRequest> newPagos = request.getPagos().stream().filter(p -> p.getId() == null).toList();
+            if (!newPagos.isEmpty()) {
+                VentaRequest dummyReq = new VentaRequest();
+                dummyReq.setClienteId(resolvedClienteId);
+                dummyReq.setPagos(newPagos);
+                processPagosPendientes(id, dummyReq, usuarioId);
+            }
+        }
+
+        if (request.getCheques() != null) {
+            List<com.centralizesys.model.cheque.AlertaChequeRequest> newCheques = request.getCheques().stream().filter(c -> c.getId() == null).toList();
+            if (!newCheques.isEmpty()) {
+                VentaRequest dummyReq = new VentaRequest();
+                dummyReq.setCheques(newCheques);
+                processChequesPendientes(id, dummyReq);
+            }
+        }
+
         ventaRepository.updatePendingSaleHeader(id, finalTotal, descuentoGlobal, recargoGlobal, saldoGenerado, resolvedClienteId, resolvedClienteNombre, tipoVenta.name());
 
         auditoriaService.registrarAccion(usuarioId, "MODIFICAR_CARRITO_PENDIENTE", "Pedido ID: " + id + ". Nuevo Total: $" + finalTotal);
@@ -743,6 +792,26 @@ public class VentaService {
         }
         if (request.getClienteNombre() != null) {
             request.setClienteNombre(request.getClienteNombre().trim());
+        }
+
+        // VULNERABILITY FIX: Strict boundary enforcement to prevent negative payment injections
+        // that could fraudulently create 'Saldo a Favor' or bypass payment rules.
+        if (request.getPagos() != null) {
+            for (VentaRequest.PagoRequest p : request.getPagos()) {
+                if (p.getMonto() != null && p.getMonto() <= 0) {
+                    throw new BusinessRuleException("Un pago no puede tener monto negativo o cero.");
+                }
+            }
+        }
+        if (request.getCheques() != null) {
+            for (com.centralizesys.model.cheque.AlertaChequeRequest c : request.getCheques()) {
+                if (c.getMonto() != null && c.getMonto() <= 0) {
+                    throw new BusinessRuleException("Un cheque no puede tener monto negativo o cero.");
+                }
+            }
+        }
+        if (request.getSaldoGenerado() != null && request.getSaldoGenerado() < 0) {
+            throw new BusinessRuleException("El saldo a favor generado no puede ser negativo.");
         }
     }
 

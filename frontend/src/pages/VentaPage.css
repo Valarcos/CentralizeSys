@@ -10,8 +10,8 @@
 
 /* --- SPLIT VIEW (Desktop) --- */
 .catalog-panel {
-    flex: 3;
-    /* 60% */
+    flex: 1;
+    /* 50% */
     padding: 1rem;
     overflow-y: auto;
     border-right: 1px solid var(--border-color);
@@ -21,8 +21,8 @@
 }
 
 .ticket-panel {
-    flex: 2;
-    /* 40% */
+    flex: 1;
+    /* 50% */
     padding: 1rem;
     display: flex;
     flex-direction: column;
@@ -69,6 +69,7 @@
     font-size: 1.2rem;
     border: 2px solid var(--primary-color);
     border-radius: 8px;
+    background-color: #ffffff;
 }
 
 .product-grid {
@@ -137,6 +138,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
     gap: 1rem;
     margin-bottom: 0.4rem;
     padding-bottom: 0.4rem;
@@ -149,6 +151,7 @@
     display: flex;
     justify-content: center;
     max-width: 250px;
+    min-width: 150px;
 }
 
 .cart-search-input {
@@ -158,7 +161,7 @@
     border-radius: 20px;
     font-size: 0.95rem;
     outline: none;
-    background-color: var(--surface-color);
+    background-color: #ffffff;
     transition: background-color 0.2s, box-shadow 0.2s, border-color 0.2s;
     color: var(--text-color);
 }
@@ -459,7 +462,26 @@
     display: flex;
     flex-direction: column;
     gap: 0.4rem;
+    max-height: calc(3 * (42px + 0.4rem)); /* Limits view to ~3 payment items before scrolling */
+    overflow-y: auto;
 }
+
+/* Custom Scrollbar for Payment Stack */
+.payment-stack::-webkit-scrollbar {
+    width: 6px;
+}
+.payment-stack::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+.payment-stack::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+.payment-stack::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
 
 .payment-item {
     display: grid;

@@ -14,6 +14,7 @@ public class ProductResponse {
     private final Double precioMayorista;
     private final Double precioMinorista;
     private final Long cantidadStock;
+    private final String proveedor;
 
     // Audit fields exposed to the frontend (read-only, set by DB/service layer)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -33,6 +34,7 @@ public class ProductResponse {
         this.precioMayorista = product.getPrecioMayorista();
         this.precioMinorista = product.getPrecioMinorista();
         this.cantidadStock = product.getCantidadStock();
+        this.proveedor = product.getProveedor();
         this.fechaCreacion = product.getFechaCreacion();
         this.fechaActualizacion = product.getFechaActualizacion();
         this.creadoPor = product.getCreadoPor();

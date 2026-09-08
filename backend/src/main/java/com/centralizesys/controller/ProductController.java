@@ -78,6 +78,7 @@ public class ProductController {
                 .precioCosto(request.getPrecioCosto())
                 .precioMayorista(request.getPrecioMayorista())
                 .precioMinorista(request.getPrecioMinorista())
+                .proveedor(request.getProveedor())
                 .build();
 
         // Delegate creation and initial stock handling to Service
@@ -105,6 +106,7 @@ public class ProductController {
                 .precioCosto(request.getPrecioCosto())
                 .precioMayorista(request.getPrecioMayorista())
                 .precioMinorista(request.getPrecioMinorista())
+                .proveedor(request.getProveedor())
                 .build();
 
         service.update(id, updatedProduct, usuarioId);

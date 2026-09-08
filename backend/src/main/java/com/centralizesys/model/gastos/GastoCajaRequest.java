@@ -32,6 +32,6 @@ public class GastoCajaRequest {
 
     // Si viene null o vacío, se usará el nombre del usuario logueado
     private String personaInvolucrada;
-
+    private Long compraId;
     private String categoria;
 }

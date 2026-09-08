@@ -3,6 +3,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import VariantConfirmationModal from './VariantConfirmationModal';
 import ProductFormModal from './ProductFormModal';
+import ImportAssistantModal from './ImportAssistantModal';
 import { blockNonIntegerKeys, blockNonNumericKeys, sanitizeIntegerPaste, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './StockEntryModal.css';
 
@@ -12,6 +13,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [locations, setLocations] = useState([]);
+    const isEnterSearchingRef = useRef(false);
     const [selectedLocationId, setSelectedLocationId] = useState('');
 
     // Draft Items: { product, quantity, cost, error }
@@ -19,16 +21,26 @@ export default function StockEntryModal({ onClose, onSuccess }) {
     const [draftItems, setDraftItems] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Payments State
+    const [paymentMethods, setPaymentMethods] = useState([]);
+    const [payments, setPayments] = useState([]);
+    const [showPayments, setShowPayments] = useState(false);
+    const [selectedMethodId, setSelectedMethodId] = useState('');
+    const [paymentAmount, setPaymentAmount] = useState('');
+
     // Variant Handling State
     const [verifyingIndex, setVerifyingIndex] = useState(null); // Index of item being verified
     const [showVariantModal, setShowVariantModal] = useState(false);
     const [showProductForm, setShowProductForm] = useState(false);
     const [variantSourceProduct, setVariantSourceProduct] = useState(null);
     const [isNewProductContext, setIsNewProductContext] = useState(false); // Track if creating brand new product
+    const [showImportAssistant, setShowImportAssistant] = useState(false);
+    const [importAdjustment, setImportAdjustment] = useState(null); // { diferencia, costoFinal }
 
     // Mobile Tab State (datos | items)
     const [activeTab, setActiveTab] = useState('datos');
     const isMounted = useRef(true);
+    const isSubmittingRef = useRef(false);
 
     useEffect(() => {
         isMounted.current = true;
@@ -44,6 +56,18 @@ export default function StockEntryModal({ onClose, onSuccess }) {
             }
         };
         fetchLocations();
+
+        // Fetch Payment Methods
+        const fetchPaymentMethods = async () => {
+            try {
+                const res = await api.get('/ventas/metodos-pago');
+                if (isMounted.current) setPaymentMethods(res.data);
+            } catch (error) {
+                console.error("Error fetching payment methods:", error);
+            }
+        };
+        fetchPaymentMethods();
+
         return () => { isMounted.current = false; };
     }, []);
 
@@ -66,7 +90,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
     }, [searchQuery]);
 
     // --- HANDLERS ---
-    const addToDraft = (product) => {
+    const addToDraft = (product, initialQuantity = 1) => {
         if ((draftItems || []).some(item => item.product.id === product.id)) {
             toast.error("El producto ya está en la lista");
             return;
@@ -74,7 +98,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
 
         setDraftItems(prev => [...prev, {
             product,
-            quantity: 1,
+            quantity: initialQuantity,
             cost: product.precioCosto,
             error: null
         }]);
@@ -94,7 +118,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
 
             // VALIDATION with Modal
             const dbCost = item.product.precioCosto;
-            if (Math.abs(newCost - dbCost) > 0.01) {
+            if (Math.abs(newCost - dbCost) > 0.001) {
                 // Mark error blue (warning)
                 item.error = "Costo modificado. Verificando...";
                 // Trigger Modal
@@ -137,16 +161,16 @@ export default function StockEntryModal({ onClose, onSuccess }) {
         setVerifyingIndex(null);
     };
 
-    const handleProductFormSuccess = (newProduct) => {
+    const handleProductFormSuccess = (newProduct, cantidadAComprar) => {
         if (isNewProductContext) {
             // Brand new product created -> Add to draft list
-            addToDraft(newProduct);
+            addToDraft(newProduct, cantidadAComprar || 1);
         } else {
             // Variant created -> Update existing item
             const newItems = [...draftItems];
             newItems[verifyingIndex] = {
                 product: newProduct,
-                quantity: newItems[verifyingIndex].quantity,
+                quantity: cantidadAComprar || newItems[verifyingIndex].quantity,
                 cost: newProduct.precioCosto, // Should match what they just created
                 error: null
             };
@@ -158,12 +182,42 @@ export default function StockEntryModal({ onClose, onSuccess }) {
         setIsNewProductContext(false);
     };
 
+    const handleAddPayment = () => {
+        if (!selectedMethodId) {
+            toast.error("Seleccione un método de pago");
+            return;
+        }
+        const amount = parseFloat(paymentAmount);
+        if (isNaN(amount) || amount <= 0) {
+            toast.error("Ingrese un monto válido");
+            return;
+        }
+
+        const method = paymentMethods.find(m => m.id === parseInt(selectedMethodId));
+        setPayments(prev => [...prev, {
+            methodId: method.id,
+            name: method.descripcion,
+            amount: amount
+        }]);
+
+        setSelectedMethodId('');
+        setPaymentAmount('');
+    };
+
+    const removePayment = (index) => {
+        setPayments(prev => prev.filter((_, i) => i !== index));
+    };
+
     const removeItem = (index) => {
         setDraftItems(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleSubmit = async () => {
-        if (isSubmitting) return;
+        if (isSubmittingRef.current || isSubmitting) return;
+        if (draftItems.length === 0) {
+            toast.error("No hay productos en el ingreso");
+            return;
+        }
 
         if (!provider || invoiceNo === null || invoiceNo === undefined || String(invoiceNo).trim() === '') {
             toast.error("Complete Proveedor y Nro Comprobante");
@@ -186,7 +240,19 @@ export default function StockEntryModal({ onClose, onSuccess }) {
             return;
         }
 
+        const rawTotal = (draftItems || []).reduce((sum, item) => sum + (item.quantity * item.cost), 0);
+        const total = Math.round(rawTotal * 100.0) / 100.0;
+
+        const rawTotalPagado = payments.reduce((sum, p) => sum + p.amount, 0);
+        const totalPagado = Math.round(rawTotalPagado * 100.0) / 100.0;
+
+        if (payments.length > 0 && Math.abs(totalPagado - total) > 0.001) {
+            toast.error(`El total de pagos ($${totalPagado.toFixed(2)}) no coincide con la compra ($${total.toFixed(2)})`);
+            return;
+        }
+
         try {
+            isSubmittingRef.current = true;
             if (isMounted.current) setIsSubmitting(true);
             const payload = {
                 proveedor: provider,
@@ -196,21 +262,42 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                     cantidad: i.quantity,
                     costoUnitario: i.cost,
                     ubicacionId: parseInt(selectedLocationId)
-                }))
+                })),
+
+                // NOT TO BE IMPLEMENTED HERE (Phase 5 rule):
+                // ajusteImportacion: importAdjustment ? importAdjustment.diferencia : null
             };
 
-            await api.post('/compras', payload);
-            toast.success("Ingreso Registrado Correctamente");
+            const response = await api.post('/compras', payload);
+
+            // Phase 5: Silent POST to /api/gastos for import adjustment
+            if (importAdjustment && importAdjustment.diferencia > 0) {
+                try {
+                    await api.post('/gastos', {
+                        monto: importAdjustment.diferencia,
+                        motivo: "Ajuste aduanero/importación",
+                        categoria: 'Ajuste Importación',
+                        compraId: response.data.id
+                    });
+                } catch (gastoError) {
+                    console.error("Error registrando el gasto de importación:", gastoError);
+                    toast.error("La compra se guardó, pero hubo un error al registrar el gasto de importación.");
+                }
+            }
+
+            toast.success("Compra y stock actualizados correctamente");
             if (isMounted.current && onSuccess) onSuccess();
         } catch (error) {
             console.error(error);
             // Error handled by global api interceptor
         } finally {
+            isSubmittingRef.current = false;
             if (isMounted.current) setIsSubmitting(false);
         }
     };
 
-    const total = (draftItems || []).reduce((sum, item) => sum + (item.quantity * item.cost), 0);
+    const rawTotalUI = (draftItems || []).reduce((sum, item) => sum + (item.quantity * item.cost), 0);
+    const total = Math.round(rawTotalUI * 100.0) / 100.0;
 
     return (
         <div className="stock-entry-modal-overlay">
@@ -229,6 +316,7 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                                 placeholder="Proveedor"
                                 value={provider}
                                 onChange={e => setProvider(e.target.value)}
+                                maxLength={255}
                             />
                             <input
                                 className="invoice-input"
@@ -257,6 +345,30 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                                 placeholder="🔍 Buscar producto a reponer..."
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
+                                onKeyDown={async (e) => {
+                                    if ((e.key === 'Enter' || e.keyCode === 13) && !e.repeat) {
+                                        e.preventDefault();
+                                        const currentSearchValue = e.target.value;
+                                        if (!currentSearchValue.trim() || isEnterSearchingRef.current) return;
+                                        try {
+                                            isEnterSearchingRef.current = true;
+                                            const response = await api.get('/productos', { params: { search: currentSearchValue, size: 20 } });
+                                            const fetched = response.data.content || [];
+                                            if (isMounted.current) setSearchResults(fetched);
+
+                                            // Auto-add if exact match
+                                            const exactMatch = fetched.find(p => p.codigo === currentSearchValue);
+                                            if (exactMatch) {
+                                                addToDraft(exactMatch);
+                                                setSearchQuery('');
+                                            }
+                                        } catch (err) {
+                                            console.error(err);
+                                        } finally {
+                                            isEnterSearchingRef.current = false;
+                                        }
+                                    }
+                                }}
                                 autoFocus
                             />
                             <button
@@ -327,8 +439,71 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                             ))}
                         </div>
 
+                        {/* TODO: Payment method selection feature is temporarily disabled.
+                             Must only be available for products added through the purchase button modal.
+                             Uncomment and adjust once payment data specifications are gathered from users.
+
+                        <div className="payments-section" style={{ padding: '0.5rem 0', borderTop: '1px solid #dee2e6' }}>
+                            <button
+                                className="toggle-payments-btn"
+                                onClick={() => setShowPayments(!showPayments)}
+                                type="button"
+                                style={{ width: '100%', marginBottom: '0.5rem', padding: '0.5rem', background: '#e9ecef', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                                {showPayments ? 'Ocultar Pagos' : 'Registrar Pago (Opcional)'}
+                            </button>
+
+                            {showPayments && (
+                                <div className="payments-container">
+                                    <div className="payment-form" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                        <select
+                                            value={selectedMethodId}
+                                            onChange={e => setSelectedMethodId(e.target.value)}
+                                            style={{ flex: 2, padding: '0.5rem', borderRadius: '4px', border: '1px solid #ced4da' }}
+                                        >
+                                            <option value="">Seleccionar método...</option>
+                                            {paymentMethods.filter(m => m.activo !== false).map(m => (
+                                                <option key={m.id} value={m.id}>{m.descripcion}</option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="text"
+                                            inputMode="decimal"
+                                            placeholder="Monto"
+                                            value={paymentAmount}
+                                            onChange={e => setPaymentAmount(enforceMoneyFormat(e.target.value))}
+                                            onKeyDown={blockNonNumericKeys}
+                                            onPaste={sanitizeNumericPaste}
+                                            style={{ flex: 1, padding: '0.5rem', borderRadius: '4px', border: '1px solid #ced4da' }}
+                                        />
+                                        <button onClick={handleAddPayment} type="button" style={{ padding: '0.5rem 1rem', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                            Añadir
+                                        </button>
+                                    </div>
+                                    <div className="payment-stack" style={{ maxHeight: 'calc(3 * (42px + 0.4rem))', overflowY: 'auto' }}>
+                                        {payments.map((p, i) => (
+                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', background: '#f8f9fa', marginBottom: '0.2rem', borderRadius: '4px' }}>
+                                                <span>{p.name}: ${p.amount.toFixed(2)}</span>
+                                                <button onClick={() => removePayment(i)} type="button" style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.2rem', lineHeight: 1 }}>×</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        */}
+
                         <div className="footer-actions">
                             <div className="total-display">Total: ${total.toFixed(2)}</div>
+                            <button
+                                className="import-assistant-btn"
+                                onClick={() => setShowImportAssistant(true)}
+                                type="button"
+                                style={{ padding: '0.5rem', background: '#ffc107', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                                disabled={(draftItems || []).length === 0}
+                            >
+                                ✨ Asistente Importación
+                            </button>
                             <button
                                 className="submit-btn"
                                 onClick={handleSubmit}
@@ -376,12 +551,25 @@ export default function StockEntryModal({ onClose, onSuccess }) {
                     isVariant={!isNewProductContext} // Variant if NOT new product context
                     isPurchaseContext={true} // Always hide location/stock section (handled by StockEntry)
                     initialCost={!isNewProductContext ? draftItems[verifyingIndex]?.cost : undefined}
+                    globalProvider={provider}
                     onSuccess={handleProductFormSuccess}
                     onCancel={() => {
                         setShowProductForm(false);
                         setIsNewProductContext(false);
                         if (!isNewProductContext) handleCorrectCost();
                     }}
+                />
+            )}
+
+            {showImportAssistant && (
+                <ImportAssistantModal
+                    totalCompraBase={total}
+                    onConfirm={(diferencia, costoFinal) => {
+                        setImportAdjustment({ diferencia, costoFinal });
+                        toast.success(`Diferencia de $${diferencia.toFixed(2)} programada para guardarse con la compra.`);
+                        setShowImportAssistant(false);
+                    }}
+                    onClose={() => setShowImportAssistant(false)}
                 />
             )}
         </div>

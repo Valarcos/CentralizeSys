@@ -16,6 +16,7 @@ public class Compra {
     private String proveedor;
     private String nroComprobante;
     private Double totalCompra = 0.0;
+    private Double totalAjustes = 0.0;
     private Long usuarioId; // Optional, for audit/ownership, company owners buying
 
     public void setTotalCompra(Double totalCompra) {

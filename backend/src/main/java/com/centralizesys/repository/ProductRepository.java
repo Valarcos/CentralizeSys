@@ -51,6 +51,7 @@ public class ProductRepository {
                 .precioMayorista(precioMayorista)
                 .precioMinorista(rs.getDouble("precio_minorista"))
                 .cantidadStock(rs.getLong("cantidad_stock"))
+                .proveedor(rs.getString("proveedor"))
                 .activo(rs.getBoolean("activo"))
                 .fechaCreacion(rs.getTimestamp("fecha_creacion") != null
                         ? rs.getTimestamp("fecha_creacion").toLocalDateTime() : null)
@@ -201,10 +202,10 @@ public class ProductRepository {
         String sql = """
                     INSERT INTO productos
                         (codigo, descripcion, precio_costo, precio_mayorista, precio_minorista,
-                         fecha_creacion, fecha_actualizacion, creado_por, actualizado_por)
+                         proveedor, fecha_creacion, fecha_actualizacion, creado_por, actualizado_por)
                     VALUES
                         (:codigo, :descripcion, :precioCosto, :precioMayorista, :precioMinorista,
-                         :fechaCreacion, :fechaActualizacion, :creadoPor, :actualizadoPor)
+                         :proveedor, :fechaCreacion, :fechaActualizacion, :creadoPor, :actualizadoPor)
                 """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -214,6 +215,7 @@ public class ProductRepository {
                 .addValue("precioCosto", p.getPrecioCosto())
                 .addValue("precioMayorista", p.getPrecioMayorista())
                 .addValue("precioMinorista", p.getPrecioMinorista())
+                .addValue("proveedor", p.getProveedor())
                 .addValue("fechaCreacion", p.getFechaCreacion())
                 .addValue("fechaActualizacion", p.getFechaActualizacion())
                 .addValue(PARAM_CREADO_POR, p.getCreadoPor())
@@ -246,6 +248,7 @@ public class ProductRepository {
                         precio_costo = :precioCosto,
                         precio_mayorista = :precioMayorista,
                         precio_minorista = :precioMinorista,
+                        proveedor = :proveedor,
                         actualizado_por = :actualizadoPor
                     WHERE id = :id
                 """;
@@ -255,6 +258,7 @@ public class ProductRepository {
                 .addValue("precioCosto", p.getPrecioCosto())
                 .addValue("precioMayorista", p.getPrecioMayorista())
                 .addValue("precioMinorista", p.getPrecioMinorista())
+                .addValue("proveedor", p.getProveedor())
                 .addValue(PARAM_ACTUALIZADO_POR, p.getActualizadoPor())
                 .addValue(PARAM_ID, p.getId());
         namedJdbcTemplate.update(sql, params);

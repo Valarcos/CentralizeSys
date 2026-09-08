@@ -90,6 +90,11 @@ public class CompraService {
                 result.getItemsResponse());
     }
 
+    public Compra findByNroComprobante(String nroComprobante) {
+        return compraRepository.findByNroComprobante(nroComprobante)
+                .orElseThrow(() -> new com.centralizesys.exception.ResourceNotFoundException("Compra Factura", nroComprobante));
+    }
+
     // --- HELPER CLASSES (Internal DTO) ---
 
     @Data

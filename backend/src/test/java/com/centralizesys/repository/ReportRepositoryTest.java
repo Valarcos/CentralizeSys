@@ -61,6 +61,51 @@ class ReportRepositoryTest extends BaseIntegrationTest {
     }
 
     @Test
+    @DisplayName("getEstadisticas - shifts 'Ajuste Importación' gastos to egresosEfectivo")
+    void getEstadisticas_shiftsAjusteImportacionToEgresos() {
+        // Arrange
+        int year = 2026;
+        int month = 10;
+        int day = 16;
+
+        jdbcTemplate.update("DELETE FROM compras");
+        jdbcTemplate.update("DELETE FROM gastos_caja");
+
+        // 1. Add a purchase (Compra) for $1000
+        jdbcTemplate.update("""
+            INSERT INTO compras (proveedor, total_compra, fecha, nro_comprobante, usuario_id) 
+            VALUES ('TEST_PROV', 1000.0, '2026-10-16 10:00:00', 'TEST', 1)
+        """);
+
+        // 2. Add an 'Ajuste Importación' Gasto Vario for $200
+        jdbcTemplate.update("""
+            INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
+            VALUES (200.0, 'Impuestos aduaneros', '2026-10-16 11:00:00', '2026-10-16 11:00:00', 'Admin', 1, 'Ajuste Importación', false)
+        """);
+
+        // 3. Add a normal 'Sueldos' Gasto Vario for $500
+        jdbcTemplate.update("""
+            INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
+            VALUES (500.0, 'Sueldo', '2026-10-16 12:00:00', '2026-10-16 12:00:00', 'Admin', 1, 'Sueldos', false)
+        """);
+
+        // Act
+        ReportesEstadisticasDTO dto = reportRepository.getEstadisticas(year, month, day);
+
+        // Assert
+        ReportesEstadisticasDTO.FlujoDeCaja fc = dto.getFlujoDeCaja();
+
+        // Egresos (compras) should be 1000 + 200 (Ajuste Importación) = 1200
+        assertThat(fc.getEgresosEfectivo()).isEqualTo(1200.0);
+
+        // Gastos Varios should only be 500 (Sueldos)
+        assertThat(fc.getGastosVariosEfectivo()).isEqualTo(500.0);
+
+        // BalanceNeto = In(0) - Out(1200) - Varios(500) = -1700
+        assertThat(fc.getBalanceNeto()).isEqualTo(-1700.0);
+    }
+
+    @Test
     @DisplayName("getEstadisticas - ventasPendientes sums PENDIENTE orders in the period without overlap with finalized sales")
     void getEstadisticas_ventasPendientes_noOverlapWithFinalizedSales() {
         // Arrange

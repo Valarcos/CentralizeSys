@@ -22,6 +22,7 @@ public class GastoCaja {
     private String personaInvolucrada;
     private Long registradoPorUsuarioId;
     private String registradoPorUsuarioNombre; // Transient field for UI
+    private Long compraId; // Link to Compra
     private String categoria;
     private Boolean anulado;
     private String razonAnulacion;

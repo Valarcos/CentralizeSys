@@ -141,6 +141,12 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
                     5: { cellWidth: 28, halign: 'right' }
                 },
                 styles: { fontSize: 8, cellPadding: 1 },
+                // Reserve the top 30mm on pages 2+ for the logo (logo occupies Y=5–25, 5mm buffer below)
+                margin: { top: 30 },
+                // Redraw the logo header on every new page the table creates
+                didDrawPage: () => {
+                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+                },
             });
         } // End options.printItems
 
@@ -213,6 +219,10 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
                     ? { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 40, halign: 'right' } }
                     : { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right' } },
                 styles: { fontSize: 8, cellPadding: 1 },
+                margin: { top: 30 },
+                didDrawPage: () => {
+                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+                },
             });
         }
         // End Table 2
@@ -315,11 +325,21 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
                     2: { cellWidth: 30, halign: 'right' }
                 },
                 styles: { fontSize: 8, cellPadding: 1 },
+                margin: { top: 30 },
+                didDrawPage: () => {
+                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+                },
             });
         }
 
         // --- TOTAL ---
         let finalY = doc.lastAutoTable.finalY + 8;
+        // Guard: if the total block won't fit on the remaining space, push to a new page
+        if (finalY + 50 > doc.internal.pageSize.height - 15) {
+            doc.addPage();
+            addLogoToDoc(doc);
+            finalY = 25;
+        }
         doc.setFontSize(12);
 
         if (hasReturns) {
@@ -510,6 +530,12 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
                     5: { cellWidth: 28, halign: 'right' }
                 },
                 styles: { fontSize: 8, cellPadding: 1 },
+                // Reserve the top 30mm on pages 2+ for the logo (logo occupies Y=5–25, 5mm buffer below)
+                margin: { top: 30 },
+                // Redraw the logo header on every new page the table creates
+                didDrawPage: () => {
+                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+                },
             });
 
             // --- TABLE 2: DISCOUNTS SUMMARY (black header, black font) ---
@@ -578,6 +604,10 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
                         ? { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 40, halign: 'right' } }
                         : { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right' } },
                     styles: { fontSize: 8, cellPadding: 1 },
+                    margin: { top: 30 },
+                    didDrawPage: () => {
+                        if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+                    },
                 });
             }
         } // End of options.printItems
@@ -672,6 +702,10 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
                     ? [['', '', '', 'TOTAL PAGADO', formatMoney(totalPagado)]]
                     : [['', '', 'TOTAL PAGADO', formatMoney(totalPagado)]],
                 footStyles: { fillColor: [220, 235, 250], textColor: [0, 0, 0], fontStyle: 'bold' },
+                margin: { top: 30 },
+                didDrawPage: () => {
+                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+                },
             });
         } else {
             doc.setFontSize(9);
@@ -681,7 +715,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         }
 
         // --- DEBT SUMMARY BOX ---
-        const summaryY = (allPayments.length > 0 ? doc.lastAutoTable.finalY : pagosY) + 12;
+        let summaryY = (allPayments.length > 0 ? doc.lastAutoTable.finalY : pagosY) + 12;
         const montoOriginal = debtorData.montoOriginal || 0;
         const montoDeuda = debtorData.montoDeuda || 0;
 
@@ -689,6 +723,13 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         const boxX = 14;
         const boxW = pageWidth - 28;
         const boxH = 32;
+
+        // Guard: if the summary box won't fit on remaining page space, push to a new page
+        if (summaryY + boxH + 10 > doc.internal.pageSize.height - 15) {
+            doc.addPage();
+            addLogoToDoc(doc);
+            summaryY = 20;
+        }
 
         doc.setDrawColor(0);
         doc.setLineWidth(0.5);
@@ -818,6 +859,12 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
                     5: { cellWidth: 28, halign: 'right' }
                 },
                 styles: { fontSize: 8, cellPadding: 1 },
+                // Reserve the top 30mm on pages 2+ for the logo (logo occupies Y=5–25, 5mm buffer below)
+                margin: { top: 30 },
+                // Redraw the logo header on every new page the table creates
+                didDrawPage: () => {
+                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+                },
             });
         } else {
             doc.setFontSize(12);
@@ -893,6 +940,10 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
                     ? { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 40, halign: 'right' } }
                     : { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right' } },
                 styles: { fontSize: 8, cellPadding: 1 },
+                margin: { top: 30 },
+                didDrawPage: () => {
+                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+                },
             });
         }
 
@@ -1001,6 +1052,10 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
                     ? [['', '', '', 'TOTAL PAGADO', formatMoney(totalPagado)]]
                     : [['', '', 'TOTAL PAGADO', formatMoney(totalPagado)]],
                 footStyles: { fillColor: [220, 235, 250], textColor: [0, 0, 0], fontStyle: 'bold' },
+                margin: { top: 30 },
+                didDrawPage: () => {
+                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+                },
             });
         } else {
             doc.setFontSize(9);
@@ -1010,13 +1065,20 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         }
 
         // --- DEBT SUMMARY BOX ---
-        const summaryY = (allPayments.length > 0 ? doc.lastAutoTable.finalY : pagosY) + 12;
+        let summaryY = (allPayments.length > 0 ? doc.lastAutoTable.finalY : pagosY) + 12;
         const montoTotal = pedidoData.montoTotal || 0;
         const saldoRestante = pedidoData.saldoRestante || 0;
 
         const boxX = 14;
         const boxW = pageWidth - 28;
         const boxH = 32;
+
+        // Guard: if the summary box won't fit on remaining page space, push to a new page
+        if (summaryY + boxH + 10 > doc.internal.pageSize.height - 15) {
+            doc.addPage();
+            addLogoToDoc(doc);
+            summaryY = 20;
+        }
 
         doc.setDrawColor(0);
         doc.setLineWidth(0.5);

@@ -1,5 +1,6 @@
 package com.centralizesys.config;
 
+import com.centralizesys.security.CustomAccessDeniedHandler;
 import com.centralizesys.security.JwtAuthenticationFilter;
 import com.centralizesys.security.LoggingAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,11 +32,14 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final LoggingAuthenticationEntryPoint loggingAuthenticationEntryPoint;
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-                          LoggingAuthenticationEntryPoint loggingAuthenticationEntryPoint) {
+                          LoggingAuthenticationEntryPoint loggingAuthenticationEntryPoint,
+                          CustomAccessDeniedHandler customAccessDeniedHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.loggingAuthenticationEntryPoint = loggingAuthenticationEntryPoint;
+        this.customAccessDeniedHandler = customAccessDeniedHandler;
     }
 
     /**
@@ -53,6 +57,7 @@ public class SecurityConfig {
      * intercept requests and authenticate via the "Authorization" header.
      */
     @Bean
+    @SuppressWarnings("java:S4502") // Suppress SonarQube CSRF warning: Safe because API uses stateless JWTs (no cookies)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 // Disable CSRF: Not required for stateless REST APIs using JWT
@@ -70,7 +75,10 @@ public class SecurityConfig {
                 // Return 401 Unauthorized instead of 403 Forbidden for unauthenticated requests.
                 // Uses LoggingAuthenticationEntryPoint to produce a structured WARN log entry
                 // in app.log for every rejected request (URI, IP, and reason are captured).
-                .exceptionHandling(e -> e.authenticationEntryPoint(loggingAuthenticationEntryPoint))
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint(loggingAuthenticationEntryPoint)
+                        .accessDeniedHandler(customAccessDeniedHandler)
+                )
 
                 // FORCE Stateless: Spring will *never* create a session.
                 // All auth state must come from the JWT for every request.

@@ -1,5 +1,7 @@
 package com.centralizesys.security;
 
+import com.centralizesys.exception.GlobalExceptionHandler;
+import com.centralizesys.util.Constants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -25,10 +27,17 @@ import java.io.IOException;
  *   <li>Spring Security's reason string (e.g., "Full authentication is required")</li>
  * </ul>
  */
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 @Component
 public class LoggingAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
     private static final Logger log = LoggerFactory.getLogger(LoggingAuthenticationEntryPoint.class);
+    private final ObjectMapper objectMapper;
+
+    public LoggingAuthenticationEntryPoint(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public void commence(HttpServletRequest request,
@@ -41,6 +50,16 @@ public class LoggingAuthenticationEntryPoint implements AuthenticationEntryPoint
         log.warn("Unauthorized request — method={}, uri={}, ip={}, reason={}",
                 method, uri, ip, authException.getMessage());
 
-        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json;charset=UTF-8");
+
+        GlobalExceptionHandler.ErrorResponse errorDetails =
+                new GlobalExceptionHandler.ErrorResponse(
+                        HttpServletResponse.SC_UNAUTHORIZED,
+                        Constants.ERR_UNAUTHORIZED,
+                        System.currentTimeMillis()
+                );
+
+        objectMapper.writeValue(response.getWriter(), errorDetails);
     }
 }

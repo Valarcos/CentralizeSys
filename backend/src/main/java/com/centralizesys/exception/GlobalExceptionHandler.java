@@ -2,6 +2,7 @@ package com.centralizesys.exception;
 
 import com.centralizesys.security.SecurityUtils;
 import com.centralizesys.service.AuditoriaService;
+import com.centralizesys.util.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.CannotAcquireLockException;
@@ -186,7 +187,7 @@ public class GlobalExceptionHandler {
         log.warn("Access denied: {}", ex.getMessage());
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
-                "Acceso denegado: No tiene permiso para realizar esta acción.",
+                Constants.ERR_ACCESS_DENIED,
                 System.currentTimeMillis());
         return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }

@@ -15,4 +15,8 @@ public class Constants {
 
     // DB CONSTANTS
     public static final String DB_DATE_FORMAT = "yyyy-MM-dd"; // ISO Standard for SQLite
+
+    // SECURITY ERRORS
+    public static final String ERR_UNAUTHORIZED = "Su sesión ha expirado o es inválida. Por favor, inicie sesión nuevamente.";
+    public static final String ERR_ACCESS_DENIED = "Acceso denegado: No tiene permiso para realizar esta acción.";
 }

@@ -4,6 +4,7 @@ import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.security.CustomUserDetails;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -38,6 +39,12 @@ class IdempotencyAspectTest {
         CustomUserDetails user = new CustomUserDetails(1L, "Test", "test@test.com", "pass", Collections.emptyList());
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+        RequestContextHolder.resetRequestAttributes();
     }
 
     @Test

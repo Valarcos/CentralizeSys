@@ -15,6 +15,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.centralizesys.security.CustomUserDetails;
 
 import java.util.List;
 
@@ -73,12 +78,12 @@ public abstract class BaseIntegrationTest {
      * Helper to authenticate a user context for tests relying on SecurityUtils.
      */
     protected void authenticateUser(Long userId, String role) {
-        com.centralizesys.security.CustomUserDetails userDetails = new com.centralizesys.security.CustomUserDetails(
+        CustomUserDetails userDetails = new CustomUserDetails(
                 userId, "test" + userId + "@test.com", "pass", "Test User",
-                java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority(role))
+                List.of(new SimpleGrantedAuthority(role))
         );
-        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
-                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
         );
     }
 
@@ -190,5 +195,11 @@ public abstract class BaseIntegrationTest {
         jdbcTemplate.execute("DELETE FROM active_tokens");
         jdbcTemplate.execute("DELETE FROM login_attempts");
         jdbcTemplate.execute("DELETE FROM usuarios WHERE email NOT IN ('sistema@centralizesys.internal', 'marcosachavalmbaj@gmail.com')");
+    }
+
+    @AfterEach
+    protected void clearSecurityContext() {
+        // MUST clear the ThreadLocal security context to prevent leaking authentication state to other tests!
+        SecurityContextHolder.clearContext();
     }
 }

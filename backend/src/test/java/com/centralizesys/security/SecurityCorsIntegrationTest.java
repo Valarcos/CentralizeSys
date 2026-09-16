@@ -10,6 +10,9 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import com.centralizesys.util.Constants;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -29,6 +32,10 @@ class SecurityCorsIntegrationTest {
 
     @Test
     void whenUnauthorized401_thenCorsHeadersArePreserved() throws Exception {
+        // DEFENSE: Explicitly clear any thread-local security context that might have leaked
+        // from other poorly written tests in the suite running on the same JVM thread.
+        SecurityContextHolder.clearContext();
+
         // Attempting to access a protected endpoint WITHOUT a token
         mockMvc.perform(get("/api/productos")
                         .header(HttpHeaders.ORIGIN, ORIGIN_URL)
@@ -39,7 +46,7 @@ class SecurityCorsIntegrationTest {
 
                 // Assert our custom JSON format is returned
                 .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.message").value(com.centralizesys.util.Constants.ERR_UNAUTHORIZED))
+                .andExpect(jsonPath("$.message").value(Constants.ERR_UNAUTHORIZED))
 
                 // CRITICAL ASSERTION: Prove that CORS headers survived the rejection
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, ORIGIN_URL));
@@ -50,7 +57,7 @@ class SecurityCorsIntegrationTest {
     void whenForbidden403_thenCorsHeadersArePreserved() throws Exception {
         // Attempting to access an Admin-only endpoint
         // NOTE: Make sure /api/backups/restore/dummy is protected with @PreAuthorize("hasRole('ADMIN')")
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/backups/restore/dummy")
+        mockMvc.perform(MockMvcRequestBuilders.post("/api/backups/restore/dummy")
                         .header(HttpHeaders.ORIGIN, ORIGIN_URL)
                         .accept(MediaType.APPLICATION_JSON))
 
@@ -59,7 +66,7 @@ class SecurityCorsIntegrationTest {
 
                 // Assert our custom JSON format is returned
                 .andExpect(jsonPath("$.status").value(403))
-                .andExpect(jsonPath("$.message").value(com.centralizesys.util.Constants.ERR_ACCESS_DENIED))
+                .andExpect(jsonPath("$.message").value(Constants.ERR_ACCESS_DENIED))
 
                 // CRITICAL ASSERTION: Prove that CORS headers survived the rejection
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, ORIGIN_URL));

@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -18,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@TestPropertySource(properties = {"app.cors.allowed-origins=http://localhost:3000"})
 class SecurityCorsIntegrationTest {
 
     @Autowired
@@ -37,7 +39,7 @@ class SecurityCorsIntegrationTest {
 
                 // Assert our custom JSON format is returned
                 .andExpect(jsonPath("$.status").value(401))
-                .andExpect(jsonPath("$.message").value("Su sesión ha expirado o es inválida. Por favor, inicie sesión nuevamente."))
+                .andExpect(jsonPath("$.message").value(com.centralizesys.util.Constants.ERR_UNAUTHORIZED))
 
                 // CRITICAL ASSERTION: Prove that CORS headers survived the rejection
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, ORIGIN_URL));
@@ -57,7 +59,7 @@ class SecurityCorsIntegrationTest {
 
                 // Assert our custom JSON format is returned
                 .andExpect(jsonPath("$.status").value(403))
-                .andExpect(jsonPath("$.message").value("Acceso denegado: No tiene permiso para realizar esta acción."))
+                .andExpect(jsonPath("$.message").value(com.centralizesys.util.Constants.ERR_ACCESS_DENIED))
 
                 // CRITICAL ASSERTION: Prove that CORS headers survived the rejection
                 .andExpect(header().string(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, ORIGIN_URL));

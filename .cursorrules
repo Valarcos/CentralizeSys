@@ -292,6 +292,14 @@
             *   *Long term:* Refactor `CompraRequest` to accept a `List<DraftProduct>` for items that don't exist yet, deferring their creation to the transactional `CompraService.registrarCompra()` method so everything rolls back together if canceled.
         *   **Status:** UNRESOLVED.
 
+    *   **Issue 10: Server Downgrade (e2-small) Optimization Prerequisites**
+        *   **Status:** UNRESOLVED.
+        *   **Requirement:** Refactor heavy DB and memory-intensive operations to safely allow downgrading the GCP instance to 2GB RAM (`e2-small`) without causing Linux OOM (Out-of-Memory) crashes.
+        *   **Issue A (Scheduled Backups - CRITICAL):** `BackupService.java` currently uses `.findAll()` on all repositories and loads data into `XSSFWorkbook` (holding the entire DOM in memory). This will instantly crash a 2GB RAM server. **Fix:** Replace `XSSFWorkbook` with `SXSSFWorkbook` (Streaming POI) and implement paginated or JDBC streaming reads (`RowCallbackHandler`).
+        *   **Issue B (OS Process Forking - HIGH):** `BackupService.java` uses Java `ProcessBuilder` to execute `pg_dump`. In a low-memory Linux environment, this `fork()` will cause the OS to fail to allocate virtual memory. **Fix:** Decouple OS executions. Run `pg_dump` via a native cron job directly on the host or inside the DB container.
+        *   **Issue C (Legacy Excel Imports - MODERATE):** `LegacyFinancialImportService.java` uses `WorkbookFactory.create()`, loading up to 50MB of Excel files entirely into memory. **Fix:** Implement a streaming reader library (e.g., Apache POI SAX Event API).
+        *   **Issue D (Dashboard Aggregations - CPU Bottleneck):** `ReportRepository.java` runs massive on-the-fly math across multiple tables. While it won't crash RAM, it will lock the 2 shared vCPUs. **Fix:** Implement PostgreSQL Materialized Views and refresh them asynchronously.
+
 ---
 
 ## 10. UI Behavior Reference (Informational)

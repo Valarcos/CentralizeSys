@@ -1,7 +1,7 @@
 /* VentaPage.css */
 
 .venta-page {
-    height: calc(100vh - 70px);
+    height: calc(100vh - var(--top-nav-height));
     /* Adjust for header */
     display: flex;
     overflow: hidden;
@@ -109,7 +109,7 @@
     line-height: 1.1 !important;
 }
 
-.product-code-label {
+.product-card.perfect-match-highlight .product-code-label {
     display: block !important;
     font-size: 1.25rem !important;
     font-weight: 900 !important;
@@ -140,10 +140,13 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 1rem;
-    margin-bottom: 0.4rem;
-    padding-bottom: 0.4rem;
+    margin-bottom: 0.35rem;
+    padding-bottom: 0.15rem;
     border-bottom: 1px solid var(--border-color);
 }
+
+
+
 
 /* Cart Search Input styling */
 .cart-search-container {
@@ -242,6 +245,7 @@
 .current-client-input {
     width: 100%;
     padding: 0.6rem;
+    margin-top: 0;
     margin-bottom: 0.5rem;
     font-size: 0.95rem;
     border: 1px solid var(--border-color);
@@ -264,7 +268,7 @@
     background: white;
     border-radius: 6px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    gap: 0.2rem;
+    gap: 0.1rem;
 }
 
 .cart-row {
@@ -313,8 +317,8 @@
 
 .price-label {
     white-space: nowrap;
-    line-height: 28px;
-    height: 28px;
+    line-height: 23px;
+    height: 23px;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -380,16 +384,19 @@
 }
 
 .qty-input {
-    width: 40px;
-    height: 28px;
-    text-align: center;
-    padding: 0;
-    margin: 0;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    box-sizing: border-box;
+    width: 40px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    max-height: 28px !important;
+    line-height: 26px !important;
+    text-align: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 4px !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    box-sizing: border-box !important;
 }
 
 /* Hide number input spinners globally */
@@ -406,8 +413,8 @@
     font-size: 1.1rem;
     min-width: 70px;
     text-align: right;
-    line-height: 28px;
-    height: 28px;
+    line-height: 23px;
+    height: 23px;
     margin: 0;
     padding: 0;
 }
@@ -428,7 +435,7 @@
 
 .remove-btn-new {
     width: 28px;
-    height: 28px;
+    height: 23px;
     border-radius: 4px;
     background-color: transparent;
     color: var(--color-error, #dc3545);
@@ -461,8 +468,8 @@
     margin-bottom: 0.5rem;
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    max-height: calc(3 * (42px + 0.4rem)); /* Limits view to ~3 payment items before scrolling */
+    gap: 0;
+    max-height: calc(3 * (32px + 0.2rem)); /* Limits view to ~3 payment items before scrolling */
     overflow-y: auto;
 }
 
@@ -488,12 +495,29 @@
     grid-template-columns: 1fr max-content 28px;
     align-items: center;
     background-color: #f8f9fa;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0;
     padding: 0.3rem 0.5rem;
     column-gap: 0.5rem;
     font-size: 0.95rem;
-    min-height: 38px;
+    min-height: 32px;
+}
+
+.payment-item:nth-child(even) {
+    background-color: #e9ecef;
+}
+
+.payment-item:first-child {
+    border-top: 1px solid var(--border-color);
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+}
+
+.payment-item:last-child {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
 }
 
 .payment-name {
@@ -520,7 +544,7 @@
 
 .payment-select,
 .payment-amount {
-    height: 42px;
+    height: 35px;
     padding: 0 0.5rem;
     margin: 0;
     border: 1px solid var(--border-color);
@@ -540,7 +564,7 @@
 /* Issue #1: Solid, opaque, distinct color for payment add button */
 .add-payment-btn {
     width: 42px;
-    height: 42px;
+    height: 35px;
     flex-shrink: 0;
     padding: 0;
     margin: 0;
@@ -572,7 +596,7 @@
 /* --- CHEQUE INLINE DATE INPUT --- */
 /* Renders between the amount field and the [+] button when a cheque method is selected */
 .cheque-date-input {
-    height: 42px;
+    height: 35px;
     padding: 0 0.5rem;
     margin: 0;
     border: 2px solid var(--primary-color);
@@ -609,7 +633,7 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 1rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 9.75px;
     padding-top: 0.5rem;
 }
 
@@ -681,10 +705,15 @@
     }
 }
 
+.action-buttons-container {
+    display: flex;
+    gap: 1rem;
+}
+
 .pay-btn {
     width: 100%;
-    padding: 1.2rem;
-    font-size: 1.5rem;
+    padding: 0.64rem;
+    font-size: 1.32rem;
     font-weight: bold;
     background-color: var(--color-success);
     color: white;
@@ -697,6 +726,63 @@
 .pay-btn:disabled {
     background-color: #ccc;
     cursor: not-allowed;
+}
+
+/* --- MACBOOK AIR / SMALL LAPTOP LAYOUT --- */
+@media (max-width: 1440px) {
+    /* Header Row Wrapping */
+    .ticket-header {
+        flex-wrap: nowrap;
+        gap: 0.25rem;
+    }
+
+    .ticket-header-left {
+        flex-shrink: 0;
+    }
+
+    /* Minorista/Mayorista Buttons (10% height reduction) */
+    .sale-type-toggle {
+        padding: 0.2rem;
+        flex-shrink: 0;
+    }
+
+    .toggle-btn {
+        padding: 0.5rem 0.9rem;
+    }
+
+    /* Product Rows Gap */
+    .cart-items-list {
+        gap: 0.125rem;
+    }
+
+    /* Cart Section Padding */
+    .ticket-panel {
+        padding: 0.25rem;
+    }
+    .catalog-panel {
+        padding: 0.25rem;
+    }
+
+    /* Bottom Gaps Synchronization & Heights */
+    .payment-section {
+        padding-top: 0.5rem;
+    }
+
+    /* Payment Method Rows Height (15% reduction) */
+    .payment-item {
+        min-height: 27px;
+        padding: 0.15rem 0.5rem;
+    }
+
+    /* Gap Above Action Buttons (2/5ths of current) */
+    .totals-area {
+        padding-top: 0;
+        margin-bottom: 4px;
+    }
+
+    .action-buttons-container {
+        gap: 0.5rem;
+    }
 }
 
 /* --- MOBILE LAYOUT — Density Mode --- */
@@ -735,9 +821,10 @@
     .ticket-header {
         flex-wrap: wrap;
         gap: 0.4rem;
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.3rem;
+        margin-bottom: 0.35rem;
+        padding-bottom: 0.15rem;
     }
+
 
     .ticket-header h2 {
         font-size: 1.2rem;
@@ -814,17 +901,31 @@
     }
 
     .qty-input {
-        width: 42px;
-        height: 32px;
-        font-size: 1rem;
-        padding: 0;
+        width: 42px !important;
+        height: 32px !important;
+        min-height: 32px !important;
+        max-height: 32px !important;
+        line-height: 30px !important;
+        font-size: 1.1rem !important;
+        padding: 0 !important;
     }
 
     .remove-btn-new {
         width: 32px;
-        height: 32px;
+        height: 27px;
         font-size: 1.8rem;
         min-height: 0;
+    }
+
+    .config-item-btn {
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        max-width: 20px !important;
+        max-height: 20px !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
 
     .cart-item-total {
@@ -911,7 +1012,7 @@
 
     /* --- FINALIZAR button: compact --- */
     .pay-btn {
-        padding: 0.8rem;
+        padding: 0.45rem;
         font-size: 1.1rem;
     }
 
@@ -1052,7 +1153,7 @@
 /* --- Req 2: Product code label on catalog cards ---
    Matches the SalesDetailModal's <small className="text-muted"> pattern for visual consistency.
    Positioned immediately below the product <h3> name. 'Cod: 1' is acceptable for generic products. */
-.product-code-label {
+.product-card .product-code-label {
     display: block;
     font-size: 0.78rem;
     color: #6c757d;
@@ -1090,15 +1191,21 @@
     border: none;
     cursor: pointer;
     font-size: 1.1rem;
-    padding: 0;
-    width: 26px;
-    height: 26px;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    max-width: 20px !important;
+    max-height: 20px !important;
     display: flex;
     align-items: center;
     justify-content: center;
     opacity: 0.6;
     transition: opacity 0.2s, transform 0.2s;
     line-height: 1;
+    align-self: center;
 }
 
 .config-item-btn:hover {

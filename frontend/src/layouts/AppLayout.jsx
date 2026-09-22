@@ -109,7 +109,7 @@ export default function AppLayout() {
             </nav>
 
             {/* Main Content */}
-            <main className={`main-content ${isFullWidthPage ? 'full-width-page' : ''}`}>
+            <main className={`main-content ${isFullWidthPage ? 'full-width-page' : ''} ${isVentasPage ? 'ventas-page-content' : ''}`}>
                 <Outlet key={location.pathname} context={{ salesActiveTab, setSalesActiveTab }} />
             </main>
 

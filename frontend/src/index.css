@@ -48,6 +48,12 @@
     --bottom-nav-height: 80px;
 }
 
+@media (max-width: 1440px) {
+    :root {
+        --top-nav-height: 63px;
+    }
+}
+
 /* Global Reset */
 * {
     margin: 0;

@@ -1494,7 +1494,7 @@ export default function VentaPage() {
                             </div>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                    <div className="action-buttons-container">
                         {/* Req 1: FINALIZAR disabled when any cart item has an invalid (empty or 0) quantity.
                            Discount fields are explicitly excluded from this check per business rules. */}
                         <button

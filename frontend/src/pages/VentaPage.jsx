@@ -979,22 +979,22 @@ export default function VentaPage() {
     // --- RENDER ---
     if (lastSale) {
         return (
-            <div className="venta-page success-view" style={{ justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
-                <div style={{ textAlign: 'center', padding: '2rem', background: 'white', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                    <h2 style={{ color: 'green', fontSize: '2rem' }}>¡Venta Exitosa!</h2>
+            <div className="venta-page success-view">
+                <div className="success-card">
+                    <h2>¡Venta Exitosa!</h2>
                     <p>ID: #{lastSale.id}</p>
                     <p>Total: {formatCurrency(lastSale.total)}</p>
 
-                    <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                    <div className="success-actions">
                         <button
                             onClick={handlePrintReceipt}
-                            style={{ padding: '1rem 2rem', fontSize: '1.2rem', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            className="btn-print"
                         >
                             🖨️ Imprimir Presupuesto
                         </button>
                         <button
                             onClick={handleNewSale}
-                            style={{ padding: '1rem 2rem', fontSize: '1.2rem', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            className="btn-new-sale"
                         >
                             ✨ Nueva Venta
                         </button>
@@ -1005,604 +1005,622 @@ export default function VentaPage() {
     }
 
     return (
-        <div className="venta-page">
-            <div className={`catalog-panel ${activeTab === 'catalog' ? 'active' : ''}`}>
-                <div className="catalog-header">
-                    <input
-                        ref={searchInputRef}
-                        type="text"
-                        className="search-bar-large"
-                        placeholder="🔍 Buscar producto..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={async (e) => {
-                            // Ignore key-hold repeats to prevent spamming cart on a stuck Enter key
-                            if ((e.key === 'Enter' || e.keyCode === 13) && !e.repeat) {
-                                e.preventDefault();
+        <>
+            <div className="venta-page">
+                <div className={`catalog-panel ${activeTab === 'catalog' ? 'active' : ''}`}>
+                    <div className="catalog-header">
+                        <input
+                            ref={searchInputRef}
+                            type="text"
+                            className="search-bar-large"
+                            placeholder="🔍 Buscar producto..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            tabIndex="1"
+                            onKeyDown={async (e) => {
+                                // Ignore key-hold repeats to prevent spamming cart on a stuck Enter key
+                                if ((e.key === 'Enter' || e.keyCode === 13) && !e.repeat) {
+                                    e.preventDefault();
 
-                                // Use e.target.value to get the absolute latest string from the DOM,
-                                // because rapid barcode scanners might fire Enter before React state fully updates
-                                const currentSearchValue = e.target.value;
+                                    // Use e.target.value to get the absolute latest string from the DOM,
+                                    // because rapid barcode scanners might fire Enter before React state fully updates
+                                    const currentSearchValue = e.target.value;
 
-                                // Prevent overlapping network calls if the user rapidly mashes the Enter key
-                                if (!currentSearchValue.trim() || isEnterSearchingRef.current) return;
+                                    // Prevent overlapping network calls if the user rapidly mashes the Enter key
+                                    if (!currentSearchValue.trim() || isEnterSearchingRef.current) return;
 
-                                try {
-                                    isEnterSearchingRef.current = true;
+                                    try {
+                                        isEnterSearchingRef.current = true;
 
-                                    // Bypass debounce and fetch immediately to support rapid barcode scanners
-                                    const params = { size: 50, search: currentSearchValue };
-                                    const response = await api.get('/productos', { params });
-                                    const fetchedProducts = groupProducts(response.data.content || []);
-                                    setProducts(fetchedProducts);
+                                        // Bypass debounce and fetch immediately to support rapid barcode scanners
+                                        const params = { size: 50, search: currentSearchValue };
+                                        const response = await api.get('/productos', { params });
+                                        const fetchedProducts = groupProducts(response.data.content || []);
+                                        setProducts(fetchedProducts);
 
-                                    const exactMatch = fetchedProducts.find(p => p.codigo === currentSearchValue);
+                                        const exactMatch = fetchedProducts.find(p => p.codigo === currentSearchValue);
 
-                                    if (exactMatch) {
-                                        if (!exactMatch._isGrouped) {
-                                            handleAddToCart(exactMatch);
-                                            setSearchQuery('');
+                                        if (exactMatch) {
+                                            if (!exactMatch._isGrouped) {
+                                                handleAddToCart(exactMatch);
+                                                setSearchQuery('');
+                                            } else {
+                                                const key = exactMatch.codigo !== '1'
+                                                    ? exactMatch.codigo
+                                                    : `1|${exactMatch.descripcion.trim().toLowerCase()}`;
+                                                setExpandedFamilyKey(prev => prev === key ? null : key);
+                                            }
+                                        } else if (fetchedProducts.length === 1) {
+                                            const single = fetchedProducts[0];
+                                            if (!single._isGrouped) {
+                                                // Single variant: add directly to cart
+                                                handleAddToCart(single);
+                                                // Clear the search bar to prepare for the next scan (this also cancels the old debounce)
+                                                setSearchQuery('');
+                                            } else {
+                                                // Multi-variant family: expand the inline variant picker
+                                                const key = single.codigo !== '1'
+                                                    ? single.codigo
+                                                    : `1|${single.descripcion.trim().toLowerCase()}`;
+                                                setExpandedFamilyKey(prev => prev === key ? null : key);
+                                            }
                                         } else {
-                                            const key = exactMatch.codigo !== '1'
-                                                ? exactMatch.codigo
-                                                : `1|${exactMatch.descripcion.trim().toLowerCase()}`;
-                                            setExpandedFamilyKey(prev => prev === key ? null : key);
+                                            // No perfect match and not exactly one result.
+                                            // Highlight the text so the user or scanner can easily overwrite it with the next scan.
+                                            e.target.select();
                                         }
-                                    } else if (fetchedProducts.length === 1) {
-                                        const single = fetchedProducts[0];
-                                        if (!single._isGrouped) {
-                                            // Single variant: add directly to cart
-                                            handleAddToCart(single);
-                                            // Clear the search bar to prepare for the next scan (this also cancels the old debounce)
-                                            setSearchQuery('');
-                                        } else {
-                                            // Multi-variant family: expand the inline variant picker
-                                            const key = single.codigo !== '1'
-                                                ? single.codigo
-                                                : `1|${single.descripcion.trim().toLowerCase()}`;
-                                            setExpandedFamilyKey(prev => prev === key ? null : key);
-                                        }
-                                    } else {
-                                        // No perfect match and not exactly one result.
-                                        // Highlight the text so the user or scanner can easily overwrite it with the next scan.
-                                        e.target.select();
+                                    } catch (error) {
+                                        console.error("Error in instant search on Enter:", error);
+                                        toast.error("Error al buscar el producto");
+                                    } finally {
+                                        isEnterSearchingRef.current = false;
                                     }
-                                } catch (error) {
-                                    console.error("Error in instant search on Enter:", error);
-                                    toast.error("Error al buscar el producto");
-                                } finally {
-                                    isEnterSearchingRef.current = false;
                                 }
-                            }
-                        }}
-                        autoFocus
-                    />
-                </div>
-                <div className="product-grid">
-                    {products.map(product => {
-                        const familyKey = product.codigo !== '1'
-                            ? product.codigo
-                            : `1|${product.descripcion.trim().toLowerCase()}`;
-                        const isExpanded = expandedFamilyKey === familyKey;
-                        const isPerfectMatch = searchQuery && product.codigo === searchQuery;
+                            }}
+                            autoFocus
+                        />
+                    </div>
+                    <div className="product-grid">
+                        {products.map(product => {
+                            const familyKey = product.codigo !== '1'
+                                ? product.codigo
+                                : `1|${product.descripcion.trim().toLowerCase()}`;
+                            const isExpanded = expandedFamilyKey === familyKey;
+                            const isPerfectMatch = searchQuery && product.codigo === searchQuery;
 
-                        return (
-                            <div key={familyKey} className="product-card-wrapper">
-                                <div
-                                    className={`product-card ${product._isGrouped ? 'product-card-family' : ''} ${isPerfectMatch ? 'perfect-match-highlight' : ''}`}
-                                    onClick={() => handleFamilyCardClick(product)}
-                                >
-                                    <h3>{product.descripcion}</h3>
-                                    {/* Req 2: Show product code below the name, matching SalesDetailModal's text-muted style.
+                            return (
+                                <div key={familyKey} className="product-card-wrapper">
+                                    <div
+                                        className={`product-card ${product._isGrouped ? 'product-card-family' : ''} ${isPerfectMatch ? 'perfect-match-highlight' : ''}`}
+                                        onClick={() => handleFamilyCardClick(product)}
+                                    >
+                                        <h3>{product.descripcion}</h3>
+                                        {/* Req 2: Show product code below the name, matching SalesDetailModal's text-muted style.
                                         'Cod: 1' is acceptable for generic products per .cursorrules spec. */}
-                                    <small className="product-code-label">Cod: {product.codigo}</small>
-                                    {product._isGrouped && (
-                                        <span className="variant-badge">{product._siblings.length} variantes</span>
-                                    )}
-                                    <div className="price">
-                                        {formatCurrency(saleType === 'MAYORISTA' ? product.precioMayorista : product.precioMinorista)}
+                                        <small className="product-code-label">Cod: {product.codigo}</small>
+                                        {product._isGrouped && (
+                                            <span className="variant-badge">{product._siblings.length} variantes</span>
+                                        )}
+                                        <div className="price">
+                                            {formatCurrency(saleType === 'MAYORISTA' ? product.precioMayorista : product.precioMinorista)}
+                                        </div>
+                                        <div className={`stock ${product.cantidadStock <= 0 ? 'stock-warning' : ''}`}>
+                                            Stock total: {product.cantidadStock}
+                                        </div>
+                                        {product._isGrouped && (
+                                            <div className="expand-hint">{isExpanded ? '▲ Ocultar variantes' : '▼ Ver variantes'}</div>
+                                        )}
                                     </div>
-                                    <div className={`stock ${product.cantidadStock <= 0 ? 'stock-warning' : ''}`}>
-                                        Stock total: {product.cantidadStock}
-                                    </div>
-                                    {product._isGrouped && (
-                                        <div className="expand-hint">{isExpanded ? '▲ Ocultar variantes' : '▼ Ver variantes'}</div>
-                                    )}
-                                </div>
 
-                                {isExpanded && product._isGrouped && (
-                                    <div className="variant-picker">
-                                        {product._siblings.map(variant => (
-                                            <div
-                                                key={variant.id}
-                                                className="variant-row"
-                                                onClick={() => {
-                                                    handleAddToCart(variant);
-                                                    setExpandedFamilyKey(null);
-                                                }}
-                                            >
-                                                <span className="variant-cost">Costo: {formatCurrency(variant.precioCosto)}</span>
-                                                <span className={`variant-stock ${variant.cantidadStock <= 0 ? 'stock-warning' : ''}`}>
+                                    {isExpanded && product._isGrouped && (
+                                        <div className="variant-picker">
+                                            {product._siblings.map(variant => (
+                                                <div
+                                                    key={variant.id}
+                                                    className="variant-row"
+                                                    onClick={() => {
+                                                        handleAddToCart(variant);
+                                                        setExpandedFamilyKey(null);
+                                                    }}
+                                                >
+                                                    <span className="variant-cost">Costo: {formatCurrency(variant.precioCosto)}</span>
+                                                    <span className={`variant-stock ${variant.cantidadStock <= 0 ? 'stock-warning' : ''}`}>
                                                     Stock: {variant.cantidadStock}
                                                 </span>
-                                                <button className="variant-add-btn">+ Agregar</button>
-                                            </div>
-                                        ))}
+                                                    <button className="variant-add-btn">+ Agregar</button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={`ticket-panel theme-${saleType.toLowerCase()} ${activeTab === 'ticket' ? 'active' : ''}`}>
+                    <div className="ticket-header">
+                        <div className="ticket-header-left">
+                            <h2>Carrito de venta</h2>
+                            <span className="total-products-label">
+                            Total Productos: {cartItems.reduce((sum, item) => sum + item.quantity, 0)}
+                        </span>
+                        </div>
+
+                        <div className="cart-search-container">
+                            <input
+                                type="text"
+                                className="cart-search-input"
+                                placeholder="🔍 Buscar en carrito..."
+                                value={cartSearchQuery}
+                                onChange={(e) => setCartSearchQuery(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') {
+                                        setCartSearchQuery('');
+                                        searchInputRef.current?.focus();
+                                    } else if (e.key === 'Enter') {
+                                        e.target.select();
+                                    }
+                                }}
+                                title="Presione ESC para volver a la búsqueda principal"
+                            />
+                        </div>
+
+                        <div className="sale-type-toggle">
+                            <button className={`toggle-btn ${saleType === 'MINORISTA' ? 'active' : ''}`} onClick={() => handleSaleTypeChange('MINORISTA')}>Minorista</button>
+                            <button className={`toggle-btn ${saleType === 'MAYORISTA' ? 'active' : ''}`} onClick={() => handleSaleTypeChange('MAYORISTA')}>Mayorista</button>
+                        </div>
+                    </div>
+
+                    {/* === INNER SPLIT: Cart List (65%) + Checkout Sidebar (35%) === */}
+                    <div className="ticket-body-split">
+
+                        {/* --- LEFT COLUMN: Client autocomplete + Cart items list --- */}
+                        <div className="cart-list-column">
+
+                            <div className="client-autocomplete-container">
+                                <input
+                                    type="text"
+                                    list="client-suggestions"
+                                    className={`current-client-input ${!clientName ? 'required-empty' : ''}`}
+                                    placeholder={!clientName ? "Ingrese Cliente - Requerido" : "Cliente"}
+                                    value={clientName}
+                                    onChange={(e) => setClientName(e.target.value)}
+                                    tabIndex="2"
+                                />
+                                <datalist id="client-suggestions">
+                                    {(availableClients || []).filter(c => c.activo !== false).map((client) => (
+                                        <option key={client.id} value={client.nombre} />
+                                    ))}
+                                </datalist>
+                                {/* Show saldo badge when a matched client has available credit */}
+                                {selectedClientObj && (selectedClientObj.saldoAFavor ?? 0) > 0 && (
+                                    <div className="saldo-badge">
+                                        💳 Saldo a Favor disponible: {new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2 }).format(selectedClientObj.saldoAFavor)}
                                     </div>
                                 )}
                             </div>
-                        );
-                    })}
-                </div>
-            </div>
 
-            <div className={`ticket-panel theme-${saleType.toLowerCase()} ${activeTab === 'ticket' ? 'active' : ''}`}>
-                <div className="ticket-header">
-                    <div className="ticket-header-left">
-                        <h2>Carrito de venta</h2>
-                        <span className="total-products-label">
-                            Total Productos: {cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-                        </span>
-                    </div>
+                            <div className="cart-items-list" ref={cartListRef}>
+                                {filteredCartItems.map((item, index) => {
+                                    const isCartPerfectMatch = cartSearchQuery.trim() && item.product.codigo.toLowerCase() === cartSearchQuery.trim().toLowerCase();
+                                    return (
+                                        <div key={item.product.id || index} className={`cart-item ${item.quantity > item.product.cantidadStock ? 'stock-warning-row' : ''} ${isCartPerfectMatch ? 'perfect-match-highlight' : ''}`}>
+                                            {/* Row 1: Product Name & Code, and Discount */}
+                                            <div className="cart-row cart-row-top">
+                                                <div className="cart-item-name-container">
+                                                    <b className="cart-item-name" title={item.product.descripcion}>{item.product.descripcion}</b>
+                                                </div>
+                                                <small className="product-code-label">{item.product.codigo}</small>
+                                                <div className="item-discount">
+                                                    <label>Desc. Producto</label>
+                                                    <div className="discount-inputs-row">
+                                                        <input
+                                                            type="text"
+                                                            inputMode="decimal" min="0" step="0.01"
+                                                            value={item.unitPrice > 0 && item.discount > 0 ? ((item.discount / item.unitPrice) * 100).toFixed(2).replace(/\.00$/, '') : ''}
+                                                            onChange={(e) => {
+                                                                const val = enforceMoneyFormat(e.target.value);
+                                                                const perc = parseFloat(val) || 0;
+                                                                const absDiscount = item.unitPrice * (perc / 100);
+                                                                updateItemDiscount(item.product.id, absDiscount.toFixed(2));
+                                                            }}
+                                                            onKeyDown={blockNonNumericKeys}
+                                                            onPaste={sanitizeNumericPaste}
+                                                            placeholder="%"
+                                                            className="discount-input percentage-input"
+                                                            title="Descuento en %"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            inputMode="decimal" min="0" step="0.01"
+                                                            value={item.discount || ''}
+                                                            onChange={(e) => {
+                                                                const val = enforceMoneyFormat(e.target.value);
+                                                                updateItemDiscount(item.product.id, val);
+                                                            }}
+                                                            onKeyDown={blockNonNumericKeys}
+                                                            onPaste={sanitizeNumericPaste}
+                                                            placeholder="$0"
+                                                            className="discount-input absolute-input"
+                                                            title="Descuento en $"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {/* Row 2: Price, Qty Controls, Total, Remove */}
+                                            <div className="cart-row cart-row-bottom">
+                                                <span className="price-label">{formatCurrency(item.unitPrice)}</span>
+                                                <button
+                                                    className="config-item-btn"
+                                                    onClick={() => {
+                                                        setConfigModalItem(item);
+                                                        setConfigModalOpen(true);
+                                                    }}
+                                                    title="Configurar precios por cantidad"
+                                                >
+                                                    ⚙️
+                                                </button>
+                                                <div className="cart-item-qty">
+                                                    {/* Req 1: [-] button disabled when local display value is empty/0 */}
+                                                    <button
+                                                        className="qty-btn"
+                                                        disabled={
+                                                            (localQtyValues[item.product.id] !== undefined &&
+                                                                (localQtyValues[item.product.id] === '' || Number(localQtyValues[item.product.id]) <= 1)) ||
+                                                            item.quantity <= 1
+                                                        }
+                                                        onClick={() => {
+                                                            const result = updateQuantity(item.product.id, item.quantity - 1);
+                                                            if (result === 'zero_blocked') {
+                                                                toast('Para eliminar producto tocar su botón ×', { icon: 'ℹ️', duration: 2000 });
+                                                            } else {
+                                                                // Sync local buffer with new valid value
+                                                                setLocalQtyValues(prev => {
+                                                                    const next = { ...prev };
+                                                                    delete next[item.product.id];
+                                                                    return next;
+                                                                });
+                                                            }
+                                                        }}
+                                                    >-</button>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric" min="0" step="1"
+                                                        className="qty-input"
+                                                        // Req 1: Use localQtyValues as display buffer so empty string can be shown while editing.
+                                                        // item.quantity (always >= 1) is only used when no local override exists.
+                                                        value={localQtyValues[item.product.id] !== undefined
+                                                            ? localQtyValues[item.product.id]
+                                                            : item.quantity
+                                                        }
+                                                        onChange={(e) => {
+                                                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                                                            if (raw === '') {
+                                                                // Req 1: Store empty string locally — do NOT force a value while editing.
+                                                                // hasInvalidQty detects this via localQtyValues and blocks action buttons.
+                                                                setLocalQtyValues(prev => ({ ...prev, [item.product.id]: '' }));
+                                                            } else {
+                                                                const val = parseInt(raw, 10);
+                                                                if (!isNaN(val) && val >= 1) {
+                                                                    updateQuantity(item.product.id, val);
+                                                                    // Clear local buffer once a valid int is committed
+                                                                    setLocalQtyValues(prev => {
+                                                                        const next = { ...prev };
+                                                                        delete next[item.product.id];
+                                                                        return next;
+                                                                    });
+                                                                }
+                                                            }
+                                                        }}
+                                                        onBlur={(e) => {
+                                                            // Req 1: On blur, show a non-disruptive warning ONLY if the field remains invalid.
+                                                            // We do NOT auto-revert to 1 — the user must correct it manually.
+                                                            const val = e.target.value;
+                                                            if (!val || parseInt(val, 10) <= 0) {
+                                                                setLastInvalidFieldId(item.product.id);
+                                                            } else {
+                                                                // Field is valid: clear any warning for this item
+                                                                setLastInvalidFieldId(prev => prev === item.product.id ? null : prev);
+                                                                // Also clear local buffer if a valid value was committed
+                                                                setLocalQtyValues(prev => {
+                                                                    const next = { ...prev };
+                                                                    delete next[item.product.id];
+                                                                    return next;
+                                                                });
+                                                            }
+                                                        }}
+                                                        onKeyDown={blockNonIntegerKeys}
+                                                        onPaste={sanitizeIntegerPaste}
+                                                    />
+                                                    {/* Req 1: [+] button disabled when local display value is empty/zero */}
+                                                    <button
+                                                        className="qty-btn"
+                                                        disabled={
+                                                            localQtyValues[item.product.id] !== undefined &&
+                                                            (localQtyValues[item.product.id] === '' || Number(localQtyValues[item.product.id]) <= 0)
+                                                        }
+                                                        onClick={() => {
+                                                            updateQuantity(item.product.id, item.quantity + 1);
+                                                            // Sync local buffer
+                                                            setLocalQtyValues(prev => {
+                                                                const next = { ...prev };
+                                                                delete next[item.product.id];
+                                                                return next;
+                                                            });
+                                                        }}
+                                                    >+</button>
+                                                </div>
+                                                <span className="cart-item-total">{formatCurrency((Math.max(0, item.unitPrice - (item.discount || 0))) * item.quantity)}</span>
+                                                <button className="remove-btn-new" onClick={() => removeFromCart(item.product.id)}>×</button>
+                                            </div>
+                                            {/* Req 1: Non-disruptive warning — only shown under the LAST field that was blurred invalid.
+                                        Appears after blur (onBlur), NOT while typing. Prevents flashing alerts mid-edit. */}
+                                            {lastInvalidFieldId === item.product.id && (
+                                                <small className="qty-invalid-warning">
+                                                    Para continuar operacion, ingrese valor mayor a 0
+                                                </small>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
 
-                    <div className="cart-search-container">
-                        <input
-                            type="text"
-                            className="cart-search-input"
-                            placeholder="🔍 Buscar en carrito..."
-                            value={cartSearchQuery}
-                            onChange={(e) => setCartSearchQuery(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Escape') {
-                                    setCartSearchQuery('');
-                                    searchInputRef.current?.focus();
-                                } else if (e.key === 'Enter') {
-                                    e.target.select();
-                                }
-                            }}
-                            title="Presione ESC para volver a la búsqueda principal"
-                        />
-                    </div>
+                        </div>{/* END .cart-list-column */}
 
-                    <div className="sale-type-toggle">
-                        <button className={`toggle-btn ${saleType === 'MINORISTA' ? 'active' : ''}`} onClick={() => handleSaleTypeChange('MINORISTA')}>Minorista</button>
-                        <button className={`toggle-btn ${saleType === 'MAYORISTA' ? 'active' : ''}`} onClick={() => handleSaleTypeChange('MAYORISTA')}>Mayorista</button>
-                    </div>
-                </div>
+                        {/* --- RIGHT COLUMN: Payment section (payment stack + inputs + totals + actions) --- */}
+                        <div className="checkout-sidebar-column">
 
-                <div className="client-autocomplete-container">
-                    <input
-                        type="text"
-                        list="client-suggestions"
-                        className={`current-client-input ${!clientName ? 'required-empty' : ''}`}
-                        placeholder={!clientName ? "Ingrese Cliente - Requerido" : "Cliente"}
-                        value={clientName}
-                        onChange={(e) => setClientName(e.target.value)}
-                        tabIndex="1"
-                    />
-                    <datalist id="client-suggestions">
-                        {(availableClients || []).filter(c => c.activo !== false).map((client) => (
-                            <option key={client.id} value={client.nombre} />
-                        ))}
-                    </datalist>
-                    {/* Show saldo badge when a matched client has available credit */}
-                    {selectedClientObj && (selectedClientObj.saldoAFavor ?? 0) > 0 && (
-                        <div style={{ fontSize: '0.78rem', color: '#0d9488', fontWeight: 600, marginTop: '2px', paddingLeft: '2px' }}>
-                            💳 Saldo a Favor disponible: {new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2 }).format(selectedClientObj.saldoAFavor)}
-                        </div>
-                    )}
-                </div>
+                            {/* PAYMENT STACK */}
+                            <div className="payment-section">
+                                <div className="payment-stack" ref={paymentStackRef}>
+                                    {payments.map((p) => (
+                                        <div key={p._internalId} className="payment-item">
+                                            <span className="payment-name">{p.name}</span>
+                                            <span className="payment-amount-label">{formatCurrency(p.amount)}</span>
+                                            <button className="remove-btn-new" onClick={() => removePaymentMethod(p._internalId)}>×</button>
+                                        </div>
+                                    ))}
+                                </div>
 
-                <div className="cart-items-list" ref={cartListRef}>
-                    {filteredCartItems.map((item, index) => {
-                        const isCartPerfectMatch = cartSearchQuery.trim() && item.product.codigo.toLowerCase() === cartSearchQuery.trim().toLowerCase();
-                        return (
-                            <div key={item.product.id || index} className={`cart-item ${item.quantity > item.product.cantidadStock ? 'stock-warning-row' : ''} ${isCartPerfectMatch ? 'perfect-match-highlight' : ''}`}>
-                                {/* Row 1: Product Name & Code, and Discount */}
-                                <div className="cart-row cart-row-top">
-                                    <div className="cart-item-name-container">
-                                        <b className="cart-item-name" title={item.product.descripcion}>{item.product.descripcion}</b>
-                                    </div>
-                                    <small className="product-code-label">{item.product.codigo}</small>
-                                    <div className="item-discount">
-                                        <label>Desc. Producto</label>
-                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                {/* New Payment Input Row — FIXED outside scroll area (Issue #26) */}
+                                <div className="payment-row payment-row-new">
+                                    <select
+                                        className="payment-select"
+                                        value={selectedMethodId}
+                                        onChange={handleMethodSelect}
+                                        tabIndex="3"
+                                    >
+                                        <option value="" disabled>Elegir Método</option>
+                                        {availableMethods.map(m => (
+                                            <option key={m.id} value={m.id}>{m.descripcion}</option>
+                                        ))}
+                                    </select>
+                                    <input
+                                        ref={paymentAmountRef}
+                                        type="text"
+                                        inputMode="decimal" min="0" step="0.01"
+                                        className="payment-amount"
+                                        placeholder="$"
+                                        value={paymentAmount}
+                                        onChange={(e) => {
+                                            const val = enforceMoneyFormat(e.target.value);
+                                            setPaymentAmount(val);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') { handleAddPayment(); return; }
+                                            blockNonNumericKeys(e);
+                                        }}
+                                        onPaste={sanitizeNumericPaste}
+                                        onFocus={(e) => e.target.select()}
+                                        tabIndex="4"
+                                    />
+                                    <button onClick={handleAddPayment} className="add-payment-btn" tabIndex="5">+</button>
+                                </div>
+
+                                <div className="totals-area">
+                                    <div className="totals-discount-col">
+                                        <label className="discount-global-label">Desc. Global</label>
+                                        <div className="input-pair-row">
                                             <input
                                                 type="text"
                                                 inputMode="decimal" min="0" step="0.01"
-                                                value={item.unitPrice > 0 && item.discount > 0 ? ((item.discount / item.unitPrice) * 100).toFixed(2).replace(/\.00$/, '') : ''}
+                                                value={totals.subtotal > 0 && globalDiscount > 0 ? ((globalDiscount / totals.subtotal) * 100).toFixed(2).replace(/\.00$/, '') : ''}
                                                 onChange={(e) => {
                                                     const val = enforceMoneyFormat(e.target.value);
                                                     const perc = parseFloat(val) || 0;
-                                                    const absDiscount = item.unitPrice * (perc / 100);
-                                                    updateItemDiscount(item.product.id, absDiscount.toFixed(2));
+                                                    const absDiscount = totals.subtotal * (perc / 100);
+                                                    setGlobalDiscount(absDiscount);
                                                 }}
                                                 onKeyDown={blockNonNumericKeys}
                                                 onPaste={sanitizeNumericPaste}
                                                 placeholder="%"
-                                                className="discount-input percentage-input"
-                                                style={{ width: '45px' }}
-                                                title="Descuento en %"
+                                                className="discount-global-input percentage-input"
+                                                title="Descuento global en %"
+                                                tabIndex="6"
                                             />
                                             <input
                                                 type="text"
                                                 inputMode="decimal" min="0" step="0.01"
-                                                value={item.discount || ''}
+                                                value={globalDiscount || ''}
                                                 onChange={(e) => {
                                                     const val = enforceMoneyFormat(e.target.value);
-                                                    updateItemDiscount(item.product.id, val);
+                                                    setGlobalDiscount(parseFloat(val) || 0);
                                                 }}
                                                 onKeyDown={blockNonNumericKeys}
                                                 onPaste={sanitizeNumericPaste}
                                                 placeholder="$0"
-                                                className="discount-input absolute-input"
-                                                title="Descuento en $"
+                                                className="discount-global-input absolute-input"
+                                                title="Descuento global en $"
+                                                tabIndex="7"
                                             />
                                         </div>
                                     </div>
-                                </div>
-                                {/* Row 2: Price, Qty Controls, Total, Remove */}
-                                <div className="cart-row cart-row-bottom">
-                                    <span className="price-label">{formatCurrency(item.unitPrice)}</span>
-                                    <button
-                                        className="config-item-btn"
-                                        onClick={() => {
-                                            setConfigModalItem(item);
-                                            setConfigModalOpen(true);
-                                        }}
-                                        title="Configurar precios por cantidad"
-                                    >
-                                        ⚙️
-                                    </button>
-                                    <div className="cart-item-qty">
-                                        {/* Req 1: [-] button disabled when local display value is empty/0 */}
-                                        <button
-                                            className="qty-btn"
-                                            disabled={
-                                                (localQtyValues[item.product.id] !== undefined &&
-                                                    (localQtyValues[item.product.id] === '' || Number(localQtyValues[item.product.id]) <= 1)) ||
-                                                item.quantity <= 1
-                                            }
-                                            onClick={() => {
-                                                const result = updateQuantity(item.product.id, item.quantity - 1);
-                                                if (result === 'zero_blocked') {
-                                                    toast('Para eliminar producto tocar su botón ×', { icon: 'ℹ️', duration: 2000 });
-                                                } else {
-                                                    // Sync local buffer with new valid value
-                                                    setLocalQtyValues(prev => {
-                                                        const next = { ...prev };
-                                                        delete next[item.product.id];
-                                                        return next;
-                                                    });
-                                                }
-                                            }}
-                                        >-</button>
-                                        <input
-                                            type="text"
-                                            inputMode="numeric" min="0" step="1"
-                                            className="qty-input"
-                                            // Req 1: Use localQtyValues as display buffer so empty string can be shown while editing.
-                                            // item.quantity (always >= 1) is only used when no local override exists.
-                                            value={localQtyValues[item.product.id] !== undefined
-                                                ? localQtyValues[item.product.id]
-                                                : item.quantity
-                                            }
-                                            onChange={(e) => {
-                                                const raw = e.target.value.replace(/[^0-9]/g, '');
-                                                if (raw === '') {
-                                                    // Req 1: Store empty string locally — do NOT force a value while editing.
-                                                    // hasInvalidQty detects this via localQtyValues and blocks action buttons.
-                                                    setLocalQtyValues(prev => ({ ...prev, [item.product.id]: '' }));
-                                                } else {
-                                                    const val = parseInt(raw, 10);
-                                                    if (!isNaN(val) && val >= 1) {
-                                                        updateQuantity(item.product.id, val);
-                                                        // Clear local buffer once a valid int is committed
-                                                        setLocalQtyValues(prev => {
-                                                            const next = { ...prev };
-                                                            delete next[item.product.id];
-                                                            return next;
-                                                        });
-                                                    }
-                                                }
-                                            }}
-                                            onBlur={(e) => {
-                                                // Req 1: On blur, show a non-disruptive warning ONLY if the field remains invalid.
-                                                // We do NOT auto-revert to 1 — the user must correct it manually.
-                                                const val = e.target.value;
-                                                if (!val || parseInt(val, 10) <= 0) {
-                                                    setLastInvalidFieldId(item.product.id);
-                                                } else {
-                                                    // Field is valid: clear any warning for this item
-                                                    setLastInvalidFieldId(prev => prev === item.product.id ? null : prev);
-                                                    // Also clear local buffer if a valid value was committed
-                                                    setLocalQtyValues(prev => {
-                                                        const next = { ...prev };
-                                                        delete next[item.product.id];
-                                                        return next;
-                                                    });
-                                                }
-                                            }}
-                                            onKeyDown={blockNonIntegerKeys}
-                                            onPaste={sanitizeIntegerPaste}
-                                        />
-                                        {/* Req 1: [+] button disabled when local display value is empty/zero */}
-                                        <button
-                                            className="qty-btn"
-                                            disabled={
-                                                localQtyValues[item.product.id] !== undefined &&
-                                                (localQtyValues[item.product.id] === '' || Number(localQtyValues[item.product.id]) <= 0)
-                                            }
-                                            onClick={() => {
-                                                updateQuantity(item.product.id, item.quantity + 1);
-                                                // Sync local buffer
-                                                setLocalQtyValues(prev => {
-                                                    const next = { ...prev };
-                                                    delete next[item.product.id];
-                                                    return next;
-                                                });
-                                            }}
-                                        >+</button>
+                                    <div className="totals-discount-col">
+                                        <label className="discount-global-label surcharge-label">Recargo Global</label>
+                                        <div className="input-pair-row">
+                                            <input
+                                                type="text"
+                                                inputMode="decimal" min="0" step="0.01"
+                                                value={totals.subtotal > 0 && globalSurcharge > 0 ? ((globalSurcharge / totals.subtotal) * 100).toFixed(2).replace(/\.00$/, '') : ''}
+                                                onChange={(e) => {
+                                                    const val = enforceMoneyFormat(e.target.value);
+                                                    const perc = parseFloat(val) || 0;
+                                                    const absSurcharge = totals.subtotal * (perc / 100);
+                                                    setGlobalSurcharge(absSurcharge);
+                                                }}
+                                                onKeyDown={blockNonNumericKeys}
+                                                onPaste={sanitizeNumericPaste}
+                                                placeholder="%"
+                                                className="discount-global-input percentage-input surcharge-input"
+                                                title="Recargo global en %"
+                                                tabIndex="8"
+                                            />
+                                            <input
+                                                type="text"
+                                                inputMode="decimal" min="0" step="0.01"
+                                                value={globalSurcharge || ''}
+                                                onChange={(e) => {
+                                                    const val = enforceMoneyFormat(e.target.value);
+                                                    setGlobalSurcharge(parseFloat(val) || 0);
+                                                }}
+                                                onKeyDown={blockNonNumericKeys}
+                                                onPaste={sanitizeNumericPaste}
+                                                placeholder="$0"
+                                                className="discount-global-input absolute-input surcharge-input"
+                                                title="Recargo global en $"
+                                                tabIndex="9"
+                                            />
+                                        </div>
                                     </div>
-                                    <span className="cart-item-total">{formatCurrency((Math.max(0, item.unitPrice - (item.discount || 0))) * item.quantity)}</span>
-                                    <button className="remove-btn-new" onClick={() => removeFromCart(item.product.id)}>×</button>
+                                    <div className="totals-numbers-col">
+                                        <div className="totals-line">Subtotal: {formatCurrency(totals.subtotal)}</div>
+                                        <div className="totals-line totals-total">Total: {formatCurrency(totals.total)}</div>
+                                        <div className={`totals-line ${totals.isOverpaid ? 'totals-excedido' :
+                                            remaining > 0.01 ? 'totals-falta' : 'totals-cubierto'
+                                        }`}>
+                                            {totals.isOverpaid
+                                                ? `Excedido: ${formatCurrency(totals.totalPaid - totals.total)}`
+                                                : remaining > 0.01
+                                                    ? `Falta: ${formatCurrency(remaining)}`
+                                                    : 'Cubierto'}
+                                        </div>
+                                    </div>
                                 </div>
-                                {/* Req 1: Non-disruptive warning — only shown under the LAST field that was blurred invalid.
-                                Appears after blur (onBlur), NOT while typing. Prevents flashing alerts mid-edit. */}
-                                {lastInvalidFieldId === item.product.id && (
-                                    <small className="qty-invalid-warning">
-                                        Para continuar operacion, ingrese valor mayor a 0
-                                    </small>
-                                )}
+                                <div className="action-buttons-container">
+                                    {/* Req 1: FINALIZAR disabled when any cart item has an invalid (empty or 0) quantity.
+                                   Discount fields are explicitly excluded from this check per business rules. */}
+                                    <button
+                                        className="pay-btn btn-finalize"
+                                        disabled={!!editingPendingId || cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty}
+                                        onClick={handlePrePaymentCheck}
+                                        tabIndex="10"
+                                    >
+                                        {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
+                                    </button>
+                                    {/* Req 1: GUARDAR PENDIENTE also blocked when any qty is invalid */}
+                                    <button
+                                        className="pay-btn btn-pending"
+                                        disabled={cartItems.length === 0 || !clientName.trim() || isSubmitting || hasInvalidQty}
+                                        onClick={handleSaveAsPending}
+                                        tabIndex="11"
+                                    >
+                                        Guardar Pendiente
+                                    </button>
+                                </div>
                             </div>
-                        );
-                    })}
-                </div>
 
-                {/* PAYMENT STACK */}
-                <div className="payment-section">
-                    <div className="payment-stack" ref={paymentStackRef}>
-                        {payments.map((p) => (
-                            <div key={p._internalId} className="payment-item">
-                                <span className="payment-name">{p.name}</span>
-                                <span className="payment-amount-label">{formatCurrency(p.amount)}</span>
-                                <button className="remove-btn-new" onClick={() => removePaymentMethod(p._internalId)}>×</button>
-                            </div>
-                        ))}
-                    </div>
+                        </div>{/* END .checkout-sidebar-column */}
 
-                    {/* New Payment Input Row — FIXED outside scroll area (Issue #26) */}
-                    <div className="payment-row payment-row-new">
-                        <select
-                            className="payment-select"
-                            value={selectedMethodId}
-                            onChange={handleMethodSelect}
-                            tabIndex="2"
-                        >
-                            <option value="" disabled>Elegir Método</option>
-                            {availableMethods.map(m => (
-                                <option key={m.id} value={m.id}>{m.descripcion}</option>
-                            ))}
-                        </select>
-                        <input
-                            ref={paymentAmountRef}
-                            type="text"
-                            inputMode="decimal" min="0" step="0.01"
-                            className="payment-amount"
-                            placeholder="$"
-                            value={paymentAmount}
-                            onChange={(e) => {
-                                const val = enforceMoneyFormat(e.target.value);
-                                setPaymentAmount(val);
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') { handleAddPayment(); return; }
-                                blockNonNumericKeys(e);
-                            }}
-                            onPaste={sanitizeNumericPaste}
-                            onFocus={(e) => e.target.select()}
-                            tabIndex="3"
-                        />
-                        <button onClick={handleAddPayment} className="add-payment-btn" tabIndex="5">+</button>
-                    </div>
+                    </div>{/* END .ticket-body-split */}
 
-                    <div className="totals-area">
-                        <div className="totals-discount-col">
-                            <label className="discount-global-label">Desc. Global</label>
-                            <div style={{ display: 'flex', gap: '5px' }}>
-                                <input
-                                    type="text"
-                                    inputMode="decimal" min="0" step="0.01"
-                                    value={totals.subtotal > 0 && globalDiscount > 0 ? ((globalDiscount / totals.subtotal) * 100).toFixed(2).replace(/\.00$/, '') : ''}
-                                    onChange={(e) => {
-                                        const val = enforceMoneyFormat(e.target.value);
-                                        const perc = parseFloat(val) || 0;
-                                        const absDiscount = totals.subtotal * (perc / 100);
-                                        setGlobalDiscount(absDiscount);
-                                    }}
-                                    onKeyDown={blockNonNumericKeys}
-                                    onPaste={sanitizeNumericPaste}
-                                    placeholder="%"
-                                    className="discount-global-input percentage-input"
-                                    style={{ width: '50px' }}
-                                    title="Descuento global en %"
-                                />
-                                <input
-                                    type="text"
-                                    inputMode="decimal" min="0" step="0.01"
-                                    value={globalDiscount || ''}
-                                    onChange={(e) => {
-                                        const val = enforceMoneyFormat(e.target.value);
-                                        setGlobalDiscount(parseFloat(val) || 0);
-                                    }}
-                                    onKeyDown={blockNonNumericKeys}
-                                    onPaste={sanitizeNumericPaste}
-                                    placeholder="$0"
-                                    className="discount-global-input absolute-input"
-                                    title="Descuento global en $"
-                                />
-                            </div>
-                        </div>
-                        <div className="totals-discount-col">
-                            <label className="discount-global-label" style={{color: '#d9534f'}}>Recargo Global</label>
-                            <div style={{ display: 'flex', gap: '5px' }}>
-                                <input
-                                    type="text"
-                                    inputMode="decimal" min="0" step="0.01"
-                                    value={totals.subtotal > 0 && globalSurcharge > 0 ? ((globalSurcharge / totals.subtotal) * 100).toFixed(2).replace(/\.00$/, '') : ''}
-                                    onChange={(e) => {
-                                        const val = enforceMoneyFormat(e.target.value);
-                                        const perc = parseFloat(val) || 0;
-                                        const absSurcharge = totals.subtotal * (perc / 100);
-                                        setGlobalSurcharge(absSurcharge);
-                                    }}
-                                    onKeyDown={blockNonNumericKeys}
-                                    onPaste={sanitizeNumericPaste}
-                                    placeholder="%"
-                                    className="discount-global-input percentage-input"
-                                    style={{ width: '50px', borderColor: '#d9534f' }}
-                                    title="Recargo global en %"
-                                />
-                                <input
-                                    type="text"
-                                    inputMode="decimal" min="0" step="0.01"
-                                    value={globalSurcharge || ''}
-                                    onChange={(e) => {
-                                        const val = enforceMoneyFormat(e.target.value);
-                                        setGlobalSurcharge(parseFloat(val) || 0);
-                                    }}
-                                    onKeyDown={blockNonNumericKeys}
-                                    onPaste={sanitizeNumericPaste}
-                                    placeholder="$0"
-                                    className="discount-global-input absolute-input"
-                                    style={{ borderColor: '#d9534f' }}
-                                    title="Recargo global en $"
-                                />
-                            </div>
-                        </div>
-                        <div className="totals-numbers-col">
-                            <div className="totals-line">Subtotal: {formatCurrency(totals.subtotal)}</div>
-                            <div className="totals-line totals-total">Total: {formatCurrency(totals.total)}</div>
-                            <div className={`totals-line ${totals.isOverpaid ? 'totals-excedido' :
-                                remaining > 0.01 ? 'totals-falta' : 'totals-cubierto'
-                            }`}>
-                                {totals.isOverpaid
-                                    ? `Excedido: ${formatCurrency(totals.totalPaid - totals.total)}`
-                                    : remaining > 0.01
-                                        ? `Falta: ${formatCurrency(remaining)}`
-                                        : 'Cubierto'}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="action-buttons-container">
-                        {/* Req 1: FINALIZAR disabled when any cart item has an invalid (empty or 0) quantity.
-                           Discount fields are explicitly excluded from this check per business rules. */}
-                        <button
-                            className="pay-btn"
-                            disabled={!!editingPendingId || cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty}
-                            onClick={handlePrePaymentCheck}
-                            style={{ flex: 2, opacity: (!!editingPendingId || cartItems.length === 0 || payments.length === 0 || !clientName.trim() || isSubmitting || totals.isOverpaid || hasInvalidQty) ? 0.5 : 1 }}
-                        >
-                            {isSubmitting ? "PROCESANDO..." : "FINALIZAR"}
-                        </button>
-                        {/* Req 1: GUARDAR PENDIENTE also blocked when any qty is invalid */}
-                        <button
-                            className="pay-btn"
-                            disabled={cartItems.length === 0 || !clientName.trim() || isSubmitting || hasInvalidQty}
-                            onClick={handleSaveAsPending}
-                            style={{ flex: 1, backgroundColor: '#f59e0b', color: 'white', border: '1px solid #d97706', opacity: (cartItems.length === 0 || !clientName.trim() || isSubmitting || hasInvalidQty) ? 0.5 : 1 }}
-                        >
-                            Guardar Pendiente
-                        </button>
-                    </div>
-                </div>
+                </div>{/* END .ticket-panel */}
 
-                {/* MODALS */}
-
-                {pendingSaleType && (
-                    <ConfirmationModal
-                        title="Cambiar Tipo de Venta"
-                        message="Al cambiar el tipo de venta, se recalcularán todos los precios del carrito. ¿Desea continuar?"
-                        confirmText="Sí, Cambiar"
-                        cancelText="Cancelar"
-                        isWarning={true}
-                        onConfirm={confirmSaleTypeChange}
-                        onCancel={() => setPendingSaleType(null)}
-                    />
-                )}
-
-                {showStockModal && (
-                    <StockWarningModal
-                        affectedProducts={affectedProducts}
-                        onClose={() => {
-                            setShowStockModal(false);
-                            setPendingAction(null); // Clear intent on cancel to prevent state leakage
-                        }}
-                        onContinue={() => {
-                            setShowStockModal(false);
-                            // Branch on the original intent: prevents "Ignorar y Continuar"
-                            // from always triggering a Direct Sale when user intended a Pending Save.
-                            const action = pendingAction;
-                            setPendingAction(null); // Clear before async call
-                            // Set a small timeout to allow state to settle before next operation
-                            setTimeout(() => {
-                                if (action === 'SAVE_PENDING') {
-                                    executeSaveAsPending();
-                                } else {
-                                    // Default / 'FINALIZE': run debt check then finalize
-                                    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-                                    const remaining = totals.total - totalPaid;
-                                    if (remaining > 0.01) {
-                                        setShowDebtModal(true);
-                                    } else {
-                                        handleFinalizeSale();
-                                    }
-                                }
-                            }, 50);
-                        }}
-                        onStockCorrected={handleStockCorrected}
-                    />
-                )}
-
-                {showDebtModal && (
-                    <ConfirmationModal
-                        title="Venta con Deuda"
-                        message={`Esta por registrar una venta con deuda para el cliente: ${clientName || 'Desconocido'}. ¿Desea continuar?`}
-                        confirmText="Confirmar Venta"
-                        cancelText="Cancelar"
-                        isWarning={true}
-                        onConfirm={handleFinalizeSale}
-                        onCancel={() => setShowDebtModal(false)}
-                    />
-                )}
-
-                {/* Issue #8: Overpayment Modal */}
-                {showOverpaidModal && (
-                    <ConfirmationModal
-                        title="⚠️ Monto Excedido"
-                        message={`El monto ingresado excede el total de la venta. Cambio a devolver: ${formatCurrency(parseFloat(paymentAmount) - overpaidMaxAllowed)}.`}
-                        confirmText={`Devolver Cambio en Mano`}
-                        cancelText="Cancelar"
-                        isWarning={true}
-                        onConfirm={handleAutoCorrectPayment}
-                        onCancel={() => setShowOverpaidModal(false)}
-                    />
-                )}
-
-                {/* Epic 2: Cheque Modal Integration */}
-                <CheckoutChequeModal
-                    isOpen={showChequeModal}
-                    onClose={() => {
-                        setShowChequeModal(false);
-                        setSelectedMethodId('');
-                    }}
-                    onConfirm={handleChequesConfirm}
-                    totalAmount={pendingChequeAmount}
-                    clientName={clientName}
-                />
-
-                {/* Tab switching is now handled by the contextual bottom-nav in AppLayout */}
             </div>
+
+            {/* === Safe Rendering Zone for Modals — outside .venta-page to prevent z-index clipping === */}
+
+            {pendingSaleType && (
+                <ConfirmationModal
+                    title="Cambiar Tipo de Venta"
+                    message="Al cambiar el tipo de venta, se recalcularán todos los precios del carrito. ¿Desea continuar?"
+                    confirmText="Sí, Cambiar"
+                    cancelText="Cancelar"
+                    isWarning={true}
+                    onConfirm={confirmSaleTypeChange}
+                    onCancel={() => setPendingSaleType(null)}
+                />
+            )}
+
+            {showStockModal && (
+                <StockWarningModal
+                    affectedProducts={affectedProducts}
+                    onClose={() => {
+                        setShowStockModal(false);
+                        setPendingAction(null); // Clear intent on cancel to prevent state leakage
+                    }}
+                    onContinue={() => {
+                        setShowStockModal(false);
+                        // Branch on the original intent: prevents "Ignorar y Continuar"
+                        // from always triggering a Direct Sale when user intended a Pending Save.
+                        const action = pendingAction;
+                        setPendingAction(null); // Clear before async call
+                        // Set a small timeout to allow state to settle before next operation
+                        setTimeout(() => {
+                            if (action === 'SAVE_PENDING') {
+                                executeSaveAsPending();
+                            } else {
+                                // Default / 'FINALIZE': run debt check then finalize
+                                const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+                                const remaining = totals.total - totalPaid;
+                                if (remaining > 0.01) {
+                                    setShowDebtModal(true);
+                                } else {
+                                    handleFinalizeSale();
+                                }
+                            }
+                        }, 50);
+                    }}
+                    onStockCorrected={handleStockCorrected}
+                />
+            )}
+
+            {showDebtModal && (
+                <ConfirmationModal
+                    title="Venta con Deuda"
+                    message={`Esta por registrar una venta con deuda para el cliente: ${clientName || 'Desconocido'}. ¿Desea continuar?`}
+                    confirmText="Confirmar Venta"
+                    cancelText="Cancelar"
+                    isWarning={true}
+                    onConfirm={handleFinalizeSale}
+                    onCancel={() => setShowDebtModal(false)}
+                />
+            )}
+
+            {/* Issue #8: Overpayment Modal */}
+            {showOverpaidModal && (
+                <ConfirmationModal
+                    title="⚠️ Monto Excedido"
+                    message={`El monto ingresado excede el total de la venta. Cambio a devolver: ${formatCurrency(parseFloat(paymentAmount) - overpaidMaxAllowed)}.`}
+                    confirmText={`Devolver Cambio en Mano`}
+                    cancelText="Cancelar"
+                    isWarning={true}
+                    onConfirm={handleAutoCorrectPayment}
+                    onCancel={() => setShowOverpaidModal(false)}
+                />
+            )}
+
+            {/* Epic 2: Cheque Modal Integration */}
+            <CheckoutChequeModal
+                isOpen={showChequeModal}
+                onClose={() => {
+                    setShowChequeModal(false);
+                    setSelectedMethodId('');
+                }}
+                onConfirm={handleChequesConfirm}
+                totalAmount={pendingChequeAmount}
+                clientName={clientName}
+            />
 
             {configModalOpen && configModalItem && (
                 <ProductConfigModal
@@ -1646,6 +1664,7 @@ export default function VentaPage() {
                     executeSaveAsPending(initialClientId, initialClientName);
                 }}
             />
-        </div>
+
+        </>
     );
 }

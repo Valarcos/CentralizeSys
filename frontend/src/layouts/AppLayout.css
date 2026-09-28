@@ -225,10 +225,10 @@
     }
 }
 
-/* Reduce padding to 1/3 for VentaPage */
+/* Reduce padding to 0.2rem for VentaPage globally */
 .main-content.ventas-page-content {
-    padding: 0.4rem calc(var(--spacing-lg) / 3) calc(var(--spacing-lg) / 3) calc(var(--spacing-lg) / 3);
-    padding-bottom: calc(var(--bottom-nav-height) + calc(var(--spacing-lg) / 3));
+    padding: 0.2rem;
+    padding-bottom: calc(var(--bottom-nav-height) + 0.2rem);
 }
 
 /* Main content padding synced with 3-zone breakpoint system */
@@ -239,8 +239,8 @@
         padding-right: 0.5rem;
     }
     .main-content.ventas-page-content {
-        padding-left: calc(0.5rem / 3);
-        padding-right: calc(0.5rem / 3);
+        padding-left: 0.2rem;
+        padding-right: 0.2rem;
     }
 }
 
@@ -251,8 +251,8 @@
         padding-right: 2px;
     }
     .main-content.ventas-page-content {
-        padding-left: 1px;
-        padding-right: 1px;
+        padding-left: 0.2rem;
+        padding-right: 0.2rem;
     }
 }
 
@@ -263,8 +263,8 @@
         padding-bottom: calc(var(--bottom-nav-height) + var(--spacing-xs));
     }
     .main-content.ventas-page-content {
-        padding: calc(var(--spacing-xs) / 3);
-        padding-bottom: calc(var(--bottom-nav-height) + calc(var(--spacing-xs) / 3));
+        padding: 0.2rem;
+        padding-bottom: calc(var(--bottom-nav-height) + 0.2rem);
     }
 }
 
@@ -273,7 +273,7 @@
         padding-bottom: var(--spacing-lg);
     }
     .main-content.ventas-page-content {
-        padding-bottom: calc(var(--spacing-lg) / 3);
+        padding-bottom: 0.2rem;
     }
 }
 

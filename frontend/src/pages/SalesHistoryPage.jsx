@@ -16,7 +16,7 @@ export default function SalesHistoryPage() {
         return d.toISOString().split('T')[0];
     });
     const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
-    const [searchId, setSearchId] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
 
     const [page, setPage] = useState(0);
     const [pageSize] = useState(15);
@@ -81,9 +81,10 @@ export default function SalesHistoryPage() {
                 size: pageSize,
             };
 
-            // Override date filters if searchId is present
-            if (searchId) {
-                params.searchId = searchId;
+            // Override date filters if searchQuery is present
+            const isSearching = searchQuery && searchQuery.trim().length > 0;
+            if (isSearching) {
+                params.searchParam = searchQuery.trim();
             } else {
                 params.startDate = startDate;
                 params.endDate = endDate;
@@ -102,15 +103,15 @@ export default function SalesHistoryPage() {
         } finally {
             if (isMounted.current) setLoading(false);
         }
-    }, [page, pageSize, startDate, endDate, searchId]);
+    }, [page, pageSize, startDate, endDate, searchQuery]);
 
-    // Debounce the searchId changes to avoid spamming the backend
+    // Debounce the searchQuery changes to avoid spamming the backend
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             loadSales();
         }, 300);
         return () => clearTimeout(timeoutId);
-    }, [searchId, startDate, endDate, loadSales]);
+    }, [searchQuery, startDate, endDate, loadSales]);
 
     const handleOpenDetails = async (saleId) => {
         try {
@@ -251,20 +252,31 @@ export default function SalesHistoryPage() {
             <div className="history-header-column">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
                     <h1>Historial de Ventas</h1>
-                    <input
-                        type="text"
-                        value={searchId}
-                        onChange={(e) => {
-                            setSearchId(e.target.value.replace(/\D/g, ''));
-                            setPage(0);
-                        }}
-                        placeholder="Filtrar por ID de venta"
-                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', minWidth: '200px' }}
-                    />
+                    <div className="search-container" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => {
+                                setSearchQuery(e.target.value);
+                                setPage(0);
+                            }}
+                            placeholder="🔍 Buscar por cliente o ID..."
+                            style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', minWidth: '250px' }}
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => { setSearchQuery(''); setPage(0); }}
+                                style={{ position: 'absolute', right: '5px', background: 'none', border: 'none', cursor: 'pointer', color: '#666' }}
+                                aria-label="Limpiar búsqueda"
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* 1. Date Filters Row (Above Pagination) */}
-                <div className="date-filters-row" style={{ opacity: searchId ? 0.5 : 1, pointerEvents: searchId ? 'none' : 'auto' }}>
+                <div className="date-filters-row" style={{ opacity: searchQuery ? 0.5 : 1, pointerEvents: searchQuery ? 'none' : 'auto' }}>
                     <div className="filter-group">
                         <label>Desde:</label>
                         <input

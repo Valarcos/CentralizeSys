@@ -54,9 +54,9 @@ class VentaServicePaginationTest {
     @DisplayName("UT-20: getVentasPage uses default 30-day range when dates are null")
     void getVentasPage_UsesDefaultRange_WhenNull() {
         // Arrange
-        when(ventaRepository.findVentasByFechaBetween(any(LocalDateTime.class), any(LocalDateTime.class), eq(null), anyInt(), anyInt()))
+        when(ventaRepository.findVentasByFechaBetween(any(LocalDateTime.class), any(LocalDateTime.class), eq((String) null), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
-        when(ventaRepository.countVentasByFechaBetween(any(LocalDateTime.class), any(LocalDateTime.class), eq(null))).thenReturn(0L);
+        when(ventaRepository.countVentasByFechaBetween(any(LocalDateTime.class), any(LocalDateTime.class), eq((String) null))).thenReturn(0L);
 
         // Act
         ventaService.getVentasPage(null, null, null, 0, 20);
@@ -64,7 +64,7 @@ class VentaServicePaginationTest {
         // Assert
         // Verify we called repo with dates. Since we can't easily predict "now",
         // we capture arguments or just verify it was called.
-        verify(ventaRepository).findVentasByFechaBetween(any(LocalDateTime.class), any(LocalDateTime.class), eq(null), eq(20), eq(0));
+        verify(ventaRepository).findVentasByFechaBetween(any(LocalDateTime.class), any(LocalDateTime.class), eq((String) null), eq(20), eq(0));
     }
 
     @Test
@@ -98,16 +98,16 @@ class VentaServicePaginationTest {
         // We provide a massive date range that would normally fail the 60-day rule
         String start = LocalDate.of(2020, java.time.Month.JANUARY, 1).toString();
         String end = LocalDate.of(2023, java.time.Month.JANUARY, 1).toString();
-        Long searchId = 123L;
+        String searchParam = "123";
 
-        when(ventaRepository.findVentasByFechaBetween(any(), any(), eq(searchId), anyInt(), anyInt()))
+        when(ventaRepository.findVentasByFechaBetween(any(), any(), eq(searchParam), anyInt(), anyInt()))
                 .thenReturn(Collections.emptyList());
 
         // Act - should not throw Exception
-        ventaService.getVentasPage(start, end, searchId, 0, 20);
+        ventaService.getVentasPage(start, end, searchParam, 0, 20);
 
         // Assert
-        verify(ventaRepository).findVentasByFechaBetween(any(), any(), eq(searchId), eq(20), eq(0));
+        verify(ventaRepository).findVentasByFechaBetween(any(), any(), eq(searchParam), eq(20), eq(0));
     }
 
     @Test

@@ -72,11 +72,11 @@ public class VentaService {
         this.devolucionesRepository = devolucionesRepository;
     }
 
-    public PageResponse<Venta> getVentasPage(String startDate, String endDate, Long searchId, int page, int size) {
+    public PageResponse<Venta> getVentasPage(String startDate, String endDate, String searchParam, int page, int size) {
         LocalDateTime end = (endDate == null || endDate.isBlank()) ? LocalDateTime.now(ZoneId.of("America/Argentina/Buenos_Aires")) : LocalDate.parse(endDate).atTime(23, 59, 59, 999999999);
         LocalDateTime start = (startDate == null || startDate.isBlank()) ? end.minusDays(30).withHour(0).withMinute(0).withSecond(0).withNano(0) : LocalDate.parse(startDate).atStartOfDay();
 
-        if (searchId == null) {
+        if (searchParam == null || searchParam.isBlank()) {
             long daysDiff = java.time.temporal.ChronoUnit.DAYS.between(start.atZone(ZoneId.of("America/Argentina/Buenos_Aires")), end.atZone(ZoneId.of("America/Argentina/Buenos_Aires")));
             if (daysDiff < 0) throw new BusinessRuleException("La fecha de inicio no puede ser posterior a la fecha de fin.");
             if (daysDiff > 60) throw new BusinessRuleException("El rango de fechas no puede exceder los 60 días.");
@@ -84,8 +84,8 @@ public class VentaService {
 
         size = Math.min(size, 100);
         int offset = page * size;
-        List<Venta> ventas = ventaRepository.findVentasByFechaBetween(start, end, searchId, size, offset);
-        long totalElements = ventaRepository.countVentasByFechaBetween(start, end, searchId);
+        List<Venta> ventas = ventaRepository.findVentasByFechaBetween(start, end, searchParam, size, offset);
+        long totalElements = ventaRepository.countVentasByFechaBetween(start, end, searchParam);
         long totalPages = (long) Math.ceil((double) totalElements / size);
 
         return new PageResponse<>(ventas, (long) page, (long) size, totalElements, totalPages);

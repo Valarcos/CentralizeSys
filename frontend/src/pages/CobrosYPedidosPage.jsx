@@ -19,7 +19,7 @@ export default function CobrosYPedidosPage() {
     // 'ALL' | 'CHEQUE' | 'PEDIDO'  — NOTE: old FIADO rows stay as 'FIADO' in DB; CHEQUE is the new discriminator
     const [filterType, setFilterType] = useState(location.state?.filter || 'ALL');
     const [sortConfig, setSortConfig] = useState({ key: 'fecha_creacion', direction: 'desc' });
-    const [searchId, setSearchId] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const isMounted = useRef(true);
 
@@ -672,8 +672,12 @@ export default function CobrosYPedidosPage() {
                 ? sortedItems.filter(i => i.tipo === 'PEDIDO' && !i.has_cheque)
                 : sortedItems.filter(i => i.tipo === filterType);
 
-    const filteredAndSearchedItems = searchId
-        ? displayedItems.filter(i => i.id_referencia?.toString().startsWith(searchId))
+    const lowerSearch = searchQuery.trim().toLowerCase();
+    const filteredAndSearchedItems = lowerSearch
+        ? displayedItems.filter(i =>
+            i.id_referencia?.toString().startsWith(lowerSearch) ||
+            (i.cliente_nombre && i.cliente_nombre.toLowerCase().includes(lowerSearch))
+        )
         : displayedItems;
 
     // Pagination logic
@@ -694,16 +698,27 @@ export default function CobrosYPedidosPage() {
         <div className="cobros-page container">
             <div className="cobros-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
                 <h1>Cobros y Pedidos</h1>
-                <input
-                    type="text"
-                    value={searchId}
-                    onChange={(e) => {
-                        setSearchId(e.target.value.replace(/\D/g, ''));
-                        setPage(0);
-                    }}
-                    placeholder="Filtrar por ID de venta"
-                    style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', minWidth: '200px' }}
-                />
+                <div className="search-container" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setPage(0);
+                        }}
+                        placeholder="🔍 Buscar por cliente o ID..."
+                        style={{ padding: '0.5rem', borderRadius: '4px', border: '1px solid #ccc', minWidth: '250px' }}
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => { setSearchQuery(''); setPage(0); }}
+                            style={{ position: 'absolute', right: '5px', background: 'none', border: 'none', cursor: 'pointer', color: '#666' }}
+                            aria-label="Limpiar búsqueda"
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
             </div>
 
             <div className="sale-type-toggle" style={{ marginBottom: '1rem', justifyContent: 'center' }}>

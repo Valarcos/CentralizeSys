@@ -312,7 +312,7 @@ public class VentaRepository {
         }
     }
 
-    public List<Venta> findVentasByFechaBetween(java.time.LocalDateTime startDate, LocalDateTime endDate, Long searchId, int limit, int offset) {
+    public List<Venta> findVentasByFechaBetween(java.time.LocalDateTime startDate, LocalDateTime endDate, String searchParam, int limit, int offset) {
         String sql = """
                     SELECT v.id, v.fecha, v.fecha_creacion, COALESCE(c.nombre, v.cliente_nombre) AS cliente_nombre, v.cliente_id, v.total_venta, v.descuento_global, v.recargo_global, v.saldo_generado, v.tipo_venta, v.usuario_id, v.estado, v.version,
                            (SELECT COALESCE(SUM(costo_snapshot * cantidad), 0) FROM detalles_venta WHERE venta_id = v.id AND (anulado = false OR anulado IS NULL)) as costo_total,
@@ -326,9 +326,9 @@ public class VentaRepository {
                 .addValue("limit", limit)
                 .addValue("offset", offset);
 
-        if (searchId != null) {
-            sql += " AND CAST(v.id AS TEXT) LIKE CAST(:searchId AS TEXT) || '%' ";
-            params.addValue("searchId", searchId);
+        if (searchParam != null && !searchParam.isBlank()) {
+            sql += " AND (CAST(v.id AS TEXT) LIKE :searchParam || '%' OR COALESCE(c.nombre, v.cliente_nombre) ILIKE '%' || :searchParam || '%') ";
+            params.addValue("searchParam", searchParam);
         } else {
             sql += " AND fecha BETWEEN :startDate AND :endDate ";
             params.addValue(PARAM_START_DATE, startDate)
@@ -362,15 +362,15 @@ public class VentaRepository {
         return namedJdbcTemplate.query(sql, params, ventaMapper);
     }
 
-    public long countVentasByFechaBetween(java.time.LocalDateTime startDate, LocalDateTime endDate, Long searchId) {
-        String sql = "SELECT COUNT(*) FROM ventas WHERE estado NOT IN ('PENDIENTE', 'CANCELADA_PENDIENTE')";
+    public long countVentasByFechaBetween(java.time.LocalDateTime startDate, LocalDateTime endDate, String searchParam) {
+        String sql = "SELECT COUNT(*) FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.id WHERE v.estado NOT IN ('PENDIENTE', 'CANCELADA_PENDIENTE')";
         MapSqlParameterSource params = new MapSqlParameterSource();
 
-        if (searchId != null) {
-            sql += " AND CAST(id AS TEXT) LIKE CAST(:searchId AS TEXT) || '%'";
-            params.addValue("searchId", searchId);
+        if (searchParam != null && !searchParam.isBlank()) {
+            sql += " AND (CAST(v.id AS TEXT) LIKE :searchParam || '%' OR COALESCE(c.nombre, v.cliente_nombre) ILIKE '%' || :searchParam || '%')";
+            params.addValue("searchParam", searchParam);
         } else {
-            sql += " AND fecha BETWEEN :startDate AND :endDate";
+            sql += " AND v.fecha BETWEEN :startDate AND :endDate";
             params.addValue(PARAM_START_DATE, startDate)
                     .addValue(PARAM_END_DATE, endDate);
         }

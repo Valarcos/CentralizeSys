@@ -95,10 +95,10 @@ public class VentaController {
     public ResponseEntity<com.centralizesys.model.dto.PageResponse<Venta>> getAll(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
-            @RequestParam(required = false) Long searchId,
+            @RequestParam(required = false) String searchParam,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(ventaService.getVentasPage(startDate, endDate, searchId, page, size));
+        return ResponseEntity.ok(ventaService.getVentasPage(startDate, endDate, searchParam, page, size));
     }
 
     @GetMapping("/pendientes")

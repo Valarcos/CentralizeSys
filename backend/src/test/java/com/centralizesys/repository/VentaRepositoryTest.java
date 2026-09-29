@@ -331,6 +331,49 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         assertThat(count).isEqualTo(2);
     }
 
+    @Test
+    @DisplayName("findVentasByFechaBetween - with searchParam filters by ID or Cliente Nombre")
+    void findVentasByFechaBetween_withSearchParam() {
+        // Arrange
+        Long userId = createTestUser();
+        createVenta(userId, LocalDateTime.parse("2023-01-01T00:00:00"), "Juan Perez", 100.0);
+        createVenta(userId, LocalDateTime.parse("2023-01-02T00:00:00"), "Maria Gomez", 200.0);
+        createVenta(userId, LocalDateTime.parse("2023-01-03T00:00:00"), "Juan Carlos", 300.0);
+
+        // Act - Search by name "Juan"
+        List<Venta> resultsName = ventaRepository.findVentasByFechaBetween(null, null, "juan", 10, 0);
+
+        // Assert
+        assertThat(resultsName).hasSize(2);
+        assertThat(resultsName).extracting(Venta::getClienteNombre).containsExactlyInAnyOrder("Juan Perez", "Juan Carlos");
+
+        // Act - Search by ID (assume one of the IDs is returned, but we don't know the exact ID sequence.
+        // We'll search by the exact ID of the second sale).
+        List<Venta> all = ventaRepository.findAll();
+        Long exactId = all.stream().filter(v -> v.getClienteNombre().equals("Maria Gomez")).findFirst().orElseThrow().getId();
+
+        List<Venta> resultsId = ventaRepository.findVentasByFechaBetween(null, null, String.valueOf(exactId), 10, 0);
+
+        // Assert
+        assertThat(resultsId).hasSize(1);
+        assertThat(resultsId.getFirst().getClienteNombre()).isEqualTo("Maria Gomez");
+    }
+
+    @Test
+    @DisplayName("countVentasByFechaBetween - with searchParam filters by ID or Cliente Nombre")
+    void countVentasByFechaBetween_withSearchParam() {
+        // Arrange
+        Long userId = createTestUser();
+        createVenta(userId, LocalDateTime.parse("2023-01-01T00:00:00"), "Ana Lopez", 100.0);
+        createVenta(userId, LocalDateTime.parse("2023-01-02T00:00:00"), "Carlos Ruiz", 200.0);
+
+        // Act
+        long count = ventaRepository.countVentasByFechaBetween(null, null, "ana");
+
+        // Assert
+        assertThat(count).isEqualTo(1);
+    }
+
     private void createVenta(Long userId, LocalDateTime date, String client, Double total) {
         Venta v = new Venta();
         v.setFecha(date);

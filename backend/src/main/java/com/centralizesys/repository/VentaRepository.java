@@ -487,7 +487,7 @@ public class VentaRepository {
                         cliente_id = :clienteId,
                         cliente_nombre = :clienteNombre,
                         tipo_venta = :tipoVenta,
-                        version = version + 1
+                        version = COALESCE(version, 0) + 1
                     WHERE id = :id AND estado = 'PENDIENTE'
                 """;
         int rows = namedJdbcTemplate.update(sql, new MapSqlParameterSource()

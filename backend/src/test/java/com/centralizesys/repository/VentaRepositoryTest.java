@@ -415,4 +415,24 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         assertThat(updated.getClienteNombre()).isEqualTo("New Client");
         assertThat(updated.getTipoVenta()).isEqualTo("MAYORISTA");
     }
+
+    @Test
+    @DisplayName("updatePendingSaleHeader - increments version correctly even if it was NULL (Legacy carts)")
+    void updatePendingSaleHeader_NullVersionIncrementsToOne() {
+        // Arrange
+        Long userId = createTestUser();
+        Long id = jdbcTemplate.queryForObject(
+                "INSERT INTO ventas (fecha, total_venta, estado, usuario_id, version) VALUES (?, ?, 'PENDIENTE', ?, NULL) RETURNING id",
+                Long.class,
+                java.time.LocalDateTime.now(), 100.0, userId
+        );
+
+        // Act
+        ventaRepository.updatePendingSaleHeader(id, 200.0, 0.0, 0.0, 0.0, null, "Legacy Client", "MINORISTA");
+
+        // Assert
+        java.util.Optional<com.centralizesys.model.sales.Venta> updatedOpt = ventaRepository.findById(id);
+        org.assertj.core.api.Assertions.assertThat(updatedOpt).isPresent();
+        org.assertj.core.api.Assertions.assertThat(updatedOpt.get().getVersion()).isEqualTo(1);
+    }
 }

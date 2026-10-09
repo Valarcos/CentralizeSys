@@ -229,6 +229,7 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
 
         // --- TABLE 3: PAYMENT METHODS (blue header) ---
         let payY = doc.lastAutoTable.finalY + 10;
+        // eslint-disable-next-line no-unused-vars
         let negativePaymentsExist = false;
         let totalReembolsoEfectivo = 0;
 
@@ -349,6 +350,7 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
             // should just calculate the total final as sum of effective subtotals minus global discount.
 
             // Re-calculate the effective final total from the ground up:
+            // eslint-disable-next-line no-unused-vars
             let totalFinal = saleData.items.reduce((acc, item) => {
                 const effectiveQty = item.quantity - (item.returnedQuantity || 0);
                 const finalUnit = Math.max(0, (item.unitPrice || 0) - (item.discount || 0));
@@ -407,6 +409,14 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
                 doc.setFont(undefined, 'normal');
                 finalY += 5;
                 doc.text(`(Incluye recargo global de ${formatMoney(saleData.globalSurcharge)})`, pageWidth - 14, finalY, { align: 'right' });
+            }
+            if (saleData.saldoGenerado > 0) {
+                doc.setFontSize(10);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(0, 128, 0);
+                finalY += 7;
+                doc.text(`SALDO A FAVOR GENERADO: ${formatMoney(saleData.saldoGenerado)}`, pageWidth - 14, finalY, { align: 'right' });
+                doc.setTextColor(0);
             }
         }
 
@@ -767,6 +777,16 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         doc.text(`Total Pagado:`, boxX + 4, summaryY + 21);
         doc.text(formatMoney(totalPagado), boxX + boxW - 4, summaryY + 21, { align: 'right' });
 
+        if (debtorData.saldoGenerado > 0) {
+            doc.text(`Saldo a Favor Generado:`, boxX + 4, summaryY + 26);
+            doc.text(formatMoney(debtorData.saldoGenerado), boxX + boxW - 4, summaryY + 26, { align: 'right' });
+            // Increase the height of the box to accommodate the new line
+            doc.setDrawColor(255); // Hide previous line
+            doc.rect(boxX, summaryY, boxW, boxH);
+            doc.setDrawColor(0);
+            doc.rect(boxX, summaryY, boxW, boxH + 5);
+        }
+
         doc.setFont(undefined, 'bold');
         doc.setTextColor(200, 0, 0);
         doc.setFontSize(12);
@@ -797,7 +817,8 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         // --- HEADER ---
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
-        doc.text("PRESUPUESTO", pageWidth / 2, 15, { align: 'center' });
+        const pdfTitle = options.printItems ? "PRESUPUESTO" : "RESUMEN DE PAGOS";
+        doc.text(pdfTitle, pageWidth / 2, 15, { align: 'center' });
 
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
@@ -1071,7 +1092,7 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
 
         const boxX = 14;
         const boxW = pageWidth - 28;
-        const boxH = 32;
+        const boxH = pedidoData.saldoGenerado > 0 ? 40 : 32;
 
         // Guard: if the summary box won't fit on remaining page space, push to a new page
         if (summaryY + boxH + 10 > doc.internal.pageSize.height - 15) {
@@ -1115,16 +1136,27 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         doc.text(`Total Anticipado (Seña):`, boxX + 4, summaryY + 21);
         doc.text(formatMoney(totalPagado), boxX + boxW - 4, summaryY + 21, { align: 'right' });
 
+        if (pedidoData.saldoGenerado > 0) {
+            doc.text(`Saldo a Favor Generado:`, boxX + 4, summaryY + 26);
+            doc.text(formatMoney(pedidoData.saldoGenerado), boxX + boxW - 4, summaryY + 26, { align: 'right' });
+            // Increase the height of the box to accommodate the new line
+            doc.setDrawColor(255); // Hide previous line
+            doc.rect(boxX, summaryY, boxW, boxH);
+            doc.setDrawColor(0);
+            doc.rect(boxX, summaryY, boxW, boxH + 6);
+        }
+
         doc.setFont(undefined, 'bold');
         doc.setTextColor(200, 0, 0);
         doc.setFontSize(12);
-        doc.text(`SALDO A PAGAR:`, boxX + 4, summaryY + 28);
-        doc.text(formatMoney(saldoRestante), boxX + boxW - 4, summaryY + 28, { align: 'right' });
+        doc.text(`SALDO A PAGAR:`, boxX + 4, summaryY + (pedidoData.saldoGenerado > 0 ? 33 : 28));
+        doc.text(formatMoney(saldoRestante), boxX + boxW - 4, summaryY + (pedidoData.saldoGenerado > 0 ? 33 : 28), { align: 'right' });
         doc.setTextColor(0);
 
         const clientName = pedidoData.clienteNombre || 'Consumidor Final';
         const dateStr = formatDateDDMMYYYY(pedidoData.fechaCreacion || new Date().toISOString()).replace(/\//g, '-');
-        doc.save(`Presupuesto - ${clientName} - ${dateStr}.pdf`);
+        const filePrefix = options.printItems ? "Presupuesto" : "Resumen de Pagos";
+        doc.save(`${filePrefix} - ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating pedido PDF:", error);
         alert("Error al generar el PDF de pedido. Revise la consola.");

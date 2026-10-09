@@ -891,10 +891,19 @@ public class VentaService {
         Double precioBase;
         if (tipoVenta == TipoVenta.MAYORISTA) {
             precioBase = producto.getPrecioMayorista();
-            if (precioBase == null) precioBase = 0.0;
+            // Honor Issue #15 fallback dynamically for legacy dirty database rows
+            if (precioBase == null || precioBase == 0.0) {
+                precioBase = producto.getPrecioMinorista();
+            }
         } else {
             precioBase = producto.getPrecioMinorista();
         }
+
+        // Global Fail-Fast (Protects against unboxing NPE in calculateFinalPrice)
+        if (precioBase == null) {
+            throw new BusinessRuleException(String.format("El producto '%s' no tiene un precio configurado.", producto.getDescripcion()));
+        }
+
         detalle.setPrecioLista(precioBase);
 
         Double valorDescuento = itemReq.getValorDescuento();

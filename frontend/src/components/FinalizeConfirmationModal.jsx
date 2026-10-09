@@ -2,17 +2,17 @@ import React, { useState } from 'react';
 import './ConfirmationModal.css';
 
 export default function FinalizeConfirmationModal({
-    isOpen,
-    onConfirm,
-    onCancel,
-    isSubmitting = false
-}) {
+                                                      isOpen,
+                                                      onConfirm,
+                                                      onCancel,
+                                                      isSubmitting = false
+                                                  }) {
     const [inputValue, setInputValue] = useState('');
 
     if (!isOpen) return null;
 
     const handleConfirm = () => {
-        if (inputValue === 'FINALIZAR') {
+        if (inputValue.toUpperCase() === 'F') {
             onConfirm();
         }
     };
@@ -32,7 +32,7 @@ export default function FinalizeConfirmationModal({
                         No se podrán registrar pagos ni editar los productos incluidos en el presupuesto.
                     </p>
                     <div style={{ marginTop: '1rem' }}>
-                        <label>Escriba la palabra <strong>FINALIZAR</strong> para confirmar:</label>
+                        <label>Escriba la letra <strong>F</strong> para confirmar:</label>
                         <input
                             type="text"
                             value={inputValue}
@@ -44,7 +44,7 @@ export default function FinalizeConfirmationModal({
                                 border: '1px solid #ccc',
                                 borderRadius: '4px'
                             }}
-                            placeholder="FINALIZAR"
+                            placeholder="F"
                             autoFocus
                         />
                     </div>
@@ -54,7 +54,7 @@ export default function FinalizeConfirmationModal({
                     <button
                         className="btn-danger"
                         onClick={handleConfirm}
-                        disabled={isSubmitting || inputValue !== 'FINALIZAR'}
+                        disabled={isSubmitting || inputValue.toUpperCase() !== 'F'}
                     >
                         {isSubmitting ? 'Finalizando...' : 'Confirmar Venta'}
                     </button>

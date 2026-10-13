@@ -8,7 +8,7 @@ import CancellationModal from '../components/CancellationModal';
 import FinalizeConfirmationModal from '../components/FinalizeConfirmationModal';
 import CobrarChequesModal from '../components/CobrarChequesModal';
 import CheckoutChequeModal from '../components/CheckoutChequeModal';
-import { generateDebtorReceipt, generatePendingSaleReceipt } from '../utils/pdfGenerator';
+import { printDeudaReceipt, printPendingReceipt, printVentaReceipt } from '../services/receiptService';
 import { blockNonNumericKeys, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './CobrosYPedidosPage.css'; // Dedicated CSS for Pending Sales
 
@@ -62,6 +62,8 @@ export default function CobrosYPedidosPage() {
     const [isLoadingSale, setIsLoadingSale] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const isSubmittingRef = useRef(false);
+    const [isPrinting, setIsPrinting] = useState(false);
+    const isPrintingRef = useRef(false);
 
     // Confirmation Modals
     const [itemToFinalize, setItemToFinalize] = useState(null);
@@ -152,13 +154,6 @@ export default function CobrosYPedidosPage() {
         }
     }, [blocker]);
 
-    useEffect(() => {
-        isMounted.current = true;
-        fetchItems();
-        fetchPaymentMethods();
-        return () => { isMounted.current = false; };
-    }, []);
-
     const fetchItems = async () => {
         try {
             const response = await api.get('/cobros-y-pedidos');
@@ -179,6 +174,13 @@ export default function CobrosYPedidosPage() {
             console.error("Error loading payment methods:", error);
         }
     };
+
+    useEffect(() => {
+        isMounted.current = true;
+        fetchItems();
+        fetchPaymentMethods();
+        return () => { isMounted.current = false; };
+    }, []);
 
     const handleOpenPayment = async (item) => {
         // Blueprint §4&5: CHEQUE tipo opens the dedicated installment cobro modal.
@@ -388,12 +390,12 @@ export default function CobrosYPedidosPage() {
             }
 
             toast.success("Cambios aplicados exitosamente");
+            await fetchItems();
             if (isMounted.current) setShowPayModal(false);
-            fetchItems();
         } catch (error) {
             console.error(error);
             // Error handled by global api interceptor
-            fetchItems(); // refresh state to avoid desync
+            await fetchItems(); // refresh state to avoid desync
         } finally {
             isSubmittingRef.current = false;
             if (isMounted.current) setIsSubmitting(false);
@@ -441,120 +443,57 @@ export default function CobrosYPedidosPage() {
         }
     };
 
+    // Shared print runner: double-submit guard + loading toast + error feedback.
+    const runPrint = async ({ toastId, loadingMsg, successMsg, errorMsg, print }) => {
+        if (isPrintingRef.current) return;
+        isPrintingRef.current = true;
+        if (isMounted.current) setIsPrinting(true);
+        try {
+            toast.loading(loadingMsg, { id: toastId });
+            await print();
+            toast.success(successMsg, { id: toastId });
+        } catch (error) {
+            console.error(errorMsg, error);
+            toast.error(errorMsg, { id: toastId });
+        } finally {
+            isPrintingRef.current = false;
+            if (isMounted.current) setIsPrinting(false);
+        }
+    };
+
     const handlePrintDebtor = async (item, printItems = true) => {
         if (item.tipo !== 'FIADO') {
             toast.error("La impresión de recibo sólo está disponible para deudas (Fiados).");
             return;
         }
-
-        try {
-            toast.loading("Generando recibo...", { id: "print-toast" });
-            const [saleRes, debtorRes, pagosRes, methodsRes] = await Promise.all([
-                api.get(`/ventas/${item.venta_id}`),
-                api.get(`/deudores/${item.id_referencia}`), // we need the exact debtor object to get original amount, etc.
-                api.get(`/deudores/${item.id_referencia}/pagos`),
-                paymentMethods.length > 0 ? Promise.resolve({ data: paymentMethods }) : api.get('/ventas/metodos-pago')
-            ]);
-
-            const sale = saleRes.data;
-            const debtor = debtorRes.data;
-            const pagos = pagosRes.data;
-            const methods = methodsRes.data;
-
-            if (!debtor) throw new Error("Deudor no encontrado");
-
-            const enrichedSalePayments = (sale.pagos || []).map(p => {
-                const method = methods.find(m => m.id === p.metodoPagoId);
-                return { name: method ? method.descripcion : 'Desconocido', amount: p.monto };
-            });
-
-            const debtorData = {
-                ventaId: item.venta_id,
-                clienteNombre: item.cliente_nombre,
-                fechaDeuda: debtor.fechaDeuda,
-                estado: item.estado,
-                montoOriginal: debtor.montoOriginal,
-                montoDeuda: debtor.montoDeuda,
-                saleDate: sale.fecha,
-                user: sale.vendedorNombre || 'Sistema',
-                saleType: sale.tipoVenta || 'ESTÁNDAR',
-                items: (sale.items || []).map(d => ({
-                    codigo: d.productoCodigo || d.codigoSnapshot,
-                    descripcion: d.productoNombre || d.descripcionSnapshot,
-                    quantity: d.cantidad,
-                    unitPrice: d.precioLista || (d.precioUnitario + (d.descuentoValor || 0)),
-                    discount: d.descuentoValor || 0,
-                    reason: d.razonDescuento || null,
-                    subtotal: d.subtotal
-                })),
-                pagosDeuda: pagos,
-                salePayments: enrichedSalePayments,
-                globalDiscount: sale.descuentoGlobal || 0
-            };
-
-            generateDebtorReceipt(debtorData, { printItems });
-            toast.success("Recibo generado.", { id: "print-toast" });
-        } catch (error) {
-            console.error('Error generating debtor PDF:', error);
-            toast.error('Error al generar el PDF de deuda', { id: "print-toast" });
-        }
+        await runPrint({
+            toastId: 'print-toast',
+            loadingMsg: 'Generando recibo...',
+            successMsg: 'Recibo generado.',
+            errorMsg: 'Error al generar el PDF de deuda',
+            print: () => printDeudaReceipt(item.id_referencia, { printItems, methods: paymentMethods })
+        });
     };
 
     const handlePrintPedido = async (item, printItems = true) => {
-        try {
-            toast.loading("Generando recibo de pedido...", { id: "print-pedido-toast" });
-            const saleRes = await api.get(`/ventas/${item.id_referencia}`);
-            const pagosRes = await api.get(`/ventas/${item.id_referencia}/pagos`);
-            const methodsRes = await api.get('/ventas/metodos-pago');
+        await runPrint({
+            toastId: 'print-pedido-toast',
+            loadingMsg: 'Generando recibo de pedido...',
+            successMsg: 'Recibo de pedido generado.',
+            errorMsg: 'Error al generar el PDF de pedido',
+            print: () => printPendingReceipt(item.id_referencia, { printItems, methods: paymentMethods })
+        });
+    };
 
-            const sale = saleRes.data;
-            const pagos = pagosRes.data;
-            const methods = methodsRes.data;
-
-            // Fetch attached cheques to distinguish them in the PDF
-            let cheques = [];
-            try {
-                const chequesRes = await api.get(`/alertas/cheques/venta/${item.id_referencia}`);
-                cheques = chequesRes.data;
-            } catch (err) {
-                console.error('Error fetching cheques for PDF:', err);
-            }
-
-            const enrichedPagos = pagos.map(p => {
-                const method = methods.find(m => m.id === p.metodoPagoId);
-                return { name: method ? method.descripcion : 'Desconocido', amount: p.monto, date: p.fechaPago, pagoId: p.id };
-            });
-
-            const pedidoData = {
-                id: sale.id,
-                clienteNombre: sale.clienteNombre || item.cliente_nombre,
-                fechaCreacion: sale.fecha,
-                estado: sale.estado,
-                montoTotal: sale.totalVenta,
-                montoPagado: item.monto_pagado,
-                saldoRestante: item.saldo_restante,
-                vendedor: sale.vendedorNombre || 'Sistema',
-                items: (sale.items || []).map(d => ({
-                    codigo: d.productoCodigo || d.codigoSnapshot,
-                    descripcion: d.productoNombre || d.descripcionSnapshot,
-                    quantity: d.cantidad,
-                    unitPrice: d.precioLista || (d.precioUnitario + (d.descuentoValor || 0)),
-                    discount: d.descuentoValor || 0,
-                    reason: d.razonDescuento || null,
-                    subtotal: d.subtotal
-                })),
-                pagos: enrichedPagos,
-                cheques: cheques,
-                globalDiscount: sale.descuentoGlobal || 0,
-                globalSurcharge: sale.recargoGlobal || 0
-            };
-
-            generatePendingSaleReceipt(pedidoData, { printItems });
-            toast.success("Recibo de pedido generado.", { id: "print-pedido-toast" });
-        } catch (error) {
-            console.error('Error generating pedido PDF:', error);
-            toast.error('Error al generar el PDF de pedido', { id: "print-pedido-toast" });
-        }
+    // CHEQUE rows: id_referencia is the cheque id, the parent sale id lives in venta_id.
+    const handlePrintChequeSale = async (item, printItems = true) => {
+        await runPrint({
+            toastId: 'print-cheque-toast',
+            loadingMsg: 'Generando recibo de venta con cheques...',
+            successMsg: 'Recibo de venta generado.',
+            errorMsg: 'Error al generar el PDF de la venta con cheques',
+            print: () => printVentaReceipt(item.venta_id, { printItems, methods: paymentMethods })
+        });
     };
 
     const handleFinalizarPedido = async (item) => {
@@ -573,15 +512,15 @@ export default function CobrosYPedidosPage() {
             if (isMounted.current) setIsSubmitting(true);
             await api.post(`/ventas/${itemToFinalize.id_referencia}/finalizar`);
             toast.success("Pedido finalizado con éxito.");
+            await fetchItems();
             if (isMounted.current) {
                 setShowFinalizeModal(false);
                 setItemToFinalize(null);
             }
-            fetchItems();
         } catch (error) {
             console.error(error);
             // Error handled by global api interceptor
-            fetchItems();
+            await fetchItems();
         } finally {
             isSubmittingRef.current = false;
             if (isMounted.current) setIsSubmitting(false);
@@ -599,11 +538,11 @@ export default function CobrosYPedidosPage() {
             if (isMounted.current) setIsSubmitting(true);
             await api.post(`/ventas/${itemToCancel.id_referencia}/cancelar`);
             toast.success("Pedido cancelado exitosamente. Stock retornado.");
-            fetchItems();
+            await fetchItems();
         } catch (error) {
             console.error(error);
             // Error handled by global api interceptor
-            fetchItems();
+            await fetchItems();
         } finally {
             if (isMounted.current) {
                 setItemToCancel(null);
@@ -872,6 +811,7 @@ export default function CobrosYPedidosPage() {
                                                             <button
                                                                 className="btn-print"
                                                                 onClick={() => handlePrintDebtor(item, true)}
+                                                                disabled={isPrinting}
                                                             >
                                                                 🖨️ Imprimir
                                                             </button>
@@ -879,6 +819,27 @@ export default function CobrosYPedidosPage() {
                                                                 className="btn-print"
                                                                 style={{ backgroundColor: '#6366f1', border: '1px solid #4f46e5' }}
                                                                 onClick={() => handlePrintDebtor(item, false)}
+                                                                disabled={isPrinting}
+                                                                title="Imprimir resumen de pagos únicamente"
+                                                            >
+                                                                📄 Pagos
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    {item.tipo === 'CHEQUE' && (
+                                                        <div className="action-buttons-row">
+                                                            <button
+                                                                className="btn-print"
+                                                                onClick={() => handlePrintChequeSale(item, true)}
+                                                                disabled={isPrinting}
+                                                            >
+                                                                🖨️ Imprimir
+                                                            </button>
+                                                            <button
+                                                                className="btn-print"
+                                                                style={{ backgroundColor: '#6366f1', border: '1px solid #4f46e5' }}
+                                                                onClick={() => handlePrintChequeSale(item, false)}
+                                                                disabled={isPrinting}
                                                                 title="Imprimir resumen de pagos únicamente"
                                                             >
                                                                 📄 Pagos
@@ -890,6 +851,7 @@ export default function CobrosYPedidosPage() {
                                                             <button
                                                                 className="btn-print"
                                                                 onClick={() => handlePrintPedido(item, true)}
+                                                                disabled={isPrinting}
                                                             >
                                                                 🖨️ Imprimir
                                                             </button>
@@ -897,6 +859,7 @@ export default function CobrosYPedidosPage() {
                                                                 className="btn-print"
                                                                 style={{ backgroundColor: '#6366f1', border: '1px solid #4f46e5' }}
                                                                 onClick={() => handlePrintPedido(item, false)}
+                                                                disabled={isPrinting}
                                                                 title="Imprimir resumen de pagos únicamente"
                                                             >
                                                                 📄 Pagos

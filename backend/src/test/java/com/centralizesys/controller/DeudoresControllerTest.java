@@ -122,5 +122,32 @@ class DeudoresControllerTest {
 
         verify(deudoresService).getByVentaId(ventaId);
     }
+
+    @Test
+    @DisplayName("getDeudaReceipt_ReturnsSnapshot")
+    void getDeudaReceipt_ReturnsSnapshot() throws Exception {
+        Long deudaId = 10L;
+        com.centralizesys.model.debt.DeudaReceiptDto dto = com.centralizesys.model.debt.DeudaReceiptDto.builder()
+                .totalOriginal(1000.0).totalPagado(200.0).saldoRestante(300.0).build();
+        when(deudoresService.getDeudaReceipt(deudaId)).thenReturn(dto);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/deudores/" + deudaId + "/receipt"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.totalPagado").value(200.0))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.saldoRestante").value(300.0));
+
+        verify(deudoresService).getDeudaReceipt(deudaId);
+    }
+
+    @Test
+    @DisplayName("getDeudaReceipt_Returns404_WhenDebtNotFound")
+    void getDeudaReceipt_Returns404_WhenDebtNotFound() throws Exception {
+        Long deudaId = 999L;
+        when(deudoresService.getDeudaReceipt(deudaId))
+                .thenThrow(new com.centralizesys.exception.ResourceNotFoundException("Deuda", deudaId));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/deudores/" + deudaId + "/receipt"))
+                .andExpect(status().isNotFound());
+    }
 }
 

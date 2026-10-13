@@ -5,6 +5,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Date;
@@ -17,9 +19,11 @@ import java.util.Optional;
 public class AlertaChequeRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate namedJdbcTemplate;
 
     public AlertaChequeRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
     }
 
     private final RowMapper<AlertaCheque> rowMapper = (rs, rowNum) -> {
@@ -72,69 +76,97 @@ public class AlertaChequeRepository {
 
     public List<AlertaCheque> findByVentaId(Long ventaId) {
         String sql = """
-            SELECT ac.*, mp.descripcion as metodo_pago_nombre
+            SELECT ac.*, COALESCE(mp_v.descripcion, mp_d.descripcion) as metodo_pago_nombre
             FROM alertas_cheques ac
             LEFT JOIN pagos_venta pv ON ac.pago_venta_id = pv.id
-            LEFT JOIN metodos_pago mp ON pv.metodo_pago_id = mp.id
-            WHERE ac.venta_id = ? 
+            LEFT JOIN metodos_pago mp_v ON pv.metodo_pago_id = mp_v.id
+            LEFT JOIN pagos_deuda pd ON ac.pago_deuda_id = pd.id
+            LEFT JOIN metodos_pago mp_d ON pd.metodo_pago_id = mp_d.id
+            WHERE ac.venta_id = :ventaId 
             ORDER BY ac.fecha_cobro ASC
         """;
-        return jdbcTemplate.query(sql, rowMapper, ventaId);
+        return namedJdbcTemplate.query(sql, new MapSqlParameterSource("ventaId", ventaId), rowMapper);
     }
 
     public void updateEstadoByVentaId(Long ventaId, String nuevoEstado) {
-        String sql = "UPDATE alertas_cheques SET estado = ? WHERE venta_id = ?";
-        jdbcTemplate.update(sql, nuevoEstado, ventaId);
+        String sql = "UPDATE alertas_cheques SET estado = :nuevoEstado WHERE venta_id = :ventaId";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("nuevoEstado", nuevoEstado)
+                .addValue("ventaId", ventaId));
     }
 
     public List<AlertaCheque> findPendingExpiredOrToday() {
         String sql = "SELECT ac.*, NULL as metodo_pago_nombre FROM alertas_cheques ac WHERE ac.estado = 'PENDIENTE' AND ac.fecha_cobro <= CURRENT_DATE ORDER BY ac.fecha_cobro ASC";
-        return jdbcTemplate.query(sql, rowMapper);
+        return namedJdbcTemplate.query(sql, rowMapper);
     }
 
     public Optional<AlertaCheque> findById(Long id) {
-        String sql = "SELECT ac.*, NULL as metodo_pago_nombre FROM alertas_cheques ac WHERE ac.id = ?";
-        List<AlertaCheque> results = jdbcTemplate.query(sql, rowMapper, id);
+        String sql = "SELECT ac.*, NULL as metodo_pago_nombre FROM alertas_cheques ac WHERE ac.id = :id";
+        List<AlertaCheque> results = namedJdbcTemplate.query(sql, new MapSqlParameterSource("id", id), rowMapper);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.getFirst());
     }
 
     public void updateEstadoAndPagoVentaId(Long id, String nuevoEstado, Long pagoVentaId) {
-        String sql = "UPDATE alertas_cheques SET estado = ?, pago_venta_id = ? WHERE id = ?";
-        jdbcTemplate.update(sql, nuevoEstado, pagoVentaId, id);
+        String sql = "UPDATE alertas_cheques SET estado = :nuevoEstado, pago_venta_id = :pagoVentaId WHERE id = :id";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("nuevoEstado", nuevoEstado)
+                .addValue("pagoVentaId", pagoVentaId)
+                .addValue("id", id));
     }
 
     public int updateEstadoAndPagoVentaIdAtomic(Long id, String nuevoEstado, Long pagoVentaId, String estadoEsperado) {
-        String sql = "UPDATE alertas_cheques SET estado = ?, pago_venta_id = ? WHERE id = ? AND estado = ?";
-        return jdbcTemplate.update(sql, nuevoEstado, pagoVentaId, id, estadoEsperado);
+        String sql = "UPDATE alertas_cheques SET estado = :nuevoEstado, pago_venta_id = :pagoVentaId WHERE id = :id AND estado = :estadoEsperado";
+        return namedJdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("nuevoEstado", nuevoEstado)
+                .addValue("pagoVentaId", pagoVentaId)
+                .addValue("id", id)
+                .addValue("estadoEsperado", estadoEsperado));
     }
 
     public void updateEstadoAndPagoDeudaId(Long id, String nuevoEstado, Long pagoDeudaId) {
-        String sql = "UPDATE alertas_cheques SET estado = ?, pago_deuda_id = ? WHERE id = ?";
-        jdbcTemplate.update(sql, nuevoEstado, pagoDeudaId, id);
+        String sql = "UPDATE alertas_cheques SET estado = :nuevoEstado, pago_deuda_id = :pagoDeudaId WHERE id = :id";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("nuevoEstado", nuevoEstado)
+                .addValue("pagoDeudaId", pagoDeudaId)
+                .addValue("id", id));
     }
 
     public int updateEstadoAndPagoDeudaIdAtomic(Long id, String nuevoEstado, Long pagoDeudaId, String estadoEsperado) {
-        String sql = "UPDATE alertas_cheques SET estado = ?, pago_deuda_id = ? WHERE id = ? AND estado = ?";
-        return jdbcTemplate.update(sql, nuevoEstado, pagoDeudaId, id, estadoEsperado);
+        String sql = "UPDATE alertas_cheques SET estado = :nuevoEstado, pago_deuda_id = :pagoDeudaId WHERE id = :id AND estado = :estadoEsperado";
+        return namedJdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("nuevoEstado", nuevoEstado)
+                .addValue("pagoDeudaId", pagoDeudaId)
+                .addValue("id", id)
+                .addValue("estadoEsperado", estadoEsperado));
     }
 
     public int updateEstadoAtomic(Long id, String nuevoEstado, String estadoEsperado) {
-        String sql = "UPDATE alertas_cheques SET estado = ? WHERE id = ? AND estado = ?";
-        return jdbcTemplate.update(sql, nuevoEstado, id, estadoEsperado);
+        String sql = "UPDATE alertas_cheques SET estado = :nuevoEstado WHERE id = :id AND estado = :estadoEsperado";
+        return namedJdbcTemplate.update(sql, new MapSqlParameterSource()
+                .addValue("nuevoEstado", nuevoEstado)
+                .addValue("id", id)
+                .addValue("estadoEsperado", estadoEsperado));
     }
 
     /**
      * Returns the sum of all cheque amounts for a given sale that are strictly PENDIENTE.
      * Used to calculate total paid accurately since COBRADO cheques are already represented in pagos_venta.
+     * Debt cheques (DEUDA_FIADO) are strictly excluded from the sale's pending sum.
      */
     public double sumMontoPendienteByVentaId(Long ventaId) {
-        String sql = "SELECT COALESCE(SUM(monto), 0) FROM alertas_cheques WHERE venta_id = ? AND estado = 'PENDIENTE'";
-        Double result = jdbcTemplate.queryForObject(sql, Double.class, ventaId);
+        String sql = """
+            SELECT COALESCE(SUM(monto), 0) 
+            FROM alertas_cheques 
+            WHERE venta_id = :ventaId 
+              AND estado = 'PENDIENTE' 
+              AND (tipo_origen IS NULL OR tipo_origen != 'DEUDA_FIADO')
+        """;
+        Double result = namedJdbcTemplate.queryForObject(sql, new MapSqlParameterSource("ventaId", ventaId), Double.class);
         return result != null ? result : 0.0;
     }
 
     public void cancelarChequesPendientesByVentaId(Long ventaId) {
-        String sql = "UPDATE alertas_cheques SET estado = 'ANULADA' WHERE venta_id = ? AND estado = 'PENDIENTE'";
-        jdbcTemplate.update(sql, ventaId);
+        String sql = "UPDATE alertas_cheques SET estado = 'ANULADA' WHERE venta_id = :ventaId AND estado = 'PENDIENTE'";
+        namedJdbcTemplate.update(sql, new MapSqlParameterSource("ventaId", ventaId));
     }
 }

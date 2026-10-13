@@ -1,5 +1,6 @@
 package com.centralizesys.controller;
 
+import com.centralizesys.model.debt.DeudaReceiptDto;
 import com.centralizesys.model.debt.DeudaResponse;
 import com.centralizesys.model.debt.PagoDeuda;
 import com.centralizesys.model.debt.PagoDeudaRequest;
@@ -69,6 +70,11 @@ public class DeudoresController {
     @GetMapping("/{id}/pagos")
     public ResponseEntity<List<PagoDeuda>> getPagos(@PathVariable Long id) {
         return ResponseEntity.ok(service.getPagos(id));
+    }
+
+    @GetMapping("/{id}/receipt")
+    public ResponseEntity<DeudaReceiptDto> getDeudaReceipt(@PathVariable Long id) {
+        return ResponseEntity.ok(service.getDeudaReceipt(id));
     }
 
     @PostMapping("/pagos/{pagoId}/cancelar")

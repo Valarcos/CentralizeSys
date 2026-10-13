@@ -4,7 +4,7 @@ import { formatCurrency, formatDate } from '../utils/format';
 import SalesDetailModal from '../components/SalesDetailModal';
 import CancellationModal from '../components/CancellationModal';
 import PartialReturnModal from '../components/PartialReturnModal';
-import { generateReceipt, generateDebtorReceipt } from '../utils/pdfGenerator';
+import { printVentaOrDeudaReceipt } from '../services/receiptService';
 import toast from 'react-hot-toast';
 import './SalesHistoryPage.css';
 
@@ -29,6 +29,7 @@ export default function SalesHistoryPage() {
     const [saleToReturn, setSaleToReturn] = useState(null); // For PartialReturnModal
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [isPrinting, setIsPrinting] = useState(false);
+    const isPrintingRef = useRef(false);
     const isMounted = React.useRef(true);
 
     useEffect(() => {
@@ -130,96 +131,16 @@ export default function SalesHistoryPage() {
         }
     };
     const handlePrintDirect = async (saleId, printItems = true) => {
+        if (isPrintingRef.current) return;
+        isPrintingRef.current = true;
         setIsPrinting(true);
         try {
-            const saleRes = await api.get(`/ventas/${saleId}`);
-            const pagosRes = await api.get(`/ventas/${saleId}/pagos`);
-            const methodsRes = await api.get('/ventas/metodos-pago');
-
-            const sale = saleRes.data;
-            const pagos = pagosRes.data;
-            const methods = methodsRes.data;
-
-            const enrichedPayments = pagos.map(p => {
-                const method = methods.find(m => m.id === p.metodoPagoId);
-                return {
-                    name: method ? method.descripcion : 'Desconocido',
-                    amount: p.monto,
-                    pagoId: p.id,
-                    date: p.fechaPago
-                };
-            });
-
-            // For historic sales, we also fetch cheques to display explicit cheque dates instead of generic payments
-            let cheques = [];
-            try {
-                const chequesRes = await api.get(`/alertas/cheques/venta/${saleId}`);
-                cheques = chequesRes.data;
-            } catch (err) {
-                console.error('Error fetching cheques for historic PDF:', err);
-            }
-
-            const receiptData = {
-                id: sale.id,
-                date: sale.fecha,
-                client: sale.clienteNombre,
-                vendedor: sale.vendedorNombre,
-                saleType: sale.tipoVenta,
-                items: (sale.items || []).map(d => ({
-                    codigo: d.productoCodigo || d.codigoSnapshot,
-                    descripcion: d.productoNombre || d.descripcionSnapshot,
-                    quantity: d.cantidad,
-                    unitPrice: d.precioLista || (d.precioUnitario + (d.descuentoValor || 0)),
-                    discount: d.descuentoValor || 0,
-                    returnedQuantity: d.cantidadDevuelta || 0,
-                    reason: d.razonDescuento || null
-                })),
-                payments: enrichedPayments,
-                cheques: cheques,
-                total: sale.totalVenta,
-                globalDiscount: Math.max(0, Number(sale.descuentoGlobal) || 0),
-                globalSurcharge: Math.max(0, Number(sale.recargoGlobal) || 0)
-            };
-
-            // Check if there's a debt associated with this sale to print the Debt Receipt
-            let debtorInfo = null;
-            let pagosDeuda = [];
-            try {
-                const deudorRes = await api.get(`/deudores/venta/${saleId}`, { silent: true });
-                debtorInfo = deudorRes.data;
-                const pagosDeudaRes = await api.get(`/deudores/${debtorInfo.id}/pagos`);
-                pagosDeuda = pagosDeudaRes.data;
-            } catch (err) {
-                // If it fails with 404, there is no debt. Proceed with standard receipt.
-            }
-
-            if (debtorInfo) {
-
-                const debtorData = {
-                    ventaId: debtorInfo.ventaId,
-                    clienteNombre: debtorInfo.clienteNombre,
-                    fechaDeuda: debtorInfo.fechaDeuda,
-                    estado: debtorInfo.estado,
-                    montoOriginal: debtorInfo.montoOriginal,
-                    montoDeuda: debtorInfo.montoDeuda,
-                    saleDate: sale.fecha,
-                    user: sale.vendedorNombre || 'Sistema',
-                    saleType: sale.tipoVenta || 'ESTÁNDAR',
-                    items: receiptData.items,
-                    pagosDeuda: pagosDeuda,
-                    salePayments: enrichedPayments,
-                    cheques: cheques,
-                    globalDiscount: Math.max(0, Number(sale.descuentoGlobal) || 0),
-                    globalSurcharge: Math.max(0, Number(sale.recargoGlobal) || 0)
-                };
-                generateDebtorReceipt(debtorData, { printItems });
-            } else {
-                generateReceipt(receiptData, { printItems });
-            }
+            await printVentaOrDeudaReceipt(saleId, { printItems, methods: paymentMethods });
         } catch (error) {
             console.error('Error generating direct print:', error);
             toast.error('Error al generar el PDF. Intente abriendo el detalle.');
         } finally {
+            isPrintingRef.current = false;
             if (isMounted.current) setIsPrinting(false);
         }
     };

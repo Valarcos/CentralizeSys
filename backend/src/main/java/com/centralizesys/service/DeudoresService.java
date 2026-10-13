@@ -2,8 +2,10 @@ package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.exception.ResourceNotFoundException;
+import com.centralizesys.model.debt.DeudaReceiptDto;
 import com.centralizesys.model.debt.DeudaResponse;
 import com.centralizesys.model.debt.PagoDeuda;
+import com.centralizesys.model.sales.VentaReceiptDto;
 import com.centralizesys.model.debt.PagoDeudaRequest; // NEW
 import com.centralizesys.model.enums.DebtStatus; // Using Enum
 import com.centralizesys.repository.DeudoresRepository;
@@ -11,6 +13,8 @@ import com.centralizesys.util.Constants;// Using Constants
 import com.centralizesys.model.dto.PageResponse;
 import com.centralizesys.model.cheque.AlertaCheque;
 import com.centralizesys.repository.AlertaChequeRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,21 +23,26 @@ import java.util.List;
 @Service
 public class DeudoresService {
 
+    private static final Logger log = LoggerFactory.getLogger(DeudoresService.class);
+
     private final DeudoresRepository repository;
     private final AuditoriaService auditoriaService;
     private final com.centralizesys.repository.ClienteRepository clienteRepository;
     private final com.centralizesys.repository.MetodoPagoRepository metodoPagoRepository;
     private final AlertaChequeRepository alertaChequeRepository;
+    private final VentaService ventaService;
 
     public DeudoresService(DeudoresRepository repository, AuditoriaService auditoriaService,
                            com.centralizesys.repository.ClienteRepository clienteRepository,
                            com.centralizesys.repository.MetodoPagoRepository metodoPagoRepository,
-                           AlertaChequeRepository alertaChequeRepository) {
+                           AlertaChequeRepository alertaChequeRepository,
+                           VentaService ventaService) {
         this.repository = repository;
         this.auditoriaService = auditoriaService;
         this.clienteRepository = clienteRepository;
         this.metodoPagoRepository = metodoPagoRepository;
         this.alertaChequeRepository = alertaChequeRepository;
+        this.ventaService = ventaService;
     }
 
     public List<DeudaResponse> getAll() {
@@ -190,6 +199,43 @@ public class DeudoresService {
 
     public List<PagoDeuda> getPagos(Long id) {
         return repository.getPagosByDeudaId(id);
+    }
+
+    /**
+     * Builds an authoritative, single-transaction snapshot of a debt (with its parent sale)
+     * for receipt rendering. Annulled payments are excluded from the totals and the list.
+     */
+    @Transactional(readOnly = true)
+    public DeudaReceiptDto getDeudaReceipt(Long id) {
+        DeudaResponse deuda = getById(id);
+        VentaReceiptDto ventaReceipt = null;
+        if (deuda.getVentaId() != null) {
+            try {
+                ventaReceipt = ventaService.getVentaReceipt(deuda.getVentaId());
+            } catch (ResourceNotFoundException e) {
+                log.warn("Parent sale ID {} referenced by debt ID {} was not found. Generating degraded standalone debt receipt. Error: {}",
+                        deuda.getVentaId(), id, e.getMessage());
+            }
+        }
+        List<PagoDeuda> pagosDeuda = repository.getPagosByDeudaId(id).stream()
+                .filter(p -> !Boolean.TRUE.equals(p.getAnulado()))
+                .toList();
+        double totalPagado = pagosDeuda.stream().mapToDouble(PagoDeuda::getMonto).sum();
+
+        List<AlertaCheque> cheques = (ventaReceipt != null)
+                ? ventaReceipt.getCheques()
+                : (deuda.getVentaId() != null ? alertaChequeRepository.findByVentaId(deuda.getVentaId()) : java.util.Collections.emptyList());
+
+        return DeudaReceiptDto.builder()
+                .deuda(deuda)
+                .venta(ventaReceipt != null ? ventaReceipt.getVenta() : null)
+                .items(ventaReceipt != null ? ventaReceipt.getItems() : java.util.Collections.emptyList())
+                .pagosDeuda(pagosDeuda)
+                .cheques(cheques)
+                .totalOriginal(deuda.getMontoOriginal())
+                .totalPagado(Math.round(totalPagado * 100.0) / 100.0)
+                .saldoRestante(deuda.getMontoDeuda())
+                .build();
     }
 
     @Transactional

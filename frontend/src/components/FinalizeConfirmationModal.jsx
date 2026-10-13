@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import './ConfirmationModal.css';
 
 export default function FinalizeConfirmationModal({
@@ -7,15 +7,7 @@ export default function FinalizeConfirmationModal({
                                                       onCancel,
                                                       isSubmitting = false
                                                   }) {
-    const [inputValue, setInputValue] = useState('');
-
     if (!isOpen) return null;
-
-    const handleConfirm = () => {
-        if (inputValue.toUpperCase() === 'F') {
-            onConfirm();
-        }
-    };
 
     return (
         <div className="modal-overlay">
@@ -31,30 +23,13 @@ export default function FinalizeConfirmationModal({
                     <p>
                         No se podrán registrar pagos ni editar los productos incluidos en el presupuesto.
                     </p>
-                    <div style={{ marginTop: '1rem' }}>
-                        <label>Escriba la letra <strong>F</strong> para confirmar:</label>
-                        <input
-                            type="text"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '0.5rem',
-                                marginTop: '0.5rem',
-                                border: '1px solid #ccc',
-                                borderRadius: '4px'
-                            }}
-                            placeholder="F"
-                            autoFocus
-                        />
-                    </div>
                 </div>
                 <div className="modal-footer">
                     <button className="btn-secondary" onClick={onCancel} disabled={isSubmitting}>Volver</button>
                     <button
                         className="btn-danger"
-                        onClick={handleConfirm}
-                        disabled={isSubmitting || inputValue.toUpperCase() !== 'F'}
+                        onClick={onConfirm}
+                        disabled={isSubmitting}
                     >
                         {isSubmitting ? 'Finalizando...' : 'Confirmar Venta'}
                     </button>

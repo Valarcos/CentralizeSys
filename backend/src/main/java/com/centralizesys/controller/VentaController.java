@@ -5,6 +5,7 @@ import com.centralizesys.model.debt.PagoDeudaRequest;
 import com.centralizesys.model.sales.Venta;
 import com.centralizesys.model.sales.MetodoPago;
 import com.centralizesys.model.sales.VentaRequest;
+import com.centralizesys.model.sales.VentaReceiptDto;
 import com.centralizesys.model.sales.VentaResponse;
 import com.centralizesys.repository.MetodoPagoRepository;
 import com.centralizesys.security.SecurityUtils;
@@ -120,6 +121,11 @@ public class VentaController {
     @GetMapping("/pendientes/{id}")
     public ResponseEntity<VentaResponse> getPendienteById(@PathVariable Long id) {
         return getById(id);
+    }
+
+    @GetMapping("/{id}/receipt")
+    public ResponseEntity<VentaReceiptDto> getVentaReceipt(@PathVariable Long id) {
+        return ResponseEntity.ok(ventaService.getVentaReceipt(id));
     }
 
     @GetMapping("/{id}/pagos")

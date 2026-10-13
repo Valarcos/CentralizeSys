@@ -8,7 +8,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import CheckoutChequeModal from '../components/CheckoutChequeModal';
 import ProductConfigModal from '../components/ProductConfigModal';
 import ClientChangeModal from '../components/ClientChangeModal';
-import { generateReceipt } from '../utils/pdfGenerator';
+import { printVentaOrDeudaReceipt } from '../services/receiptService';
 import { blockNonNumericKeys, blockNonIntegerKeys, sanitizeNumericPaste, sanitizeIntegerPaste, enforceMoneyFormat } from '../utils/numericInput';
 import './VentaPage.css';
 
@@ -127,6 +127,8 @@ export default function VentaPage() {
     // Fetch Clients for Autocomplete — uses full ClienteResponse objects so we can
     // read saldo_a_favor for the payment method conditional logic.
     const isMounted = useRef(true);
+    const [isPrinting, setIsPrinting] = useState(false);
+    const isPrintingRef = useRef(false);
 
     useEffect(() => {
         isMounted.current = true;
@@ -606,8 +608,19 @@ export default function VentaPage() {
         window.location.reload(); // Simple reset for MVP
     };
 
-    const handlePrintReceipt = () => {
-        if (lastSale) generateReceipt(lastSale);
+    const handlePrintReceipt = async () => {
+        if (!lastSale || isPrintingRef.current) return;
+        isPrintingRef.current = true;
+        setIsPrinting(true);
+        try {
+            await printVentaOrDeudaReceipt(lastSale.id, { methods: paymentMethods });
+        } catch (error) {
+            console.error('Error generating receipt PDF:', error);
+            toast.error('Error al generar el PDF del comprobante');
+        } finally {
+            isPrintingRef.current = false;
+            if (isMounted.current) setIsPrinting(false);
+        }
     };
 
     // --- EFFECT: Fetch Payment Methods (Run Once) ---
@@ -989,6 +1002,7 @@ export default function VentaPage() {
                         <button
                             onClick={handlePrintReceipt}
                             className="btn-print"
+                            disabled={isPrinting}
                         >
                             🖨️ Imprimir Presupuesto
                         </button>

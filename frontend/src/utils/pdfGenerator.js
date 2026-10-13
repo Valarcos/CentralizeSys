@@ -7,8 +7,14 @@ import { LOGO_BASE64, LOGO_FORMAT } from './logoBase64';
 /**
  * Formats a number as $X,XXX,XXX.XX with thousand separators.
  */
+/**
+ * Formats a number as $X,XXX,XXX.XX with thousand separators.
+ * Adversarially hardened against NaN, Infinity, and IEEE-754 negative zero (-0.00).
+ */
 const formatMoney = (val) => {
-    const num = (val || 0).toFixed(2);
+    const parsed = Number(val);
+    const n = !Number.isFinite(parsed) || Math.abs(parsed) < 0.0001 ? 0 : parsed;
+    const num = n.toFixed(2);
     return '$' + num.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 };
 
@@ -44,6 +50,137 @@ const addLogoToDoc = (doc) => {
     const logoX = pageWidth - logoWidth - 8;
     const logoY = 5;
     doc.addImage(LOGO_BASE64, LOGO_FORMAT, logoX, logoY, logoWidth, logoHeight);
+};
+
+/**
+ * Builds the body rows of the items table, subtracting returned units from quantities and subtotals.
+ *
+ * @param {Array} items - [{codigo, descripcion, quantity, unitPrice, discount, returnedQuantity}]
+ * @returns {{rows: Array, hasReturns: boolean, totalDevuelto: number}}
+ */
+const buildItemRows = (items) => {
+    let hasReturns = false;
+    let totalDevuelto = 0;
+
+    const rows = (items || []).map(item => {
+        const unitPrice = item.unitPrice || 0;
+        const discount = item.discount || 0;
+        const finalUnit = Math.max(0, unitPrice - discount);
+        const returnedQty = item.returnedQuantity || 0;
+        const effectiveQty = Math.max(0, (item.quantity || 0) - returnedQty);
+        const subtotal = finalUnit * effectiveQty;
+
+        if (returnedQty > 0) {
+            hasReturns = true;
+            totalDevuelto += finalUnit * returnedQty;
+        }
+
+        return [
+            item.codigo || 'N/A',
+            item.descripcion || 'Producto',
+            returnedQty > 0 ? `${effectiveQty} (Orig: ${item.quantity}, Dev: ${returnedQty})` : `${item.quantity || 0}`,
+            formatMoney(unitPrice),
+            discount > 0 ? `-${formatMoney(discount)}` : '-',
+            formatMoney(subtotal)
+        ];
+    });
+
+    return { rows, hasReturns, totalDevuelto };
+};
+
+/**
+ * Draws the "Descuento / Recargo" summary table below the last drawn table.
+ * Item discounts only count units that were not returned. No-op when there is nothing to show.
+ *
+ * @param {jsPDF} doc
+ * @param {{items: Array, globalDiscount?: number, globalSurcharge?: number}} data
+ */
+const drawDiscountsTable = (doc, data) => {
+    const items = data.items || [];
+    const hasReason = items.some(item => (item.discount || 0) > 0 && item.reason);
+    const discountRows = [];
+
+    const pushRow = (label, reason, amountText) => {
+        discountRows.push(hasReason ? [label, reason, amountText] : [label, amountText]);
+    };
+
+    items.forEach(item => {
+        const discount = item.discount || 0;
+        const effectiveQty = Math.max(0, (item.quantity || 0) - (item.returnedQuantity || 0));
+        if (discount > 0 && effectiveQty > 0) {
+            pushRow(`${item.descripcion || 'Producto'} (x${effectiveQty})`, item.reason || '-', `-${formatMoney(discount * effectiveQty)}`);
+        }
+    });
+
+    if (data.globalDiscount > 0) {
+        pushRow('Descuento Global', '-', `-${formatMoney(data.globalDiscount)}`);
+    }
+    if (data.globalSurcharge > 0) {
+        pushRow('Recargo Global', '-', `${formatMoney(data.globalSurcharge)}`);
+    }
+
+    if (discountRows.length === 0) return;
+
+    const title = (data.globalSurcharge > 0) ? 'Descuento / Recargo' : 'Descuento';
+    autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 10,
+        head: hasReason ? [[title, 'Motivo', 'Monto']] : [[title, 'Monto']],
+        body: discountRows,
+        theme: 'grid',
+        headStyles: { fillColor: [0, 0, 0], textColor: 255 },
+        columnStyles: hasReason
+            ? { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 40, halign: 'right' } }
+            : { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right' } },
+        styles: { fontSize: 8, cellPadding: 1 },
+        margin: { top: 30 },
+        didDrawPage: () => {
+            if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+        },
+    });
+};
+
+/**
+ * Draws a cheque installments table (N° / Vencimiento / Estado / Importe) with a total footer.
+ *
+ * @param {jsPDF} doc
+ * @param {Array} cheques - [{monto, fechaCobro, estado}]
+ * @param {number} startY
+ * @param {string} title - Caption printed above the table
+ * @returns {number} The Y coordinate where the table ends
+ */
+const drawChequeTable = (doc, cheques, startY, title) => {
+    doc.setFontSize(10);
+    doc.setTextColor(0, 80, 160);
+    doc.text(title, 14, startY);
+    doc.setTextColor(0);
+
+    const total = cheques.reduce((sum, c) => sum + (c.monto || 0), 0);
+    autoTable(doc, {
+        startY: startY + 3,
+        head: [['N°', 'Vencimiento', 'Estado', 'Importe']],
+        body: cheques.map((c, idx) => [
+            String(idx + 1),
+            formatDateDDMMYYYY(c.fechaCobro),
+            c.estado || '-',
+            formatMoney(c.monto)
+        ]),
+        foot: [['', '', 'TOTAL', formatMoney(total)]],
+        theme: 'grid',
+        headStyles: { fillColor: [0, 80, 160], textColor: 255 },
+        footStyles: { fillColor: [220, 235, 250], textColor: [0, 0, 0], fontStyle: 'bold' },
+        columnStyles: {
+            0: { cellWidth: 15, halign: 'center' },
+            1: { cellWidth: 'auto' },
+            2: { cellWidth: 'auto', fontStyle: 'italic' },
+            3: { cellWidth: 30, halign: 'right' }
+        },
+        styles: { fontSize: 8, cellPadding: 1 },
+        margin: { top: 30 },
+        didDrawPage: () => {
+            if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
+        },
+    });
+    return doc.lastAutoTable.finalY;
 };
 
 // --- SALE RECEIPT PDF ---
@@ -82,10 +219,10 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
 
         doc.text(`Cliente: ${saleData.client || 'Consumidor Final'}`, 14, 49);
         doc.text(`Vendedor: ${saleData.vendedor || saleData.user || 'Sistema'}`, 14, 54);
-        doc.text(`Tipo Venta: ${saleData.saleType}`, 14, 59);
+        doc.text(`Tipo Venta: ${saleData.saleType || 'ESTÁNDAR'}`, 14, 59);
 
         if (options.printItems) {
-            const totalUnidades = saleData.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+            const totalUnidades = (saleData.items || []).reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
             doc.setFont(undefined, 'bold');
             doc.text(`Total de Artículos: ${totalUnidades}`, 14, 64);
             doc.setFont(undefined, 'normal');
@@ -103,28 +240,10 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
 
         if (options.printItems) {
 
-            const itemsBody = saleData.items.map(item => {
-                const unitPrice = item.unitPrice || 0;
-                const discount = item.discount || 0;
-                const finalUnit = Math.max(0, unitPrice - discount);
-                const returnedQty = item.returnedQuantity || 0;
-                const effectiveQty = item.quantity - returnedQty;
-                const subtotal = finalUnit * effectiveQty;
-
-                if (returnedQty > 0) {
-                    hasReturns = true;
-                    totalDevueltoFromItems += finalUnit * returnedQty;
-                }
-
-                return [
-                    item.codigo || 'N/A',
-                    item.descripcion,
-                    returnedQty > 0 ? `${effectiveQty} (Orig: ${item.quantity}, Dev: ${returnedQty})` : `${item.quantity}`,
-                    formatMoney(unitPrice),
-                    discount > 0 ? `-${formatMoney(discount)}` : '-',
-                    formatMoney(subtotal)
-                ];
-            });
+            const itemRows = buildItemRows(saleData.items);
+            const itemsBody = itemRows.rows;
+            hasReturns = itemRows.hasReturns;
+            totalDevueltoFromItems = itemRows.totalDevuelto;
 
             autoTable(doc, {
                 startY: 69,
@@ -150,80 +269,9 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
             });
         } // End options.printItems
 
-        // --- TABLE 2: DISCOUNTS SUMMARY (before payments, black header) ---
-        const discountRows = [];
-        const hasReason = saleData.items.some(item => item.discount > 0 && item.reason);
-
-        saleData.items.forEach(item => {
-            const discount = item.discount || 0;
-            const returnedQty = item.returnedQuantity || 0;
-            const effectiveQty = item.quantity - returnedQty;
-
-            if (discount > 0 && effectiveQty > 0) {
-                if (hasReason) {
-                    discountRows.push([
-                        `${item.descripcion} (x${effectiveQty})`,
-                        item.reason || '-',
-                        `-${formatMoney(discount * effectiveQty)}`
-                    ]);
-                } else {
-                    discountRows.push([
-                        `${item.descripcion} (x${effectiveQty})`,
-                        `-${formatMoney(discount * effectiveQty)}`
-                    ]);
-                }
-            }
-        });
-
-        if (saleData.globalDiscount > 0) {
-            if (hasReason) {
-                discountRows.push([
-                    'Descuento Global',
-                    '-',
-                    `-${formatMoney(saleData.globalDiscount)}`
-                ]);
-            } else {
-                discountRows.push([
-                    'Descuento Global',
-                    `-${formatMoney(saleData.globalDiscount)}`
-                ]);
-            }
-        }
-
-        if (saleData.globalSurcharge > 0) {
-            if (hasReason) {
-                discountRows.push([
-                    'Recargo Global',
-                    '-',
-                    `${formatMoney(saleData.globalSurcharge)}`
-                ]);
-            } else {
-                discountRows.push([
-                    'Recargo Global',
-                    `${formatMoney(saleData.globalSurcharge)}`
-                ]);
-            }
-        }
-
-        if (discountRows.length > 0) {
-            let discountY = doc.lastAutoTable.finalY + 10;
-            const title = (saleData.globalSurcharge > 0) ? 'Descuento / Recargo' : 'Descuento';
-
-            autoTable(doc, {
-                startY: discountY,
-                head: hasReason ? [[title, 'Motivo', 'Monto']] : [[title, 'Monto']],
-                body: discountRows,
-                theme: 'grid',
-                headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-                columnStyles: hasReason
-                    ? { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 40, halign: 'right' } }
-                    : { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right' } },
-                styles: { fontSize: 8, cellPadding: 1 },
-                margin: { top: 30 },
-                didDrawPage: () => {
-                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
-                },
-            });
+        // --- TABLE 2: DISCOUNTS SUMMARY (before payments, black header; itemised view only) ---
+        if (options.printItems) {
+            drawDiscountsTable(doc, saleData);
         }
         // End Table 2
 
@@ -235,7 +283,7 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
 
         const regularPagos = (saleData.payments || []).map(p => ({
             date: p.date,
-            name: p.name,
+            name: p.name || 'Desconocido',
             amount: p.amount,
             pagoId: p.pagoId,
             isCheque: false
@@ -258,7 +306,11 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
             return new Date(a.date || 0) - new Date(b.date || 0);
         });
 
-        if (saleData.isCheque) {
+        const hasChequeInstallments = Boolean(saleData.isCheque) && (saleData.cheques || []).length > 0;
+
+        if (hasChequeInstallments) {
+            drawChequeTable(doc, saleData.cheques, payY, 'Pagos: A cobrarse vía cheques');
+        } else if (saleData.isCheque) {
             doc.setFontSize(10);
             doc.setTextColor(0, 80, 160);
             doc.text("Pagos: A cobrarse vía cheques", 14, payY);
@@ -266,15 +318,15 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
             doc.lastAutoTable = { finalY: payY + 5 };
         } else if (allPayments.length > 0) {
             const hasCheques = saleData.cheques && saleData.cheques.length > 0;
-            const hasDetalle = hasCheques || allPayments.some(p => p.name.toLowerCase().includes('cheque') || p.isCheque);
+            const hasDetalle = hasCheques || allPayments.some(p => ((p.name || '').toLowerCase()).includes('cheque') || p.isCheque);
 
             let availableCheques = saleData.cheques ? [...saleData.cheques] : [];
             const paymentsBody = allPayments.map(p => {
-                let methodStr = p.name;
+                let methodStr = p.name || 'Desconocido';
                 if (p.amount < 0) {
                     negativePaymentsExist = true;
                     totalReembolsoEfectivo += Math.abs(p.amount);
-                    methodStr = `Reembolso (${p.name})`;
+                    methodStr = `Reembolso (${p.name || 'Desconocido'})`;
                 }
 
                 let detalle = '';
@@ -286,7 +338,7 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
                         if (idx !== -1) availableCheques.splice(idx, 1);
                     } else {
                         let matchedIdx = availableCheques.findIndex(c => c.pagoVentaId && c.pagoVentaId === p.pagoId);
-                        if (matchedIdx === -1 && p.name.toLowerCase().includes('cheque')) {
+                        if (matchedIdx === -1 && ((p.name || '').toLowerCase()).includes('cheque')) {
                             matchedIdx = availableCheques.findIndex(c => c.monto === p.amount);
                         }
                         if (matchedIdx !== -1) {
@@ -351,7 +403,7 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
 
             // Re-calculate the effective final total from the ground up:
             // eslint-disable-next-line no-unused-vars
-            let totalFinal = saleData.items.reduce((acc, item) => {
+            let totalFinal = (saleData.items || []).reduce((acc, item) => {
                 const effectiveQty = item.quantity - (item.returnedQuantity || 0);
                 const finalUnit = Math.max(0, (item.unitPrice || 0) - (item.discount || 0));
                 return acc + (finalUnit * effectiveQty);
@@ -466,8 +518,8 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
 
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
-        doc.text(`ID Venta: #${debtorData.ventaId}`, 14, 25);
-        doc.text(`Fecha de Venta: ${formatDateDDMMYYYY(debtorData.saleDate)}`, 14, 30);
+        doc.text(debtorData.ventaId ? `ID Venta: #${debtorData.ventaId}` : `Deuda ID: #${debtorData.id || ''}`, 14, 25);
+        doc.text(debtorData.ventaId ? `Fecha de Venta: ${formatDateDDMMYYYY(debtorData.saleDate)}` : `Fecha de Deuda: ${formatDateDDMMYYYY(debtorData.fechaDeuda)}`, 14, 30);
 
         // Print date (smaller, gray)
         doc.setFontSize(8);
@@ -476,7 +528,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         doc.setTextColor(0);
         doc.setFontSize(10);
 
-        doc.text(`Cliente: ${debtorData.clienteNombre}`, 14, 42);
+        doc.text(`Cliente: ${debtorData.clienteNombre || 'Consumidor Final'}`, 14, 42);
         doc.text(`Vendedor: ${debtorData.vendedor || debtorData.user || 'Sistema'}`, 14, 47);
         doc.text(`Tipo Venta: ${debtorData.saleType || 'ESTÁNDAR'}`, 14, 52);
 
@@ -495,7 +547,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         doc.setTextColor(0);
 
         if (options.printItems) {
-            const totalUnidades = debtorData.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+            const totalUnidades = (debtorData.items || []).reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
             doc.setFont(undefined, 'bold');
             doc.text(`Total de Artículos: ${totalUnidades}`, 14, 62);
             doc.setFont(undefined, 'normal');
@@ -509,21 +561,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
 
         if (options.printItems) {
             // --- TABLE 1: ITEMS ---
-            const itemsBody = debtorData.items.map(item => {
-                const unitPrice = item.unitPrice || 0;
-                const discount = item.discount || 0;
-                const finalUnit = Math.max(0, unitPrice - discount);
-                const subtotal = finalUnit * item.quantity;
-
-                return [
-                    item.codigo || 'N/A',
-                    item.descripcion,
-                    item.quantity,
-                    formatMoney(unitPrice),
-                    discount > 0 ? `-${formatMoney(discount)}` : '-',
-                    formatMoney(subtotal)
-                ];
-            });
+            const { rows: itemsBody } = buildItemRows(debtorData.items);
 
             autoTable(doc, {
                 startY: 67,
@@ -534,7 +572,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
                 columnStyles: {
                     0: { cellWidth: 20 },
                     1: { cellWidth: 'auto' },
-                    2: { cellWidth: 10, halign: 'center' },
+                    2: { cellWidth: 22, halign: 'center' },
                     3: { cellWidth: 22, halign: 'right' },
                     4: { cellWidth: 22, halign: 'right' },
                     5: { cellWidth: 28, halign: 'right' }
@@ -549,77 +587,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
             });
 
             // --- TABLE 2: DISCOUNTS SUMMARY (black header, black font) ---
-            const discountRows = [];
-            const hasReason = debtorData.items.some(item => item.discount > 0 && item.reason);
-
-            debtorData.items.forEach(item => {
-                const discount = item.discount || 0;
-                if (discount > 0) {
-                    if (hasReason) {
-                        discountRows.push([
-                            `${item.descripcion} (x${item.quantity})`,
-                            item.reason || '-',
-                            `-${formatMoney(discount * item.quantity)}`
-                        ]);
-                    } else {
-                        discountRows.push([
-                            `${item.descripcion} (x${item.quantity})`,
-                            `-${formatMoney(discount * item.quantity)}`
-                        ]);
-                    }
-                }
-            });
-
-            if (debtorData.globalDiscount > 0) {
-                if (hasReason) {
-                    discountRows.push([
-                        'Descuento Global',
-                        '-',
-                        `-${formatMoney(debtorData.globalDiscount)}`
-                    ]);
-                } else {
-                    discountRows.push([
-                        'Descuento Global',
-                        `-${formatMoney(debtorData.globalDiscount)}`
-                    ]);
-                }
-            }
-
-            if (debtorData.globalSurcharge > 0) {
-                if (hasReason) {
-                    discountRows.push([
-                        'Recargo Global',
-                        '-',
-                        `${formatMoney(debtorData.globalSurcharge)}`
-                    ]);
-                } else {
-                    discountRows.push([
-                        'Recargo Global',
-                        `${formatMoney(debtorData.globalSurcharge)}`
-                    ]);
-                }
-            }
-
-            if (discountRows.length > 0) {
-                let discountY = doc.lastAutoTable.finalY + 10;
-                const title = (debtorData.globalSurcharge > 0) ? 'Descuento / Recargo' : 'Descuento';
-
-                autoTable(doc, {
-                    startY: discountY,
-                    head: hasReason ? [[title, 'Motivo', 'Monto']] : [[title, 'Monto']],
-                    body: discountRows,
-                    theme: 'grid',
-                    headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-                    columnStyles: hasReason
-                        ? { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 40, halign: 'right' } }
-                        : { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right' } },
-                    styles: { fontSize: 8, cellPadding: 1 },
-                    margin: { top: 30 },
-                    didDrawPage: () => {
-                        if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
-                    },
-                });
-            }
+            drawDiscountsTable(doc, debtorData);
         } // End of options.printItems
 
         // --- TABLE 3: HISTORIAL DE PAGOS (Sale Payments + Debt Payments unified) ---
@@ -628,7 +596,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         // Merge original sale payments (using sale date) with debt payments (using fechaPago)
         const salePayments = (debtorData.salePayments || []).map(p => ({
             date: debtorData.saleDate || debtorData.fechaDeuda,
-            method: p.name,
+            method: p.name || 'Desconocido',
             amount: p.amount || 0,
             type: 'Venta',
             pagoId: p.pagoId
@@ -649,7 +617,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         const totalPagado = allPayments.reduce((sum, p) => sum + p.amount, 0);
 
         const hasCheques = debtorData.cheques && debtorData.cheques.length > 0;
-        const hasDetalle = hasCheques || allPayments.some(p => p.method.toLowerCase().includes('cheque'));
+        const hasDetalle = hasCheques || allPayments.some(p => ((p.method || '').toLowerCase()).includes('cheque'));
 
         let availableCheques = debtorData.cheques ? [...debtorData.cheques] : [];
 
@@ -657,8 +625,11 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
             const pagosBody = allPayments.map(p => {
                 let detalle = '-';
                 if (availableCheques.length > 0) {
-                    let matchedIdx = availableCheques.findIndex(c => c.pagoVentaId && c.pagoVentaId === p.pagoId);
-                    if (matchedIdx === -1 && p.method.toLowerCase().includes('cheque')) {
+                    let matchedIdx = availableCheques.findIndex(c =>
+                        (c.pagoVentaId && c.pagoVentaId === p.pagoId) ||
+                        (c.pagoDeudaId && c.pagoDeudaId === p.pagoId)
+                    );
+                    if (matchedIdx === -1 && ((p.method || '').toLowerCase()).includes('cheque')) {
                         matchedIdx = availableCheques.findIndex(c => c.monto === p.amount);
                     }
                     if (matchedIdx !== -1) {
@@ -724,8 +695,15 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
             doc.setTextColor(0);
         }
 
+        // --- PENDING CHEQUES (not yet cashed, therefore not part of Total Pagado) ---
+        let paymentsEndY = allPayments.length > 0 ? doc.lastAutoTable.finalY : pagosY;
+        const pendingCheques = (debtorData.cheques || []).filter(c => c.estado === 'PENDIENTE');
+        if (pendingCheques.length > 0) {
+            paymentsEndY = drawChequeTable(doc, pendingCheques, paymentsEndY + 8, 'Cheques pendientes de cobro');
+        }
+
         // --- DEBT SUMMARY BOX ---
-        let summaryY = (allPayments.length > 0 ? doc.lastAutoTable.finalY : pagosY) + 12;
+        let summaryY = paymentsEndY + 12;
         const montoOriginal = debtorData.montoOriginal || 0;
         const montoDeuda = debtorData.montoDeuda || 0;
 
@@ -832,7 +810,7 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         doc.setTextColor(0);
         doc.setFontSize(10);
 
-        doc.text(`Cliente: ${pedidoData.clienteNombre}`, 14, 42);
+        doc.text(`Cliente: ${pedidoData.clienteNombre || 'Consumidor Final'}`, 14, 42);
         doc.text(`Vendedor: ${pedidoData.vendedor || pedidoData.user || 'Sistema'}`, 14, 47);
 
         // Estado
@@ -843,27 +821,13 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         doc.setTextColor(0);
 
         if (options.printItems) {
-            const totalUnidades = pedidoData.items.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+            const totalUnidades = (pedidoData.items || []).reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
             doc.setFont(undefined, 'bold');
             doc.text(`Total de Artículos: ${totalUnidades}`, 14, 57);
             doc.setFont(undefined, 'normal');
 
             // --- TABLE 1: ITEMS ---
-            const itemsBody = pedidoData.items.map(item => {
-                const unitPrice = item.unitPrice || 0;
-                const discount = item.discount || 0;
-                const finalUnit = Math.max(0, unitPrice - discount);
-                const subtotal = finalUnit * item.quantity;
-
-                return [
-                    item.codigo || 'N/A',
-                    item.descripcion,
-                    item.quantity,
-                    formatMoney(unitPrice),
-                    discount > 0 ? `-${formatMoney(discount)}` : '-',
-                    formatMoney(subtotal)
-                ];
-            });
+            const { rows: itemsBody } = buildItemRows(pedidoData.items);
 
             autoTable(doc, {
                 startY: 62,
@@ -874,7 +838,7 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
                 columnStyles: {
                     0: { cellWidth: 20 },
                     1: { cellWidth: 'auto' },
-                    2: { cellWidth: 10, halign: 'center' },
+                    2: { cellWidth: 22, halign: 'center' },
                     3: { cellWidth: 22, halign: 'right' },
                     4: { cellWidth: 22, halign: 'right' },
                     5: { cellWidth: 28, halign: 'right' }
@@ -895,77 +859,9 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
             doc.lastAutoTable = { finalY: 57 };
         }
 
-        // --- TABLE 2: DISCOUNTS SUMMARY ---
-        const discountRows = [];
-        const hasReason = pedidoData.items.some(item => item.discount > 0 && item.reason);
-
-        pedidoData.items.forEach(item => {
-            const discount = item.discount || 0;
-            if (discount > 0) {
-                if (hasReason) {
-                    discountRows.push([
-                        `${item.descripcion} (x${item.quantity})`,
-                        item.reason || '-',
-                        `-${formatMoney(discount * item.quantity)}`
-                    ]);
-                } else {
-                    discountRows.push([
-                        `${item.descripcion} (x${item.quantity})`,
-                        `-${formatMoney(discount * item.quantity)}`
-                    ]);
-                }
-            }
-        });
-
-        if (pedidoData.globalDiscount > 0) {
-            if (hasReason) {
-                discountRows.push([
-                    'Descuento Global',
-                    '-',
-                    `-${formatMoney(pedidoData.globalDiscount)}`
-                ]);
-            } else {
-                discountRows.push([
-                    'Descuento Global',
-                    `-${formatMoney(pedidoData.globalDiscount)}`
-                ]);
-            }
-        }
-
-        if (pedidoData.globalSurcharge > 0) {
-            if (hasReason) {
-                discountRows.push([
-                    'Recargo Global',
-                    '-',
-                    `${formatMoney(pedidoData.globalSurcharge)}`
-                ]);
-            } else {
-                discountRows.push([
-                    'Recargo Global',
-                    `${formatMoney(pedidoData.globalSurcharge)}`
-                ]);
-            }
-        }
-
-        if (discountRows.length > 0) {
-            let discountY = doc.lastAutoTable.finalY + 10;
-            const title = (pedidoData.globalSurcharge > 0) ? 'Descuento / Recargo' : 'Descuento';
-
-            autoTable(doc, {
-                startY: discountY,
-                head: hasReason ? [[title, 'Motivo', 'Monto']] : [[title, 'Monto']],
-                body: discountRows,
-                theme: 'grid',
-                headStyles: { fillColor: [0, 0, 0], textColor: 255 },
-                columnStyles: hasReason
-                    ? { 0: { cellWidth: 'auto' }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 40, halign: 'right' } }
-                    : { 0: { cellWidth: 'auto' }, 1: { cellWidth: 40, halign: 'right' } },
-                styles: { fontSize: 8, cellPadding: 1 },
-                margin: { top: 30 },
-                didDrawPage: () => {
-                    if (doc.internal.getCurrentPageInfo().pageNumber > 1) addLogoToDoc(doc);
-                },
-            });
+        // --- TABLE 2: DISCOUNTS SUMMARY (itemised view only) ---
+        if (options.printItems) {
+            drawDiscountsTable(doc, pedidoData);
         }
 
         // --- TABLE 3: HISTORIAL DE PAGOS (Señas) ---
@@ -973,7 +869,7 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
 
         const regularPagos = (pedidoData.pagos || []).map(p => ({
             date: p.date,
-            name: p.name,
+            name: p.name || 'Desconocido',
             amount: p.amount,
             pagoId: p.pagoId,
             isCheque: false
@@ -1000,7 +896,7 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         const totalPagado = pedidoData.montoPagado || 0;
 
         const hasCheques = pedidoData.cheques && pedidoData.cheques.length > 0;
-        const hasDetalle = hasCheques || allPayments.some(p => p.name.toLowerCase().includes('cheque') || p.isCheque);
+        const hasDetalle = hasCheques || allPayments.some(p => ((p.name || '').toLowerCase()).includes('cheque') || p.isCheque);
 
         if (allPayments.length > 0) {
             let availableCheques = pedidoData.cheques ? [...pedidoData.cheques] : [];
@@ -1015,7 +911,7 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
                         if (idx !== -1) availableCheques.splice(idx, 1);
                     } else {
                         let matchedIdx = availableCheques.findIndex(c => c.pagoVentaId && c.pagoVentaId === p.pagoId);
-                        if (matchedIdx === -1 && p.name.toLowerCase().includes('cheque')) {
+                        if (matchedIdx === -1 && ((p.name || '').toLowerCase()).includes('cheque')) {
                             matchedIdx = availableCheques.findIndex(c => c.monto === p.amount);
                         }
                         if (matchedIdx !== -1) {
@@ -1115,19 +1011,21 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         doc.text(formatMoney(montoTotal), boxX + boxW - 4, summaryY + 14, { align: 'right' });
 
         let currentYOffsetPedido = 14;
-        if (pedidoData.descuentoGlobal > 0) {
+        const pendingDesc = pedidoData.descuentoGlobal || pedidoData.globalDiscount || 0;
+        if (pendingDesc > 0) {
             currentYOffsetPedido += 4;
             doc.setFontSize(8);
             doc.setTextColor(100);
-            doc.text(`(Incluye desc. global de ${formatMoney(pedidoData.descuentoGlobal)})`, boxX + 4, summaryY + currentYOffsetPedido);
+            doc.text(`(Incluye desc. global de ${formatMoney(pendingDesc)})`, boxX + 4, summaryY + currentYOffsetPedido);
             doc.setTextColor(0);
             doc.setFontSize(10);
         }
-        if (pedidoData.recargoGlobal > 0) {
+        const pendingRec = pedidoData.recargoGlobal || pedidoData.globalSurcharge || 0;
+        if (pendingRec > 0) {
             currentYOffsetPedido += 4;
             doc.setFontSize(8);
             doc.setTextColor(100);
-            doc.text(`(Incluye recargo global de ${formatMoney(pedidoData.recargoGlobal)})`, boxX + 4, summaryY + currentYOffsetPedido);
+            doc.text(`(Incluye recargo global de ${formatMoney(pendingRec)})`, boxX + 4, summaryY + currentYOffsetPedido);
             doc.setTextColor(0);
             doc.setFontSize(10);
         }

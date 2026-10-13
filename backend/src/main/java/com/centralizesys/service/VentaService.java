@@ -144,6 +144,49 @@ public class VentaService {
         );
     }
 
+    /**
+     * Builds an authoritative, single-transaction snapshot of a sale for receipt rendering.
+     * totalPagado mirrors finalizarVenta: active payments plus still-PENDIENTE cheques.
+     */
+    @Transactional(readOnly = true)
+    public VentaReceiptDto getVentaReceipt(Long id) {
+        VentaResponse venta = getVentaById(id);
+        List<AlertaCheque> cheques = alertaChequeRepository.findByVentaId(id).stream()
+                .filter(c -> !ANULADA.equals(c.getEstado()))
+                .toList();
+        com.centralizesys.model.debt.DeudaResponse deuda = deudoresRepository.findByVentaId(id).orElse(null);
+
+        double totalPagado = calculateReceiptTotalPagado(venta.getPagos(), cheques);
+        double totalVenta = venta.getTotalVenta() != null ? venta.getTotalVenta() : 0.0;
+
+        return VentaReceiptDto.builder()
+                .venta(venta)
+                .items(venta.getItems())
+                .pagos(venta.getPagos())
+                .cheques(cheques)
+                .deuda(deuda)
+                .subtotalItems(venta.getItems() != null ? roundMoney(venta.getItems().stream().mapToDouble(d -> d.getSubtotal() != null ? d.getSubtotal() : 0.0).sum()) : 0.0)
+                .totalDescuentos(venta.getDescuentoGlobal())
+                .totalRecargos(venta.getRecargoGlobal())
+                .totalVenta(totalVenta)
+                .totalPagado(totalPagado)
+                .saldoRestante(roundMoney(Math.max(0.0, totalVenta - totalPagado)))
+                .build();
+    }
+
+    private double calculateReceiptTotalPagado(List<PagoVenta> pagos, List<AlertaCheque> cheques) {
+        double pagosTotal = (pagos != null) ? pagos.stream().mapToDouble(PagoVenta::getMonto).sum() : 0.0;
+        double chequesPendientes = (cheques != null) ? cheques.stream()
+                .filter(c -> PENDIENTE.equals(c.getEstado()) && !"DEUDA_FIADO".equals(c.getTipoOrigen()))
+                .mapToDouble(AlertaCheque::getMonto)
+                .sum() : 0.0;
+        return roundMoney(pagosTotal + chequesPendientes);
+    }
+
+    private double roundMoney(double value) {
+        return Math.round(value * 100.0) / 100.0;
+    }
+
     @Transactional
     public VentaResponse registrarVenta(VentaRequest request) {
         validateRequest(request);

@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { formatCurrency } from '../utils/format';
-import { generateReceipt, generateDebtorReceipt } from '../utils/pdfGenerator';
+import { printVentaReceipt, printDeudaReceipt, printPendingReceipt } from '../services/receiptService';
 import toast from 'react-hot-toast';
 import '../pages/SalesHistoryPage.css';
 
 export default function SalesDetailModal({ sale, onClose, printMode = 'ticket', debtorInfo = null }) {
     const [paymentMethods, setPaymentMethods] = useState([]);
+    const [isPrinting, setIsPrinting] = useState(false);
+    const isPrintingRef = useRef(false);
     const isMounted = useRef(true);
 
     useEffect(() => {
@@ -25,105 +27,49 @@ export default function SalesDetailModal({ sale, onClose, printMode = 'ticket', 
 
     if (!sale) return null;
 
-    const handlePrintTicket = async () => {
-        if (!sale || !(paymentMethods || []).length) return;
+    // Debtor ID resolution:
+    // If debtorInfo is a DeudaResponse (from SalesHistoryPage), it has .id.
+    // If debtorInfo is a unified item from CobrosYPedidosPage, it has .tipo === 'FIADO' and .id_referencia.
+    const resolvedDebtorId = debtorInfo?.tipo === 'FIADO'
+        ? debtorInfo.id_referencia
+        : (printMode === 'debtor' ? (debtorInfo?.id ?? null) : null);
 
-        const enrichedPayments = (sale.pagos || []).map(p => {
-            const method = (paymentMethods || []).find(m => m.id === p.metodoPagoId);
-            return {
-                name: method ? method.descripcion : 'Desconocido',
-                amount: p.monto,
-                pagoId: p.id
-            };
-        });
+    const isDebtorMode = printMode === 'debtor' || (printMode === 'unified' && debtorInfo?.tipo === 'FIADO');
+    const isPendingMode = printMode === 'pending' || sale?.estado === 'PENDIENTE' || (printMode === 'unified' && debtorInfo?.tipo === 'PEDIDO');
 
-        let cheques = [];
+    // Shared guard: ref blocks re-entry synchronously, state drives the disabled buttons.
+    const runPrint = async (print, errorMsg) => {
+        if (isPrintingRef.current) return;
+        isPrintingRef.current = true;
+        setIsPrinting(true);
         try {
-            const chequesRes = await api.get(`/alertas/cheques/venta/${sale.id}`);
-            cheques = chequesRes.data;
-        } catch (err) {
-            console.error('Error fetching cheques for modal PDF:', err);
+            await print();
+        } catch (error) {
+            console.error(errorMsg, error);
+            toast.error(errorMsg);
+        } finally {
+            isPrintingRef.current = false;
+            if (isMounted.current) setIsPrinting(false);
         }
-
-        const receiptData = {
-            id: sale.id,
-            date: sale.fecha,
-            client: sale.clienteNombre,
-            user: sale.vendedorNombre || 'Sistema',
-            saleType: sale.tipoVenta || 'ESTÁNDAR',
-            items: (sale.items || []).map(d => ({
-                codigo: d.productoCodigo || d.codigoSnapshot,
-                descripcion: d.productoNombre || d.descripcionSnapshot,
-                quantity: d.cantidad,
-                returnedQuantity: d.cantidadDevuelta || 0,
-                unitPrice: d.precioLista || (d.precioUnitario + (d.descuentoValor || 0)),
-                discount: d.descuentoValor || 0,
-                reason: d.razonDescuento || null,
-                subtotal: d.subtotal
-            })),
-            payments: enrichedPayments,
-            cheques: cheques,
-            total: sale.totalVenta,
-            globalDiscount: Math.max(0, Number(sale.descuentoGlobal) || 0),
-            globalSurcharge: Math.max(0, Number(sale.recargoGlobal) || 0)
-        };
-
-        generateReceipt(receiptData);
     };
 
-    // Lazy-fetch: only called when user clicks the print button in debtor context
-    const handlePrintDeuda = async () => {
-        if (!sale || !debtorInfo) return;
-        try {
-            const pagosRes = await api.get(`/deudores/${debtorInfo.id}/pagos`);
-            const pagos = pagosRes.data;
-            const methods = paymentMethods || [];
+    const handlePrintTicket = () => runPrint(
+        () => printVentaReceipt(sale.id, { methods: paymentMethods }),
+        'Error al generar el PDF de la venta'
+    );
 
-            const enrichedSalePayments = (sale.pagos || []).map(p => {
-                const method = methods.find(m => m.id === p.metodoPagoId);
-                return { name: method ? method.descripcion : 'Desconocido', amount: p.monto, pagoId: p.id };
-            });
+    const handlePrintPending = () => runPrint(
+        () => printPendingReceipt(sale.id, { methods: paymentMethods }),
+        'Error al generar el PDF del pedido'
+    );
 
-            let cheques = [];
-            try {
-                const chequesRes = await api.get(`/alertas/cheques/venta/${sale.id}`);
-                cheques = chequesRes.data;
-            } catch (err) {
-                console.error('Error fetching cheques for debtor modal PDF:', err);
-            }
-
-            const debtorData = {
-                ventaId: debtorInfo.ventaId,
-                clienteNombre: debtorInfo.clienteNombre,
-                fechaDeuda: debtorInfo.fechaDeuda,
-                estado: debtorInfo.estado,
-                montoOriginal: debtorInfo.montoOriginal,
-                montoDeuda: debtorInfo.montoDeuda,
-                saleDate: sale.fecha,
-                user: sale.vendedorNombre || 'Sistema',
-                saleType: sale.tipoVenta || 'ESTÁNDAR',
-                items: (sale.items || []).map(d => ({
-                    codigo: d.productoCodigo || d.codigoSnapshot,
-                    descripcion: d.productoNombre || d.descripcionSnapshot,
-                    quantity: d.cantidad,
-                    returnedQuantity: d.cantidadDevuelta || 0,
-                    unitPrice: d.precioLista || (d.precioUnitario + (d.descuentoValor || 0)),
-                    discount: d.descuentoValor || 0,
-                    reason: d.razonDescuento || null,
-                    subtotal: d.subtotal
-                })),
-                pagosDeuda: pagos,
-                salePayments: enrichedSalePayments,
-                cheques: cheques,
-                globalDiscount: Math.max(0, Number(sale.descuentoGlobal) || 0),
-                globalSurcharge: Math.max(0, Number(sale.recargoGlobal) || 0)
-            };
-
-            generateDebtorReceipt(debtorData);
-        } catch (error) {
-            console.error('Error generating debtor PDF from modal:', error);
-            toast.error('Error al generar el PDF de deuda');
-        }
+    // Only called when the user clicks the print button in debtor context
+    const handlePrintDeuda = () => {
+        if (!resolvedDebtorId) return Promise.resolve();
+        return runPrint(
+            () => printDeudaReceipt(resolvedDebtorId, { methods: paymentMethods }),
+            'Error al generar el PDF de deuda'
+        );
     };
 
     return (
@@ -183,17 +129,27 @@ export default function SalesDetailModal({ sale, onClose, printMode = 'ticket', 
 
                 <div className="modal-actions">
                     <button onClick={onClose} className="btn-confirm secondary-action">Cerrar</button>
-                    {printMode === 'debtor' ? (
+                    {isDebtorMode ? (
                         <button
                             onClick={handlePrintDeuda}
                             className="btn-print primary-action"
+                            disabled={isPrinting}
                         >
                             🖨️ Imprimir Deuda
+                        </button>
+                    ) : isPendingMode ? (
+                        <button
+                            onClick={handlePrintPending}
+                            className="btn-print primary-action"
+                            disabled={isPrinting}
+                        >
+                            🖨️ Imprimir Pedido
                         </button>
                     ) : (
                         <button
                             onClick={handlePrintTicket}
                             className="btn-print primary-action"
+                            disabled={isPrinting}
                         >
                             🖨️ Imprimir Ticket
                         </button>

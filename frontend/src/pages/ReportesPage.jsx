@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import api from '../services/api';
-import { formatCurrency } from '../utils/format';
+import { formatCurrency, getTodayArgentina } from '../utils/format';
 import toast from 'react-hot-toast';
 import GastosVariosSection from '../components/GastosVariosSection';
 import JumpButtons from '../components/JumpButtons';
@@ -8,9 +8,9 @@ import './ReportesPage.css';
 
 export default function ReportesPage() {
     const [granularity, setGranularity] = useState('MONTH'); // 'DAY' | 'MONTH' | 'YEAR'
-    const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
-    const [year, setYear] = useState(() => new Date().getFullYear());
-    const [month, setMonth] = useState(() => new Date().getMonth() + 1);
+    const [date, setDate] = useState(() => getTodayArgentina());
+    const [year, setYear] = useState(() => Number(getTodayArgentina().slice(0, 4)));
+    const [month, setMonth] = useState(() => Number(getTodayArgentina().slice(5, 7)));
 
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(false);

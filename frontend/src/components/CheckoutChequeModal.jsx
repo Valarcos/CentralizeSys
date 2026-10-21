@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import './CheckoutChequeModal.css';
 import { blockNonNumericKeys, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
+import { getTodayArgentina } from '../utils/format';
 
 export default function CheckoutChequeModal({ isOpen, onClose, onConfirm, totalAmount, clientName }) {
     const [cheques, setCheques] = useState([{ monto: '', fechaCobro: '' }]);
@@ -183,7 +184,7 @@ export default function CheckoutChequeModal({ isOpen, onClose, onConfirm, totalA
                                     className="cheque-date-input"
                                     value={cheque.fechaCobro}
                                     onChange={(e) => handleChequeChange(index, 'fechaCobro', e.target.value)}
-                                    min={new Date().toISOString().split('T')[0]} // Prevents past dates based on client's local TZ
+                                    min={getTodayArgentina()} // Prevents past dates, evaluated in the Argentina business time zone
                                 />
                                 {cheques.length > 1 ? (
                                     <button

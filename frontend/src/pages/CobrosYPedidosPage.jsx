@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useBlocker, useNavigate, useLocation } from 'react-router-dom';
 import api from '../services/api';
-import { formatCurrency, formatDate, formatDateOnly } from '../utils/format';
+import { formatCurrency, formatDate, formatDateOnly, formatTimeArgentina } from '../utils/format';
 import toast from 'react-hot-toast';
 import SalesDetailModal from '../components/SalesDetailModal';
 import CancellationModal from '../components/CancellationModal';
@@ -10,7 +10,14 @@ import CobrarChequesModal from '../components/CobrarChequesModal';
 import CheckoutChequeModal from '../components/CheckoutChequeModal';
 import { printDeudaReceipt, printPendingReceipt, printVentaReceipt } from '../services/receiptService';
 import { blockNonNumericKeys, sanitizeNumericPaste, enforceMoneyFormat } from '../utils/numericInput';
+import { APP_REVALIDATE_EVENT } from '../utils/appEvents';
+import { getApiErrorMessage } from '../utils/apiError';
+import { isUserInteracting } from '../utils/uiGuards';
 import './CobrosYPedidosPage.css'; // Dedicated CSS for Pending Sales
+
+// Context-sized for ~4 concurrent users on a GCP e2-small: ~2.6 requests/min company-wide.
+const AUTO_REFRESH_INTERVAL_MS = 90000; // Visibility-aware polling period
+const MIN_AUTO_REFRESH_GAP_MS = 30000;  // Skip an automatic refresh if any fetch finished more recently
 
 export default function CobrosYPedidosPage() {
     const location = useLocation();
@@ -22,6 +29,12 @@ export default function CobrosYPedidosPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const isMounted = useRef(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const isRefreshingRef = useRef(false);
+    const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
+    const [refreshFailed, setRefreshFailed] = useState(false);
+    const lastFetchFinishedAtRef = useRef(0);
+    const isBusyRef = useRef(false);
 
     // Pagination state
     const [page, setPage] = useState(0);
@@ -68,6 +81,7 @@ export default function CobrosYPedidosPage() {
     // Confirmation Modals
     const [itemToFinalize, setItemToFinalize] = useState(null);
     const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+    const [finalizeError, setFinalizeError] = useState(null);
 
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [payments, setPayments] = useState([]); // Array of { methodId, methodName, amount, note }
@@ -157,14 +171,42 @@ export default function CobrosYPedidosPage() {
     const fetchItems = async () => {
         try {
             const response = await api.get('/cobros-y-pedidos');
-            if (isMounted.current) setItems(response.data);
-        } catch (error) {
-            console.error(error);
+            if (isMounted.current) {
+                setItems(response.data);
+                setLastUpdatedAt(new Date());
+                setRefreshFailed(false);
+            }
+        } catch {
             // Error handled by global api interceptor
+            if (isMounted.current) setRefreshFailed(true);
         } finally {
+            lastFetchFinishedAtRef.current = Date.now();
             if (isMounted.current) setLoading(false);
         }
     };
+
+    // Non-overlapping refresh used by the manual button (silent=false) and the automatic
+    // triggers (silent=true: no error toast every cycle; failure is surfaced by refreshFailed).
+    const refreshItems = useCallback(async ({ silent = false } = {}) => {
+        if (isRefreshingRef.current) return;
+        isRefreshingRef.current = true;
+        if (isMounted.current) setIsRefreshing(true);
+        try {
+            const response = await api.get('/cobros-y-pedidos', silent ? { silent: true } : undefined);
+            if (isMounted.current) {
+                setItems(response.data);
+                setLastUpdatedAt(new Date());
+                setRefreshFailed(false);
+            }
+        } catch {
+            // Visible failure: stale-data indicator (manual refreshes also get the global toast)
+            if (isMounted.current) setRefreshFailed(true);
+        } finally {
+            lastFetchFinishedAtRef.current = Date.now();
+            isRefreshingRef.current = false;
+            if (isMounted.current) setIsRefreshing(false);
+        }
+    }, []);
 
     const fetchPaymentMethods = async () => {
         try {
@@ -181,6 +223,33 @@ export default function CobrosYPedidosPage() {
         fetchPaymentMethods();
         return () => { isMounted.current = false; };
     }, []);
+
+    // Mirrors "user is operating" state into a ref (written in an effect, never during render)
+    // so the long-lived timer/event subscription below always reads fresh values without re-subscribing.
+    useEffect(() => {
+        isBusyRef.current = loading || isSubmitting || isLoadingSale || isPrinting
+            || showPayModal || showChequeModal || showFinalizeModal || showCobrarChequesModal
+            || Boolean(itemToCancel) || Boolean(viewSale);
+    }, [loading, isSubmitting, isLoadingSale, isPrinting, showPayModal, showChequeModal,
+        showFinalizeModal, showCobrarChequesModal, itemToCancel, viewSale]);
+
+    // Visibility-aware smart polling + global revalidation (event emitted by AppLayout).
+    // Guards: any modal open in DOM (.modal-overlay via isUserInteracting), hidden tab, user operating/submitting, and minimum gap.
+    useEffect(() => {
+        const autoRefresh = () => {
+            if (isUserInteracting() || isBusyRef.current || isSubmittingRef.current) return;
+            if (Date.now() - lastFetchFinishedAtRef.current < MIN_AUTO_REFRESH_GAP_MS) return;
+            refreshItems({ silent: true });
+        };
+
+        const intervalId = setInterval(autoRefresh, AUTO_REFRESH_INTERVAL_MS);
+        window.addEventListener(APP_REVALIDATE_EVENT, autoRefresh);
+
+        return () => {
+            clearInterval(intervalId);
+            window.removeEventListener(APP_REVALIDATE_EVENT, autoRefresh);
+        };
+    }, [refreshItems]);
 
     const handleOpenPayment = async (item) => {
         // Blueprint §4&5: CHEQUE tipo opens the dedicated installment cobro modal.
@@ -496,11 +565,8 @@ export default function CobrosYPedidosPage() {
         });
     };
 
-    const handleFinalizarPedido = async (item) => {
-        if (!window.confirm(`¿Desea finalizar el pedido de ${item.cliente_nombre}? Se registrará como una venta definitiva.`)) {
-            return;
-        }
-
+    const handleFinalizarPedido = (item) => {
+        setFinalizeError(null);
         setItemToFinalize(item);
         setShowFinalizeModal(true);
     };
@@ -510,7 +576,9 @@ export default function CobrosYPedidosPage() {
         try {
             isSubmittingRef.current = true;
             if (isMounted.current) setIsSubmitting(true);
-            await api.post(`/ventas/${itemToFinalize.id_referencia}/finalizar`);
+            setFinalizeError(null);
+            // silent: the inline banner is the single, in-context feedback (no duplicate toast behind the overlay)
+            await api.post(`/ventas/${itemToFinalize.id_referencia}/finalizar`, null, { silent: true });
             toast.success("Pedido finalizado con éxito.");
             await fetchItems();
             if (isMounted.current) {
@@ -518,8 +586,9 @@ export default function CobrosYPedidosPage() {
                 setItemToFinalize(null);
             }
         } catch (error) {
-            console.error(error);
-            // Error handled by global api interceptor
+            if (isMounted.current) {
+                setFinalizeError(getApiErrorMessage(error, 'Error al finalizar el pedido. Compruebe los pagos o el estado del pedido.'));
+            }
             await fetchItems();
         } finally {
             isSubmittingRef.current = false;
@@ -633,6 +702,8 @@ export default function CobrosYPedidosPage() {
         }
     }, [filteredAndSearchedItems.length, page, totalPages]);
 
+    const lastUpdatedLabel = lastUpdatedAt ? formatTimeArgentina(lastUpdatedAt) : null;
+
     return (
         <div className="cobros-page container">
             <div className="cobros-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
@@ -656,6 +727,26 @@ export default function CobrosYPedidosPage() {
                         >
                             ✕
                         </button>
+                    )}
+                </div>
+                <div className="cobros-refresh-container">
+                    <button
+                        type="button"
+                        className="cobros-refresh-btn"
+                        onClick={() => refreshItems({ silent: false })}
+                        disabled={isRefreshing || loading}
+                        aria-label="Actualizar listado de cobros y pedidos"
+                    >
+                        <span className={isRefreshing ? 'cobros-refresh-icon spinning' : 'cobros-refresh-icon'} aria-hidden="true">↻</span>
+                        {isRefreshing ? ' Actualizando...' : ' Actualizar'}
+                    </button>
+                    {refreshFailed && (
+                        <span className="cobros-refresh-status error" role="status">
+                            ⚠️ No se pudo actualizar{lastUpdatedLabel ? `. Datos de las ${lastUpdatedLabel} (Arg)` : ''}
+                        </span>
+                    )}
+                    {!refreshFailed && lastUpdatedLabel && (
+                        <span className="cobros-refresh-status" role="status">Actualizado: {lastUpdatedLabel} (Arg)</span>
                     )}
                 </div>
             </div>
@@ -1268,8 +1359,11 @@ export default function CobrosYPedidosPage() {
                 onCancel={() => {
                     setShowFinalizeModal(false);
                     setItemToFinalize(null);
+                    setFinalizeError(null);
                 }}
                 isSubmitting={isSubmitting}
+                error={finalizeError}
+                clientName={itemToFinalize?.cliente_nombre}
             />
 
             {/* Blueprint §4&5: Custom cobrar modal for cheque installments */}

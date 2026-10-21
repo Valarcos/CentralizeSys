@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LOGO_BASE64, LOGO_FORMAT } from './logoBase64';
+import { getTodayArgentina, toDateKeyArgentina } from './format';
 
 // --- HELPERS ---
 
@@ -24,8 +25,11 @@ const formatMoney = (val) => {
  */
 const formatDateDDMMYYYY = (dateStr) => {
     if (!dateStr) return 'N/A';
-    const match = String(dateStr).match(/(\d{4})-(\d{2})-(\d{2})/);
-    if (match) return `${match[3]}/${match[2]}/${match[1]}`;
+    const key = toDateKeyArgentina(dateStr);
+    if (key) {
+        const [year, month, day] = key.split('-');
+        return `${day}/${month}/${year}`;
+    }
     // Fallback: parse with local time forced
     const safe = String(dateStr).includes('T') ? dateStr : dateStr + 'T12:00:00';
     const d = new Date(safe);
@@ -199,39 +203,37 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
 
         // --- HEADER ---
         doc.setFontSize(18);
-        doc.text("REMITO", pageWidth / 2, 15, { align: 'center' });
-
-        doc.setFontSize(10);
         doc.setFont(undefined, 'bold');
-        doc.text('Presupuesto', 14, 25);
-        doc.setFont(undefined, 'normal');
+        const pdfTitle = options.printItems ? "REMITO" : "RESUMEN DE PAGOS";
+        doc.text(pdfTitle, pageWidth / 2, 15, { align: 'center' });
 
+        doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
-        doc.text(`Venta ID: #${saleData.id}`, 14, 32);
-        doc.text(`Fecha de Venta: ${formatDateDDMMYYYY(saleData.date)}`, 14, 37);
+        doc.text(`Venta ID: #${saleData.id}`, 14, 25);
+        doc.text(`Fecha de Venta: ${formatDateDDMMYYYY(saleData.date)}`, 14, 30);
 
         // PDF print date (smaller, gray)
         doc.setFontSize(8);
         doc.setTextColor(120);
-        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(new Date().toISOString())}`, 14, 42);
+        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(getTodayArgentina())}`, 14, 35);
         doc.setTextColor(0);
         doc.setFontSize(10);
 
-        doc.text(`Cliente: ${saleData.client || 'Consumidor Final'}`, 14, 49);
-        doc.text(`Vendedor: ${saleData.vendedor || saleData.user || 'Sistema'}`, 14, 54);
-        doc.text(`Tipo Venta: ${saleData.saleType || 'ESTÁNDAR'}`, 14, 59);
+        doc.text(`Cliente: ${saleData.client || 'Consumidor Final'}`, 14, 42);
+        doc.text(`Vendedor: ${saleData.vendedor || saleData.user || 'Sistema'}`, 14, 47);
+        doc.text(`Tipo Venta: ${saleData.saleType || 'ESTÁNDAR'}`, 14, 52);
 
         if (options.printItems) {
             const totalUnidades = (saleData.items || []).reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
             doc.setFont(undefined, 'bold');
-            doc.text(`Total de Artículos: ${totalUnidades}`, 14, 64);
+            doc.text(`Total de Artículos: ${totalUnidades}`, 14, 57);
             doc.setFont(undefined, 'normal');
         } else {
             doc.setFontSize(12);
             doc.setFont(undefined, 'bold');
-            doc.text("RESUMEN DE PAGOS", 14, 64);
+            doc.text("RESUMEN DE PAGOS", 14, 57);
             doc.setFont(undefined, 'normal');
-            doc.lastAutoTable = { finalY: 64 };
+            doc.lastAutoTable = { finalY: 57 };
         }
 
         // --- TABLE 1: ITEMS ---
@@ -246,7 +248,7 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
             totalDevueltoFromItems = itemRows.totalDevuelto;
 
             autoTable(doc, {
-                startY: 69,
+                startY: 62,
                 head: [['Código', 'Descripción', 'Cant.', 'Precio', 'Desc.', 'Subtotal']],
                 body: itemsBody,
                 theme: 'grid',
@@ -472,10 +474,11 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
             }
         }
 
-        // Dynamic filename: Venta- [Client] - dd-mm-YYYY.pdf
+        // Dynamic filename: Venta - [Client] - dd-mm-YYYY.pdf or Resumen de Pagos - Venta - [Client] - dd-mm-YYYY.pdf
         const clientName = saleData.client || 'Consumidor Final';
         const dateStr = formatDateDDMMYYYY(saleData.date).replace(/\//g, '-');
-        doc.save(`Venta- ${clientName} - ${dateStr}.pdf`);
+        const filePrefix = options.printItems ? "Venta" : "Resumen de Pagos - Venta";
+        doc.save(`${filePrefix} - ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating PDF:", error);
         alert("Error al generar el PDF. Revise la consola.");
@@ -514,7 +517,8 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         // --- HEADER ---
         doc.setFontSize(18);
         doc.setFont(undefined, 'bold');
-        doc.text("PRESUPUESTO", pageWidth / 2, 15, { align: 'center' });
+        const pdfTitle = options.printItems ? "ESTADO DE CUENTA" : "RESUMEN DE PAGOS";
+        doc.text(pdfTitle, pageWidth / 2, 15, { align: 'center' });
 
         doc.setFont(undefined, 'normal');
         doc.setFontSize(10);
@@ -524,7 +528,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         // Print date (smaller, gray)
         doc.setFontSize(8);
         doc.setTextColor(120);
-        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(new Date().toISOString())}`, 14, 35);
+        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(getTodayArgentina())}`, 14, 35);
         doc.setTextColor(0);
         doc.setFontSize(10);
 
@@ -774,8 +778,9 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
 
         // Save
         const clientName = debtorData.clienteNombre || 'Consumidor Final';
-        const dateStr = formatDateDDMMYYYY(debtorData.fechaDeuda || debtorData.saleDate || new Date().toISOString()).replace(/\//g, '-');
-        doc.save(`Presupuesto- ${clientName} - ${dateStr}.pdf`);
+        const dateStr = formatDateDDMMYYYY(debtorData.fechaDeuda || debtorData.saleDate || getTodayArgentina()).replace(/\//g, '-');
+        const filePrefix = options.printItems ? "Estado de Cuenta" : "Resumen de Pagos - Fiado";
+        doc.save(`${filePrefix} - ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating debtor PDF:", error);
         alert("Error al generar el PDF de deuda. Revise la consola.");
@@ -806,7 +811,7 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         // Print date
         doc.setFontSize(8);
         doc.setTextColor(120);
-        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(new Date().toISOString())}`, 14, 35);
+        doc.text(`Fecha de Impresión: ${formatDateDDMMYYYY(getTodayArgentina())}`, 14, 35);
         doc.setTextColor(0);
         doc.setFontSize(10);
 
@@ -1052,8 +1057,8 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         doc.setTextColor(0);
 
         const clientName = pedidoData.clienteNombre || 'Consumidor Final';
-        const dateStr = formatDateDDMMYYYY(pedidoData.fechaCreacion || new Date().toISOString()).replace(/\//g, '-');
-        const filePrefix = options.printItems ? "Presupuesto" : "Resumen de Pagos";
+        const dateStr = formatDateDDMMYYYY(pedidoData.fechaCreacion || getTodayArgentina()).replace(/\//g, '-');
+        const filePrefix = options.printItems ? "Presupuesto" : "Resumen de Pagos - Presupuesto";
         doc.save(`${filePrefix} - ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating pedido PDF:", error);

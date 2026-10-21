@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
-import { formatCurrency, formatDate } from '../utils/format';
+import { formatCurrency, formatDate, getTodayArgentina, getDaysAgoArgentina } from '../utils/format';
 import SalesDetailModal from '../components/SalesDetailModal';
 import CancellationModal from '../components/CancellationModal';
 import PartialReturnModal from '../components/PartialReturnModal';
@@ -10,12 +10,8 @@ import './SalesHistoryPage.css';
 
 export default function SalesHistoryPage() {
     // Default: Last 30 days
-    const [startDate, setStartDate] = useState(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        return d.toISOString().split('T')[0];
-    });
-    const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [startDate, setStartDate] = useState(() => getDaysAgoArgentina(30));
+    const [endDate, setEndDate] = useState(() => getTodayArgentina());
     const [searchQuery, setSearchQuery] = useState('');
 
     const [page, setPage] = useState(0);

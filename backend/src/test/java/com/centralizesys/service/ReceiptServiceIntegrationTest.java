@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Integration coverage for the atomic receipt snapshots (sale + debt) used by PDF printing.
  */
-class ReceiptSnapshotIntegrationTest extends BaseIntegrationTest {
+class ReceiptServiceIntegrationTest extends BaseIntegrationTest {
 
     private static final long CASH_METHOD_ID = 1L;
     private static final double UNIT_PRICE = 100.0;

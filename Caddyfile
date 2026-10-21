@@ -1,7 +1,21 @@
+{
+	servers {
+		protocols h1 h2
+	}
+}
+
 mariaclosys.com.ar, www.mariaclosys.com.ar {
+	# D-1: invalidate any cached HTTP/3 alternative service in returning browsers (RFC 7838 §3).
+	# Remove after >= 30 days (default Alt-Svc max-age) once clients have refreshed.
+	header Alt-Svc "clear"
+
 	# Proxy all /api requests to the Spring Boot backend
 	handle /api/* {
-		reverse_proxy backend:8080
+		reverse_proxy backend:8080 {
+			header_down Cache-Control "no-store, no-cache, must-revalidate"
+			header_down Pragma "no-cache"
+			header_down Expires "0"
+		}
 	}
 
 	# Proxy all other requests to the Nginx serving the React frontend

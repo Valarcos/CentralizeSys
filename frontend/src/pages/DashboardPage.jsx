@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import NegativeStockCorrectionModal from '../components/NegativeStockCorrectionModal';
+import { APP_REVALIDATE_EVENT } from '../utils/appEvents';
+import { isUserInteracting } from '../utils/uiGuards';
 import './DashboardPage.css';
 
 export default function DashboardPage() {
@@ -14,6 +16,7 @@ export default function DashboardPage() {
     const [backupWarning, setBackupWarning] = useState(false);
     const [systemAlerts, setSystemAlerts] = useState([]);
     const isMounted = useRef(true);
+    const isFetchingRef = useRef(false);
     const navigate = useNavigate();
 
     const refreshNegativeStock = async () => {
@@ -25,8 +28,8 @@ export default function DashboardPage() {
             if (data.length === 0) {
                 setShowCorrectionModal(false);
             }
-        } catch (error) {
-            console.error('Error refreshing stock alerts:', error);
+        } catch {
+            // Error managed by global api interceptor
         }
     };
 
@@ -35,79 +38,69 @@ export default function DashboardPage() {
         setUserName(localStorage.getItem('userName') || 'Usuario');
         setUserRole(localStorage.getItem('userRole') || 'EMPLEADO');
 
-        const fetchDashboardData = async () => {
+        const fetchDashboardData = async ({ silent = false } = {}) => {
+            if (isFetchingRef.current) return;
+            isFetchingRef.current = true;
             try {
-                const [stockRes, backupRes, reminderRes, systemRes, chequesRes] = await Promise.all([
-                    api.get('/productos/alerts'),
-                    api.get('/backups/last').catch(() => ({ data: null })),
-                    api.get('/deudores/reminder').catch(() => ({ data: false })),
-                    api.get('/system/alerts').catch(() => ({ data: { alerts: [] } })),
-                    api.get('/alertas/cheques').catch(() => ({ data: [] }))
-                ]);
+                const response = await api.get('/dashboard/summary', silent ? { silent: true } : undefined);
+                if (!isMounted.current || !response.data) return;
 
-                if (!isMounted.current) return;
+                const { stockAlerts, lastBackup, hasActiveDebts, pendingCheques, systemAlerts } = response.data;
 
                 // Negative Stock Alerts — banner shows whenever there are negative products
-                setNegativeStockProducts(stockRes.data && stockRes.data.length > 0 ? stockRes.data : []);
+                setNegativeStockProducts(Array.isArray(stockAlerts) ? stockAlerts : []);
 
                 // Debtor Logic
-                if (reminderRes.data === true) {
-                    setHasActiveDebts(true);
-                }
+                setHasActiveDebts(Boolean(hasActiveDebts));
 
                 // Cheques Logic
-                if (chequesRes.data && chequesRes.data.length > 0) {
-                    setPendingCheques(chequesRes.data);
-                }
+                setPendingCheques(Array.isArray(pendingCheques) ? pendingCheques : []);
 
                 // Check Backup Status
-                if (!backupRes.data) {
-                    setBackupWarning(true); // Never backed up or endpoint 404
+                if (!lastBackup) {
+                    setBackupWarning(true); // Never backed up
                 } else {
-                    const lastDate = new Date(backupRes.data.date || backupRes.data);
+                    const lastDate = new Date(lastBackup.date || lastBackup);
                     const now = new Date();
                     const hoursDiff = (now - lastDate) / (1000 * 60 * 60);
-                    if (hoursDiff > 24) {
-                        setBackupWarning(true);
-                    }
+                    setBackupWarning(hoursDiff > 24);
                 }
 
                 // System Alerts (e.g., restore failures)
-                if (systemRes.data?.alerts?.length > 0) {
-                    setSystemAlerts(systemRes.data.alerts);
+                if (Array.isArray(systemAlerts) && systemAlerts.length > 0) {
+                    setSystemAlerts(systemAlerts);
+                } else {
+                    setSystemAlerts([]);
                 }
-
-            } catch (error) {
-                console.error('Error loading dashboard data:', error);
+            } catch {
+                // Intercepted globally; silent mode suppresses toasts during automatic cycles
+            } finally {
+                isFetchingRef.current = false;
             }
         };
 
         // Initial Load
-        fetchDashboardData();
+        fetchDashboardData({ silent: false });
 
-        // Smart Timer: Check clock every minute, trigger at specific hours
-        const targetHours = [8, 10, 12, 14, 16, 18, 20];
-        let lastCheckedHour = new Date().getHours();
-
-        const checkTime = () => {
-            const now = new Date();
-            const currentHour = now.getHours();
-
-            if (targetHours.includes(currentHour) && currentHour !== lastCheckedHour) {
-                console.log(`⏰ Triggering Scheduled Stock Check at ${currentHour}:00`);
-                fetchDashboardData();
-                lastCheckedHour = currentHour;
+        // Smart Polling (Decisión D-4): limitado exclusivamente a Dashboard (120s) y CobrosYPedidos (90s)
+        // Intervalo pausado automáticamente si cualquier modal está montado en el DOM (.modal-overlay) o la pestaña está oculta
+        const intervalId = setInterval(() => {
+            if (!isUserInteracting() && isMounted.current) {
+                fetchDashboardData({ silent: true });
             }
-            else if (currentHour !== lastCheckedHour) {
-                lastCheckedHour = currentHour;
+        }, 120 * 1000);
+
+        // Revalidación inmediata al restaurar la app tras inactividad (emitido por AppLayout)
+        const handleRevalidate = () => {
+            if (!isUserInteracting() && isMounted.current) {
+                fetchDashboardData({ silent: true });
             }
         };
-
-        // Check every 60 seconds to catch the hour change
-        const intervalId = setInterval(checkTime, 60 * 1000);
+        window.addEventListener(APP_REVALIDATE_EVENT, handleRevalidate);
 
         return () => {
             clearInterval(intervalId);
+            window.removeEventListener(APP_REVALIDATE_EVENT, handleRevalidate);
             isMounted.current = false;
         };
     }, []);

@@ -3,6 +3,10 @@ import { useState, useEffect, useRef } from 'react';
 import LogoutModal from '../components/LogoutModal';
 import api from '../services/api';
 import './AppLayout.css';
+import { APP_REVALIDATE_EVENT } from '../utils/appEvents';
+
+const MIN_HIDDEN_DURATION_MS = 20000; // Minimum time in background to justify a revalidation
+const REVALIDATE_COOLDOWN_MS = 60000; // Hard rate limit between automatic revalidations
 
 export default function AppLayout() {
     const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -17,10 +21,55 @@ export default function AppLayout() {
     const isVentasPage = location.pathname.startsWith('/ventas');
     const isFullWidthPage = location.pathname === '/cobros-y-pedidos' || location.pathname === '/historial-ventas';
 
+    // Non-reactive time trackers (no re-renders). Written only inside event handlers.
+    const lastHiddenTimeRef = useRef(0);
+    const lastRevalidateTimeRef = useRef(0);
+
     useEffect(() => {
         setUserName(localStorage.getItem('userName') || 'Usuario');
         setUserRole(localStorage.getItem('userRole') || 'EMPLEADO');
     }, [location.pathname]);
+
+    // Global revalidation when the app returns from background / bfcache (iPad Safari).
+    // Unconditional, root-level hook with an empty dependency array: subscribes once, cannot loop.
+    useEffect(() => {
+        const triggerSafeRevalidation = (source) => {
+            const now = Date.now();
+            if (now - lastRevalidateTimeRef.current < REVALIDATE_COOLDOWN_MS) {
+                return;
+            }
+            lastRevalidateTimeRef.current = now;
+            window.dispatchEvent(new CustomEvent(APP_REVALIDATE_EVENT, { detail: { source, timestamp: now } }));
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') {
+                lastHiddenTimeRef.current = Date.now();
+            } else if (document.visibilityState === 'visible') {
+                const hiddenDuration = Date.now() - lastHiddenTimeRef.current;
+                const wasHiddenLongEnough = lastHiddenTimeRef.current > 0 && hiddenDuration >= MIN_HIDDEN_DURATION_MS;
+                lastHiddenTimeRef.current = 0; // Reset after consuming to prevent spurious re-triggers
+                if (wasHiddenLongEnough) {
+                    triggerSafeRevalidation('visibilitychange');
+                }
+            }
+        };
+
+        const handlePageShow = (event) => {
+            // persisted === true => page restored from the back/forward cache (Safari iPadOS)
+            if (event.persisted) {
+                triggerSafeRevalidation('pageshow-bfcache');
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pageshow', handlePageShow);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('pageshow', handlePageShow);
+        };
+    }, []);
 
     const handleLogout = async () => {
         if (isLoggingOutRef.current) return;

@@ -114,3 +114,20 @@
 .btn-secondary:hover {
     background-color: #e2e8f0;
 }
+
+/* =============================================================================
+   Modal Inline Error Alert (High-Contrast for Elderly / Critical Alerts)
+   ============================================================================= */
+.modal-error-banner {
+    background-color: #fef2f2;
+    border: 2px solid #ef4444;
+    color: #991b1b;
+    padding: 0.8rem 1rem;
+    border-radius: var(--border-radius, 4px);
+    font-size: 0.95rem;
+    line-height: 1.4;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}

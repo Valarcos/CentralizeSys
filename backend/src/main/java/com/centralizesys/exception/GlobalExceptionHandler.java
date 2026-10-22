@@ -207,7 +207,7 @@ public class GlobalExceptionHandler {
             auditoriaService.registrarAccion(userId, "ERROR_SISTEMA",
                     RUTA + path + " | Excepción no controlada: " + ex.getMessage());
         } catch (Exception e) {
-            // Swallow logging error to ensure response goes out
+            log.error("Failed to audit error", e);
         }
 
         ErrorResponse error = new ErrorResponse(

@@ -481,7 +481,7 @@ export const generateReceipt = (saleData, options = { printItems: true }) => {
         doc.save(`${filePrefix} - ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating PDF:", error);
-        alert("Error al generar el PDF. Revise la consola.");
+        throw error;
     }
 };
 
@@ -783,7 +783,7 @@ export const generateDebtorReceipt = (debtorData, options = { printItems: true }
         doc.save(`${filePrefix} - ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating debtor PDF:", error);
-        alert("Error al generar el PDF de deuda. Revise la consola.");
+        throw error;
     }
 };
 
@@ -1062,6 +1062,6 @@ export const generatePendingSaleReceipt = (pedidoData, options = { printItems: t
         doc.save(`${filePrefix} - ${clientName} - ${dateStr}.pdf`);
     } catch (error) {
         console.error("Error generating pedido PDF:", error);
-        alert("Error al generar el PDF de pedido. Revise la consola.");
+        throw error;
     }
 };

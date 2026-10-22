@@ -31,13 +31,16 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final com.centralizesys.security.ApiKeyAuthenticationFilter apiKeyAuthenticationFilter;
     private final LoggingAuthenticationEntryPoint loggingAuthenticationEntryPoint;
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          com.centralizesys.security.ApiKeyAuthenticationFilter apiKeyAuthenticationFilter,
                           LoggingAuthenticationEntryPoint loggingAuthenticationEntryPoint,
                           CustomAccessDeniedHandler customAccessDeniedHandler) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.apiKeyAuthenticationFilter = apiKeyAuthenticationFilter;
         this.loggingAuthenticationEntryPoint = loggingAuthenticationEntryPoint;
         this.customAccessDeniedHandler = customAccessDeniedHandler;
     }
@@ -89,13 +92,15 @@ public class SecurityConfig {
                         // Public Endpoints: login, register (if exists)
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        // External Integration Endpoints: Secured via API Key and ROLE_EXTERNAL_SERVICE
+                        .requestMatchers("/api/external/**").hasAuthority("ROLE_EXTERNAL_SERVICE")
+
                         // All other requests require a valid JWT
                         .anyRequest().authenticated())
 
-                // Add our custom JWT filter before the standard authentication filter
-                // This ensures we extract the user from the token before Spring Security tries
-                // to authenticate.
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // Add API Key filter before JWT filter to handle M2M integration requests cleanly
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(apiKeyAuthenticationFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
@@ -143,8 +148,11 @@ public class SecurityConfig {
         // Allowed Methods
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 
-        // Allowed Headers
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control"));
+        // Allowed Headers (includes B2B integration headers X-API-KEY and If-None-Match)
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-API-KEY", "If-None-Match"));
+
+        // Exposed Headers (allows clients/BFF to read ETag and rate limit headers)
+        configuration.setExposedHeaders(List.of("ETag", "Cache-Control", "Retry-After"));
 
         // Allow Credentials (if needed for future cookie usage, safe with
         // OriginPatterns)

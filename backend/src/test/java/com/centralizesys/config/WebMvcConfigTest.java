@@ -1,6 +1,6 @@
 package com.centralizesys.config;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -67,7 +67,36 @@ class WebMvcConfigTest {
         String cacheControl = mockMvc.perform(get("/public/stub"))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getHeader("Cache-Control");
-        assertFalse(EXPECTED_CACHE_CONTROL.equals(cacheControl));
+        assertNotEquals(EXPECTED_CACHE_CONTROL, cacheControl);
         assertNull(cacheControl);
+    }
+
+    @Test
+    void externalApiPathsAreExcludedFromNoStore() {
+        org.springframework.web.servlet.handler.MappedInterceptor mappedInterceptor =
+                new org.springframework.web.servlet.handler.MappedInterceptor(
+                        new String[]{WebMvcConfig.API_PATH_PATTERN},
+                        new String[]{WebMvcConfig.EXTERNAL_API_PATH_PATTERN},
+                        WebMvcConfig.buildApiCacheControlInterceptor()
+                );
+
+        // Standard /api/** paths must be matched and intercepted with no-store
+        org.junit.jupiter.api.Assertions.assertTrue(matches(mappedInterceptor, "/api/stub"));
+        org.junit.jupiter.api.Assertions.assertTrue(matches(mappedInterceptor, "/api/ventas"));
+        org.junit.jupiter.api.Assertions.assertTrue(matches(mappedInterceptor, "/api/auth/login"));
+
+        // External /api/external/** paths must be explicitly excluded
+        org.junit.jupiter.api.Assertions.assertFalse(matches(mappedInterceptor, "/api/external/catalogo"));
+        org.junit.jupiter.api.Assertions.assertFalse(matches(mappedInterceptor, "/api/external/test"));
+
+        // Non-api paths must not be matched
+        org.junit.jupiter.api.Assertions.assertFalse(matches(mappedInterceptor, "/public/stub"));
+    }
+
+    private boolean matches(org.springframework.web.servlet.handler.MappedInterceptor interceptor, String path) {
+        org.springframework.mock.web.MockHttpServletRequest request =
+                new org.springframework.mock.web.MockHttpServletRequest("GET", path);
+        org.springframework.web.util.ServletRequestPathUtils.parseAndCache(request);
+        return interceptor.matches(request);
     }
 }

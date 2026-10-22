@@ -24,6 +24,7 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         int year = 2026;
         int month = 10;
         int day = 15;
+        Long userId = createTestUser();
 
         // Ensure clean state for this day
         jdbcTemplate.update("DELETE FROM compras");
@@ -32,20 +33,20 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         // 1. Add a purchase (Compra) for $1000 on that day
         jdbcTemplate.update("""
             INSERT INTO compras (proveedor, total_compra, fecha, nro_comprobante, usuario_id) 
-            VALUES ('TEST_PROV', 1000.0, '2026-10-15 10:00:00', 'TEST', 1)
-        """);
+            VALUES ('TEST_PROV', 1000.0, '2026-10-15 10:00:00', 'TEST', ?)
+        """, userId);
 
         // 2. Add an active Gasto Vario for $500 on that day
         jdbcTemplate.update("""
             INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
-            VALUES (500.0, 'Luz', '2026-10-15 11:00:00', '2026-10-15 11:00:00', 'Admin', 1, 'Servicios', false)
-        """);
+            VALUES (500.0, 'Luz', '2026-10-15 11:00:00', '2026-10-15 11:00:00', 'Admin', ?, 'Servicios', false)
+        """, userId);
 
         // 3. Add a VOIDED (anulado=true) Gasto Vario for $300 on that day
         jdbcTemplate.update("""
             INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
-            VALUES (300.0, 'Agua', '2026-10-15 12:00:00', '2026-10-15 12:00:00', 'Admin', 1, 'Servicios', true)
-        """);
+            VALUES (300.0, 'Agua', '2026-10-15 12:00:00', '2026-10-15 12:00:00', 'Admin', ?, 'Servicios', true)
+        """, userId);
 
         // Act
         ReportesEstadisticasDTO dto = reportRepository.getEstadisticas(year, month, day);
@@ -67,6 +68,7 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         int year = 2026;
         int month = 10;
         int day = 16;
+        Long userId = createTestUser();
 
         jdbcTemplate.update("DELETE FROM compras");
         jdbcTemplate.update("DELETE FROM gastos_caja");
@@ -74,26 +76,26 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         // 1. Add a purchase (Compra) for $1000
         jdbcTemplate.update("""
             INSERT INTO compras (proveedor, total_compra, fecha, nro_comprobante, usuario_id) 
-            VALUES ('TEST_PROV', 1000.0, '2026-10-16 10:00:00', 'TEST', 1)
-        """);
+            VALUES ('TEST_PROV', 1000.0, '2026-10-16 10:00:00', 'TEST', ?)
+        """, userId);
 
         // 2. Add an 'Ajuste Importación' Gasto Vario for $200
         jdbcTemplate.update("""
             INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
-            VALUES (200.0, 'Impuestos aduaneros', '2026-10-16 11:00:00', '2026-10-16 11:00:00', 'Admin', 1, 'Ajuste Importación', false)
-        """);
+            VALUES (200.0, 'Impuestos aduaneros', '2026-10-16 11:00:00', '2026-10-16 11:00:00', 'Admin', ?, 'Ajuste Importación', false)
+        """, userId);
 
         // 3. Add a VOIDED 'Ajuste Importación' Gasto Vario for $300
         jdbcTemplate.update("""
             INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
-            VALUES (300.0, 'Cancelado por error', '2026-10-16 11:30:00', '2026-10-16 11:30:00', 'Admin', 1, 'Ajuste Importación', true)
-        """);
+            VALUES (300.0, 'Cancelado por error', '2026-10-16 11:30:00', '2026-10-16 11:30:00', 'Admin', ?, 'Ajuste Importación', true)
+        """, userId);
 
         // 4. Add a normal 'Sueldos' Gasto Vario for $500
         jdbcTemplate.update("""
             INSERT INTO gastos_caja (monto, motivo, fecha_gasto, fecha_registro, persona_involucrada, registrado_por_usuario_id, categoria, anulado)
-            VALUES (500.0, 'Sueldo', '2026-10-16 12:00:00', '2026-10-16 12:00:00', 'Admin', 1, 'Sueldos', false)
-        """);
+            VALUES (500.0, 'Sueldo', '2026-10-16 12:00:00', '2026-10-16 12:00:00', 'Admin', ?, 'Sueldos', false)
+        """, userId);
 
         // Act
         ReportesEstadisticasDTO dto = reportRepository.getEstadisticas(year, month, day);
@@ -303,6 +305,7 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         int year = 2026;
         int month = 2;
         int day = 20;
+        Long userId = createTestUser();
 
         jdbcTemplate.update("DELETE FROM compras");
         jdbcTemplate.update("DELETE FROM ventas WHERE fecha::date = '2026-02-20' OR fecha_creacion::date = '2026-02-20'");
@@ -310,8 +313,8 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         // Product
         jdbcTemplate.update("""
             INSERT INTO productos (id, descripcion, codigo, precio_costo, precio_minorista, creado_por, actualizado_por) 
-            VALUES (888, 'ProdTest', 'COD1', 10.0, 20.0, 1, 1)
-        """);
+            VALUES (888, 'ProdTest', 'COD1', 10.0, 20.0, ?, ?)
+        """, userId, userId);
 
         // Finalized sale with 5 items
         jdbcTemplate.update("""
@@ -325,8 +328,8 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         // 2 items returned
         jdbcTemplate.update("""
             INSERT INTO devoluciones_venta (venta_id, detalle_venta_id, cantidad_devuelta, monto_reembolsado, tipo_reembolso, creado_por, actualizado_por)
-            VALUES (5555, 555, 2, 20, 'EFECTIVO', 1, 1)
-        """);
+            VALUES (5555, 555, 2, 20, 'EFECTIVO', ?, ?)
+        """, userId, userId);
 
         // Pending sale with 10 items (should NOT be counted)
         jdbcTemplate.update("""
@@ -341,8 +344,8 @@ class ReportRepositoryTest extends BaseIntegrationTest {
         // Purchase with 20 items
         jdbcTemplate.update("""
             INSERT INTO compras (id, proveedor, total_compra, fecha, nro_comprobante, usuario_id) 
-            VALUES (7777, 'TEST_PROV', 200.0, '2026-02-20 10:00:00', 'TEST', 1)
-        """);
+            VALUES (7777, 'TEST_PROV', 200.0, '2026-02-20 10:00:00', 'TEST', ?)
+        """, userId);
         jdbcTemplate.update("""
             INSERT INTO detalles_compra (compra_id, producto_id, cantidad, costo_unitario, subtotal)
             VALUES (7777, 888, 20, 10, 200)

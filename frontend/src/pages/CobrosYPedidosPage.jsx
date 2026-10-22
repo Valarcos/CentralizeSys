@@ -4,6 +4,7 @@ import api from '../services/api';
 import { formatCurrency, formatDate, formatDateOnly, formatTimeArgentina } from '../utils/format';
 import toast from 'react-hot-toast';
 import SalesDetailModal from '../components/SalesDetailModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 import CancellationModal from '../components/CancellationModal';
 import FinalizeConfirmationModal from '../components/FinalizeConfirmationModal';
 import CobrarChequesModal from '../components/CobrarChequesModal';
@@ -82,6 +83,7 @@ export default function CobrosYPedidosPage() {
     const [itemToFinalize, setItemToFinalize] = useState(null);
     const [showFinalizeModal, setShowFinalizeModal] = useState(false);
     const [finalizeError, setFinalizeError] = useState(null);
+    const [confirmModalConfig, setConfirmModalConfig] = useState(null);
 
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [payments, setPayments] = useState([]); // Array of { methodId, methodName, amount, note }
@@ -159,12 +161,21 @@ export default function CobrosYPedidosPage() {
     const blocker = useBlocker(showPayModal && payments.length > 0);
     useEffect(() => {
         if (blocker.state === 'blocked') {
-            const leave = window.confirm('⚠️ ¿Desea salir?\n\nTiene pagos sin confirmar que se perderán si abandona esta página.');
-            if (leave) {
-                blocker.proceed();
-            } else {
-                blocker.reset();
-            }
+            setConfirmModalConfig({
+                title: '⚠️ Salir de la página',
+                message: 'Tiene pagos sin confirmar que se perderán si abandona esta página. ¿Desea salir de todas formas?',
+                confirmText: 'Salir sin guardar',
+                cancelText: 'Permanecer aquí',
+                isWarning: true,
+                onConfirm: () => {
+                    setConfirmModalConfig(null);
+                    blocker.proceed();
+                },
+                onCancel: () => {
+                    setConfirmModalConfig(null);
+                    blocker.reset();
+                }
+            });
         }
     }, [blocker]);
 
@@ -229,9 +240,9 @@ export default function CobrosYPedidosPage() {
     useEffect(() => {
         isBusyRef.current = loading || isSubmitting || isLoadingSale || isPrinting
             || showPayModal || showChequeModal || showFinalizeModal || showCobrarChequesModal
-            || Boolean(itemToCancel) || Boolean(viewSale);
+            || Boolean(itemToCancel) || Boolean(viewSale) || Boolean(confirmModalConfig);
     }, [loading, isSubmitting, isLoadingSale, isPrinting, showPayModal, showChequeModal,
-        showFinalizeModal, showCobrarChequesModal, itemToCancel, viewSale]);
+        showFinalizeModal, showCobrarChequesModal, itemToCancel, viewSale, confirmModalConfig]);
 
     // Visibility-aware smart polling + global revalidation (event emitted by AppLayout).
     // Guards: any modal open in DOM (.modal-overlay via isUserInteracting), hidden tab, user operating/submitting, and minimum gap.
@@ -314,41 +325,20 @@ export default function CobrosYPedidosPage() {
         ));
     };
 
-    /*
-    // The previous implementation of handleCancelarCobroCheque was used to roll back a "COBRADO" cheque back to "PENDIENTE".
-    // This was useful when users accidentally marked a cheque as cashed. However, per new requirements, the "Anular" button
-    // should completely remove the cheque from the sale instead of rolling it back. This logic is preserved here
-    // just in case we ever need to revert to the rollback behavior.
-    const handleCancelarCobroCheque = async (cheque) => {
-        if (!window.confirm(`¿Está seguro de que desea anular el cobro de este cheque de $${cheque.monto.toFixed(2)}?`)) return;
-        setCobrandoChequeId(cheque.id);
-        try {
-            await api.post(`/alertas/cheques/${cheque.id}/cancelar-cobro`);
-            toast.success("Cobro de cheque anulado.");
-
-            const ventaId = selectedItem.tipo === 'FIADO' ? selectedItem.venta_id : selectedItem.id_referencia;
-            try {
-                const chequesRes = await api.get(`/alertas/cheques/venta/${ventaId}`);
-                setHistoricalCheques(chequesRes.data);
-            } catch (err) {
-                console.error('Error fetching cheques', err);
-            }
-
-            fetchItems();
-        } catch (err) {
-            console.error('Error al anular cobro de cheque:', err);
-            const msg = err.response?.data?.message || 'Error al anular el cobro del cheque.';
-            toast.error(msg);
-        } finally {
-            setCobrandoChequeId(null);
-        }
-    };
-    */
-
     const handleRemoveCheque = (cheque) => {
-        if (!window.confirm(`¿Está seguro de que desea eliminar este cheque de $${cheque.monto.toFixed(2)} de la venta de forma permanente?`)) return;
-        setQueuedChequesToRemove(prev => [...prev, cheque.id]);
-        setHistoricalCheques(prev => prev.filter(c => c.id !== cheque.id));
+        setConfirmModalConfig({
+            title: 'Eliminar Cheque',
+            message: `¿Está seguro de que desea eliminar este cheque de $${cheque.monto.toFixed(2)} de la venta de forma permanente?`,
+            confirmText: 'Eliminar Cheque',
+            cancelText: 'Cancelar',
+            isWarning: true,
+            onConfirm: () => {
+                setQueuedChequesToRemove(prev => [...prev, cheque.id]);
+                setHistoricalCheques(prev => prev.filter(c => c.id !== cheque.id));
+                setConfirmModalConfig(null);
+            },
+            onCancel: () => setConfirmModalConfig(null)
+        });
     };
 
     const handleAddPayment = () => {
@@ -402,10 +392,20 @@ export default function CobrosYPedidosPage() {
         setPayments(payments.filter(p => p._internalId !== internalId));
     };
 
-    const cancelHistoricalPayment = async (pagoId) => {
-        if (!window.confirm("¿Está seguro de que desea eliminar permanentemente este pago de la venta?")) return;
-        setQueuedPaymentsToRemove(prev => [...prev, pagoId]);
-        setHistoricalPayments(prev => prev.filter(p => p.id !== pagoId && p.id_pago_deudor !== pagoId));
+    const cancelHistoricalPayment = (pagoId) => {
+        setConfirmModalConfig({
+            title: 'Eliminar Pago',
+            message: '¿Está seguro de que desea eliminar permanentemente este pago de la venta?',
+            confirmText: 'Eliminar Pago',
+            cancelText: 'Cancelar',
+            isWarning: true,
+            onConfirm: () => {
+                setQueuedPaymentsToRemove(prev => [...prev, pagoId]);
+                setHistoricalPayments(prev => prev.filter(p => p.id !== pagoId && p.id_pago_deudor !== pagoId));
+                setConfirmModalConfig(null);
+            },
+            onCancel: () => setConfirmModalConfig(null)
+        });
     };
 
     const handleRegisterPayment = async () => {
@@ -1374,6 +1374,18 @@ export default function CobrosYPedidosPage() {
                 ventaItem={cobrarChequesItem}
                 paymentMethods={paymentMethods}
             />
+
+            {confirmModalConfig && (
+                <ConfirmationModal
+                    title={confirmModalConfig.title}
+                    message={confirmModalConfig.message}
+                    confirmText={confirmModalConfig.confirmText || 'Confirmar'}
+                    cancelText={confirmModalConfig.cancelText || 'Cancelar'}
+                    isWarning={confirmModalConfig.isWarning ?? true}
+                    onConfirm={confirmModalConfig.onConfirm}
+                    onCancel={confirmModalConfig.onCancel || (() => setConfirmModalConfig(null))}
+                />
+            )}
         </div>
     );
 }

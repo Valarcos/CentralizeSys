@@ -180,21 +180,17 @@ public abstract class BaseIntegrationTest {
         // Clients (ventas and deudores referencing clientes are already deleted above)
         jdbcTemplate.execute("DELETE FROM clientes");
 
-        // 3. DO NOT DELETE 'usuarios' or 'ubicaciones'
-        // schema.sql inserts 'Administrador'. If we delete it, we might break
-        // assumptions or future tests. Since we deleted 'auditoria' and 'ventas'.
-
         // 3. Delete UBICACIONES
         // We must delete this because LocationServiceIntegrationTest relies on the
         // table being empty to assert that it can create location "1".
         // Other tests (like createTestProduct) might silently create "1".
         jdbcTemplate.execute("DELETE FROM ubicaciones");
 
-        // 4. Delete test users but KEEP system/admin users to avoid UNIQUE constraint failures
+        // 4. Delete test users but KEEP system reserved user (id 0) to avoid FK constraint failures
         // Clear security session data first (active_tokens has FK to usuarios)
         jdbcTemplate.execute("DELETE FROM active_tokens");
         jdbcTemplate.execute("DELETE FROM login_attempts");
-        jdbcTemplate.execute("DELETE FROM usuarios WHERE email NOT IN ('sistema@centralizesys.internal', 'marcosachavalmbaj@gmail.com')");
+        jdbcTemplate.execute("DELETE FROM usuarios WHERE email NOT IN ('sistema@centralizesys.internal')");
     }
 
     @AfterEach

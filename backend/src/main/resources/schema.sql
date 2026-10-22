@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS productos (
                                          cantidad_stock INTEGER DEFAULT 0,
                                          tiendanube_id TEXT,
                                          activo BOOLEAN NOT NULL DEFAULT TRUE,
+                                         proveedor VARCHAR(255),
                                          fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                          fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                          creado_por INTEGER NOT NULL DEFAULT 0,
@@ -51,12 +52,6 @@ CREATE TABLE IF NOT EXISTS usuarios (
 INSERT INTO usuarios (id, nombre, email, password_hash, rol, activo)
 VALUES (0, 'Sistema', 'sistema@centralizesys.internal', 'NO_LOGIN', 'EMPLEADO', TRUE)
 ON CONFLICT (id) DO NOTHING;;
-
--- TODO: decidir qué hacer con este insert de mi contraseña en la tabla. Sería ideal que no exista.
--- Usuario Administrador
-INSERT INTO usuarios (nombre, email, password_hash, rol)
-VALUES ('Administrador', 'marcosachavalmbaj@gmail.com', '$2a$10$lXbQfCXd4RpUG9GoHWuGi.KmkxpxhT5Cx66Gr0ScTfEoL6FNMDrtu', 'ADMIN')
-ON CONFLICT DO NOTHING;;
 
 -- 4. Métodos de Pago
 CREATE TABLE IF NOT EXISTS metodos_pago (
@@ -124,7 +119,8 @@ CREATE TABLE IF NOT EXISTS ventas (
                                       recargo_global REAL DEFAULT 0,
                                       saldo_generado REAL NOT NULL DEFAULT 0,
                                       tipo_venta TEXT,
-                                      estado TEXT DEFAULT 'ACTIVA' CHECK(estado IN ('ACTIVA', 'ANULADA', 'PENDIENTE', 'CANCELADA_PENDIENTE')),
+                                      estado TEXT DEFAULT 'ACTIVA' CHECK(estado IN ('ACTIVA', 'ANULADA', 'PENDIENTE', 'CANCELADA_PENDIENTE', 'DEVUELTA_PARCIAL')),
+                                      version INTEGER DEFAULT 0,
                                       usuario_id INTEGER,
                                       FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
 );;
@@ -563,3 +559,47 @@ DROP TRIGGER IF EXISTS trg_update_devolucion_timestamp ON devoluciones_venta;;
 CREATE TRIGGER trg_update_devolucion_timestamp
     BEFORE UPDATE ON devoluciones_venta
 EXECUTE FUNCTION fn_update_devolucion_timestamp();;
+
+-- =========================================================================================
+-- MIRROR OF V10: Add Proveedores to Productos & Pagos Compra Table
+-- =========================================================================================
+
+ALTER TABLE productos ADD COLUMN IF NOT EXISTS proveedor VARCHAR(255);;
+
+CREATE TABLE IF NOT EXISTS pagos_compra (
+                                            id BIGSERIAL PRIMARY KEY,
+                                            compra_id BIGINT NOT NULL,
+                                            metodo_pago_id BIGINT NOT NULL,
+                                            monto DOUBLE PRECISION NOT NULL,
+                                            fecha_pago TIMESTAMP NOT NULL,
+                                            FOREIGN KEY (compra_id) REFERENCES compras(id) ON DELETE CASCADE,
+                                            FOREIGN KEY (metodo_pago_id) REFERENCES metodos_pago(id) ON DELETE RESTRICT
+);;
+
+CREATE INDEX IF NOT EXISTS idx_pagos_compra_compra_id ON pagos_compra(compra_id);;
+
+ALTER TABLE gastos_caja ADD COLUMN IF NOT EXISTS compra_id BIGINT NULL;;
+
+DO $$
+    BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_gastos_caja_compra') THEN
+            ALTER TABLE gastos_caja ADD CONSTRAINT fk_gastos_caja_compra FOREIGN KEY (compra_id) REFERENCES compras(id) ON DELETE SET NULL;
+        END IF;
+    END $$;;
+
+-- =========================================================================================
+-- MIRROR OF V11: External API Keys Table & Active Products Catalog Covering Index
+-- =========================================================================================
+
+CREATE TABLE IF NOT EXISTS api_keys (
+                                        id SERIAL PRIMARY KEY,
+                                        nombre VARCHAR(100) NOT NULL,
+                                        key_hash VARCHAR(64) NOT NULL UNIQUE,
+                                        activo BOOLEAN NOT NULL DEFAULT TRUE,
+                                        creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                        ultimo_acceso TIMESTAMP,
+                                        rate_limit_rpm INTEGER NOT NULL DEFAULT 10
+);;
+
+CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash) WHERE activo = true;;
+CREATE INDEX IF NOT EXISTS idx_productos_catalogo_active ON productos (codigo, cantidad_stock) WHERE activo = true;;

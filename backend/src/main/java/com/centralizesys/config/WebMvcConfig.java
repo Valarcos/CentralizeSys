@@ -10,6 +10,7 @@ import org.springframework.web.servlet.mvc.WebContentInterceptor;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     static final String API_PATH_PATTERN = "/api/**";
+    public static final String EXTERNAL_API_PATH_PATTERN = "/api/external/**";
 
     private final MaintenanceInterceptor maintenanceInterceptor;
 
@@ -21,7 +22,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         // Registered FIRST so that the 503 produced by MaintenanceInterceptor
         // (which short-circuits the chain) also carries no-store and can never be cached.
-        registry.addInterceptor(buildApiCacheControlInterceptor()).addPathPatterns(API_PATH_PATTERN);
+        // /api/external/** is excluded so that external B2B integration controllers
+        // can define authoritative Cache-Control (e.g., max-age=900) and ETag headers.
+        registry.addInterceptor(buildApiCacheControlInterceptor())
+                .addPathPatterns(API_PATH_PATTERN)
+                .excludePathPatterns(EXTERNAL_API_PATH_PATTERN);
         registry.addInterceptor(maintenanceInterceptor);
     }
 

@@ -9,6 +9,11 @@ mariaclosys.com.ar, www.mariaclosys.com.ar {
 	# Remove after >= 30 days (default Alt-Svc max-age) once clients have refreshed.
 	header Alt-Svc "clear"
 
+	# B2B Integration: external API (preserves ETag and Cache-Control headers for conditional requests)
+	handle /api/external/* {
+		reverse_proxy backend:8080
+	}
+
 	# Proxy all /api requests to the Spring Boot backend
 	handle /api/* {
 		reverse_proxy backend:8080 {

@@ -498,9 +498,13 @@
 
 /* --- PAYMENT SECTION --- */
 .payment-section {
-    margin-top: auto;
-    padding-top: 1rem;
-    border-top: 2px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding-top: 0;
+
+
 }
 
 .payment-stack {
@@ -511,23 +515,28 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 #f1f5f9;
+    scrollbar-gutter: stable;
+    padding-right: 2px;
 }
 
 
 /* Custom Scrollbar for Payment Stack */
 .payment-stack::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
 }
 .payment-stack::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: #f1f5f9;
     border-radius: 4px;
 }
 .payment-stack::-webkit-scrollbar-thumb {
-    background: #888;
+    background: #94a3b8;
     border-radius: 4px;
 }
 .payment-stack::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: #64748b;
 }
 
 
@@ -583,6 +592,7 @@
 
 
 .payment-row-new {
+    flex-shrink: 0;
     align-items: center;
 }
 
@@ -679,6 +689,7 @@
     flex-wrap: wrap; /* NEW: Protects against horizontal overflow */
     gap: 1rem;
     margin-bottom: 9.75px;
+    flex-shrink: 0;
     padding-top: 0.5rem;
 }
 
@@ -796,6 +807,7 @@
 .action-buttons-container {
     display: flex;
     flex-direction: column; /* NEW: Stacks buttons to prevent text crush */
+    flex-shrink: 0;
     gap: var(--spacing-xs);
 }
 
@@ -897,6 +909,10 @@
         flex: 1; /* Automatically takes remaining height */
         max-width: none; /* Releases desktop 65% cap */
         min-height: 200px;
+    }
+
+    .payment-stack {
+        max-height: 140px;
     }
 
     .checkout-sidebar-column {

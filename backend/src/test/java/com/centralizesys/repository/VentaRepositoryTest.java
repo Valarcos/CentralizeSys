@@ -435,4 +435,73 @@ class VentaRepositoryTest extends BaseIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(updatedOpt).isPresent();
         org.assertj.core.api.Assertions.assertThat(updatedOpt.get().getVersion()).isEqualTo(1);
     }
+
+    // --- lockVentaForPaymentProcessing Tests ---
+
+    @Test
+    @DisplayName("lockVentaForPaymentProcessing - returns true when sale is PENDIENTE")
+    void lockVentaForPaymentProcessing_ReturnsTrue_WhenPendiente() {
+        // Arrange
+        Long userId = createTestUser();
+        Venta venta = new Venta();
+        venta.setFecha(LocalDateTime.now());
+        venta.setTotalVenta(100.0);
+        venta.setEstado("PENDIENTE");
+        venta.setUsuarioId(userId);
+        Long id = ventaRepository.saveVenta(venta);
+
+        // Act
+        boolean locked = ventaRepository.lockVentaForPaymentProcessing(id);
+
+        // Assert
+        assertThat(locked).isTrue();
+    }
+
+    @Test
+    @DisplayName("lockVentaForPaymentProcessing - returns true when sale is ACTIVA")
+    void lockVentaForPaymentProcessing_ReturnsTrue_WhenActiva() {
+        // Arrange
+        Long userId = createTestUser();
+        Venta venta = new Venta();
+        venta.setFecha(LocalDateTime.now());
+        venta.setTotalVenta(100.0);
+        venta.setEstado("ACTIVA");
+        venta.setUsuarioId(userId);
+        Long id = ventaRepository.saveVenta(venta);
+
+        // Act
+        boolean locked = ventaRepository.lockVentaForPaymentProcessing(id);
+
+        // Assert
+        assertThat(locked).isTrue();
+    }
+
+    @Test
+    @DisplayName("lockVentaForPaymentProcessing - returns false when sale is in other status (CANCELADA_PENDIENTE)")
+    void lockVentaForPaymentProcessing_ReturnsFalse_WhenCancelled() {
+        // Arrange
+        Long userId = createTestUser();
+        Venta venta = new Venta();
+        venta.setFecha(LocalDateTime.now());
+        venta.setTotalVenta(100.0);
+        venta.setEstado("CANCELADA_PENDIENTE");
+        venta.setUsuarioId(userId);
+        Long id = ventaRepository.saveVenta(venta);
+
+        // Act
+        boolean locked = ventaRepository.lockVentaForPaymentProcessing(id);
+
+        // Assert
+        assertThat(locked).isFalse();
+    }
+
+    @Test
+    @DisplayName("lockVentaForPaymentProcessing - returns false when sale does not exist")
+    void lockVentaForPaymentProcessing_ReturnsFalse_WhenNonExistent() {
+        // Act
+        boolean locked = ventaRepository.lockVentaForPaymentProcessing(999999L);
+
+        // Assert
+        assertThat(locked).isFalse();
+    }
 }

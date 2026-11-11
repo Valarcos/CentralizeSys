@@ -279,7 +279,7 @@ public class ReportRepository {
                 UNION ALL
                 SELECT ac.monto AS monto_total
                 FROM alertas_cheques ac
-                WHERE ac.estado = 'COBRADO'
+                WHERE ac.estado = 'COBRADO' AND ac.pago_venta_id IS NULL AND ac.pago_deuda_id IS NULL
             """ + buildJoinDateFilter("ac.fecha_cobro", dateFilter) + """
             ) AS all_cash_in
         """;

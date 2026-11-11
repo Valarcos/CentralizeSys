@@ -274,21 +274,29 @@ public class VentaService {
             com.centralizesys.model.debt.DeudaResponse deuda = deudoresRepository.findByVentaId(cheque.getVentaId())
                     .orElseThrow(() -> new BusinessRuleException("No se encontró la deuda asociada al cheque."));
 
-            if (cheque.getMonto() > deuda.getMontoDeuda() + PAYMENT_COMPLETE_EPSILON) {
-                throw new BusinessRuleException(String.format("El monto del cheque ($%.2f) supera la deuda pendiente ($%.2f).", cheque.getMonto(), deuda.getMontoDeuda()));
+            if ("ANULADA".equals(deuda.getEstado())) {
+                throw new BusinessRuleException("No se puede cobrar un cheque de una deuda anulada.");
+            }
+
+            if (deuda.getMontoOriginal() != null && cheque.getMonto() > deuda.getMontoOriginal()) {
+                throw new BusinessRuleException("El monto del cheque supera el monto original de la deuda.");
             }
 
             Long pagoDeudaId = deudoresRepository.insertarPagoDeudaReturningId(
                     deuda.getId(), metodoPagoId, cheque.getMonto(),
                     "Cobro de cheque ID " + chequeId, authenticatedUserId);
 
-            deudoresRepository.deductDeudaAtomic(deuda.getId(), cheque.getMonto(), deuda.getMontoOriginal());
             int rows = alertaChequeRepository.updateEstadoAndPagoDeudaIdAtomic(chequeId, COBRADO, pagoDeudaId, PENDIENTE);
             if (rows == 0) throw new BusinessRuleException("El cheque ya fue cobrado o anulado concurrentemente.");
 
             auditoriaService.registrarAccion(authenticatedUserId, "COBRO_CHEQUE_DEUDA",
                     "Cheque ID " + chequeId + " cobrado por $" + cheque.getMonto() + " para deuda ID " + deuda.getId());
         } else {
+            boolean isLocked = ventaRepository.lockVentaForPaymentProcessing(cheque.getVentaId());
+            if (!isLocked) {
+                throw new BusinessRuleException(Constants.ERR_VENTA_CONCURRENT_MODIFICATION);
+            }
+
             Long pagoVentaId = ventaRepository.savePagoUnicoReturningId(cheque.getVentaId(), metodoPagoId, cheque.getMonto(), authenticatedUserId);
             int rows = alertaChequeRepository.updateEstadoAndPagoVentaIdAtomic(chequeId, COBRADO, pagoVentaId, PENDIENTE);
             if (rows == 0) throw new BusinessRuleException("El cheque ya fue cobrado o anulado concurrentemente.");
@@ -315,12 +323,8 @@ public class VentaService {
             if (cheque.getPagoDeudaId() == null) {
                 throw new BusinessRuleException("El cheque de deuda no tiene un pago asociado.");
             }
-            com.centralizesys.model.debt.DeudaResponse deuda = deudoresRepository.findByVentaId(cheque.getVentaId())
-                    .orElseThrow(() -> new BusinessRuleException("No se encontró la deuda asociada al cheque."));
 
             deudoresRepository.updatePagoAnulado(cheque.getPagoDeudaId());
-
-            deudoresRepository.addDeudaAtomic(deuda.getId(), cheque.getMonto(), deuda.getMontoOriginal());
 
             int rows = alertaChequeRepository.updateEstadoAndPagoDeudaIdAtomic(chequeId, PENDIENTE, null, COBRADO);
             if (rows == 0) throw new BusinessRuleException("El cheque fue modificado concurrentemente.");
@@ -330,6 +334,12 @@ public class VentaService {
             if (cheque.getPagoVentaId() == null) {
                 throw new BusinessRuleException("El cheque no tiene un pago asociado.");
             }
+
+            boolean isLocked = ventaRepository.lockVentaForPaymentProcessing(cheque.getVentaId());
+            if (!isLocked) {
+                throw new BusinessRuleException(Constants.ERR_VENTA_CONCURRENT_MODIFICATION);
+            }
+
             ventaRepository.anularPagoVentaById(cheque.getPagoVentaId());
 
             int rows = alertaChequeRepository.updateEstadoAndPagoVentaIdAtomic(chequeId, PENDIENTE, null, COBRADO);
@@ -353,6 +363,17 @@ public class VentaService {
         if (COBRADO.equals(cheque.getEstado())) {
             internalCancelarCobroCheque(chequeId, authenticatedUserId);
         }
+
+        // Si el cheque fue anulado/rebotado, se restaura la deuda en cuenta corriente (salvo buen cobro)
+        deudoresRepository.findByVentaId(cheque.getVentaId()).ifPresentOrElse(
+                deuda -> deudoresRepository.addDeudaAtomic(deuda.getId(), cheque.getMonto(), deuda.getMontoOriginal()),
+                () -> {
+                    Venta venta = ventaRepository.findById(cheque.getVentaId()).orElse(null);
+                    if (venta != null && ACTIVA.equals(venta.getEstado()) && venta.getClienteId() != null) {
+                        deudoresRepository.save(venta.getId(), venta.getClienteNombre(), venta.getClienteId(), cheque.getMonto());
+                    }
+                }
+        );
 
         // Logical deletion: marcar como ANULADA
         int rows = alertaChequeRepository.updateEstadoAndPagoVentaIdAtomic(chequeId, ANULADA, null, PENDIENTE);
@@ -600,6 +621,8 @@ public class VentaService {
                 ? request.getPagos().stream().map(VentaRequest.PagoRequest::getId).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet())
                 : java.util.Collections.emptySet();
 
+        validateCashedChequePreservation(activePagos, requestPagoIds);
+
         for (PagoVenta p : activePagos) {
             if (!requestPagoIds.contains(p.getId())) {
                 metodoPagoRepository.findById(p.getMetodoPagoId())
@@ -668,6 +691,16 @@ public class VentaService {
         );
     }
 
+    private void validateCashedChequePreservation(List<PagoVenta> activePagos, java.util.Set<Long> requestPagoIds) {
+        for (PagoVenta p : activePagos) {
+            if (!requestPagoIds.contains(p.getId())) {
+                alertaChequeRepository.findByPagoVentaId(p.getId()).ifPresent(cheque -> {
+                    throw new BusinessRuleException(Constants.ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT);
+                });
+            }
+        }
+    }
+
     @Transactional
     public void anularPago(Long pendingId, Long pagoId, Long usuarioId) {
         boolean isLocked = ventaRepository.lockVentaForUpdate(pendingId, PENDIENTE);
@@ -681,6 +714,10 @@ public class VentaService {
                 .filter(p -> p.getId().equals(pagoId) && !Boolean.TRUE.equals(p.getAnulado()))
                 .findFirst()
                 .orElseThrow(() -> new BusinessRuleException("El pago no existe, no pertenece a este pedido o ya está anulado."));
+
+        alertaChequeRepository.findByPagoVentaId(pagoId).ifPresent(c -> {
+            throw new BusinessRuleException(Constants.ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT);
+        });
 
         // SALDO annulment safety: restore the client's credit balance if the payment
         // was made using the 'Saldo a Favor' method, to prevent permanent fund loss.

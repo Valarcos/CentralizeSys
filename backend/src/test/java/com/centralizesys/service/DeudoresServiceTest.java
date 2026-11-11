@@ -3,6 +3,8 @@ package com.centralizesys.service;
 import com.centralizesys.exception.BusinessRuleException;
 import com.centralizesys.model.debt.DeudaResponse;
 import com.centralizesys.model.debt.PagoDeuda;
+import com.centralizesys.model.cheque.AlertaCheque;
+import com.centralizesys.util.Constants;
 import com.centralizesys.repository.DeudoresRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -80,6 +82,30 @@ class DeudoresServiceTest {
         BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> deudoresService.anularPago(pagoId));
         assertEquals("El pago ya ha sido anulado.", ex.getMessage());
         verifyNoMoreInteractions(repository);
+    }
+
+    @Test
+    @DisplayName("anularPago - throws ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT when payment is linked to cheque")
+    void anularPago_Throws_WhenPaymentIsLinkedToCheque() {
+        // Given
+        Long pagoId = 1L;
+        Long deudaId = 100L;
+        PagoDeuda pago = new PagoDeuda(pagoId, deudaId, 1L, 100.0, null, null, 1L, false, "Efectivo", "Sistema");
+        DeudaResponse deuda = new DeudaResponse(deudaId, 10L, "Juan", 1L, 0.0, null, "PAGADO", 100.0, null);
+
+        when(repository.findPagoById(pagoId)).thenReturn(Optional.of(pago));
+        when(repository.findById(deudaId)).thenReturn(Optional.of(deuda));
+
+        AlertaCheque cheque = new AlertaCheque();
+        cheque.setId(55L);
+        cheque.setPagoDeudaId(pagoId);
+        when(alertaChequeRepository.findByPagoDeudaId(pagoId)).thenReturn(Optional.of(cheque));
+
+        // When/Then
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> deudoresService.anularPago(pagoId));
+        assertEquals(Constants.ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT, ex.getMessage());
+        verify(repository, never()).updatePagoAnulado(anyLong());
+        verify(repository, never()).addDeudaAtomic(anyLong(), anyDouble(), anyDouble());
     }
 
     // --- PHASE 2.2 EXPLOITS ---

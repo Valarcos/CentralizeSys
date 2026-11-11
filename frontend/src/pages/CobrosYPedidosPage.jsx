@@ -102,6 +102,7 @@ export default function CobrosYPedidosPage() {
     const [queuedPaymentsToRemove, setQueuedPaymentsToRemove] = useState([]);
     const [queuedChequesToCobrar, setQueuedChequesToCobrar] = useState([]);
     const [queuedChequesToRemove, setQueuedChequesToRemove] = useState([]);
+    const [queuedChequesToCancelarCobro, setQueuedChequesToCancelarCobro] = useState([]);
 
     const paymentAmountRef = useRef(null);
     const pagoModalRef = useRef(null);
@@ -281,6 +282,7 @@ export default function CobrosYPedidosPage() {
         setQueuedPaymentsToRemove([]);
         setQueuedChequesToCobrar([]);
         setQueuedChequesToRemove([]);
+        setQueuedChequesToCancelarCobro([]);
         try {
             const endpoint = item.tipo === 'FIADO'
                 ? `/deudores/${item.id_referencia}/pagos`
@@ -319,22 +321,68 @@ export default function CobrosYPedidosPage() {
         const metodoNombre = paymentMethods.find(m => m.id === parseInt(metodoPagoId))?.descripcion;
 
         // Queue operation locally
-        setQueuedChequesToCobrar(prev => [...prev, { chequeId: cheque.id, metodoPagoId: parseInt(metodoPagoId) }]);
+        setQueuedChequesToCobrar(prev => [
+            ...prev.filter(q => q.chequeId !== cheque.id),
+            { chequeId: cheque.id, metodoPagoId: parseInt(metodoPagoId) }
+        ]);
         setHistoricalCheques(prev => prev.map(c =>
             c.id === cheque.id ? { ...c, estado: 'COBRADO', metodoPagoNombre: metodoNombre } : c
         ));
     };
 
     const handleRemoveCheque = (cheque) => {
+        const isCobrado = cheque.estado === 'COBRADO';
         setConfirmModalConfig({
-            title: 'Eliminar Cheque',
-            message: `¿Está seguro de que desea eliminar este cheque de $${cheque.monto.toFixed(2)} de la venta de forma permanente?`,
-            confirmText: 'Eliminar Cheque',
+            title: isCobrado ? 'Anular Cheque Cobrado' : 'Eliminar Cheque',
+            message: isCobrado ? `¿Está seguro de que desea anular este cheque cobrado de $${cheque.monto.toFixed(2)}? Esta acción revertirá también el pago asociado registrado en la venta.` : `¿Está seguro de que desea eliminar este cheque de $${cheque.monto.toFixed(2)} de la venta de forma permanente?`,
+            confirmText: isCobrado ? 'Anular Cheque y Pago' : 'Eliminar Cheque',
             cancelText: 'Cancelar',
             isWarning: true,
             onConfirm: () => {
-                setQueuedChequesToRemove(prev => [...prev, cheque.id]);
+                const linkedPaymentId = cheque.pagoVentaId || cheque.pago_venta_id || cheque.pagoDeudaId || cheque.pago_deuda_id;
+                setQueuedChequesToRemove(prev => prev.includes(cheque.id) ? prev : [...prev, cheque.id]);
+                setQueuedChequesToCancelarCobro(prev => prev.filter(id => id !== cheque.id));
+                setQueuedChequesToCobrar(prev => prev.filter(q => q.chequeId !== cheque.id));
                 setHistoricalCheques(prev => prev.filter(c => c.id !== cheque.id));
+                if (linkedPaymentId) {
+                    setHistoricalPayments(prev => prev.filter(p => Number(p.id) !== Number(linkedPaymentId)));
+                }
+                setConfirmModalConfig(null);
+            },
+            onCancel: () => setConfirmModalConfig(null)
+        });
+    };
+
+    const handleCancelarCobroCheque = (cheque) => {
+        setConfirmModalConfig({
+            title: 'Deshacer Cobro de Cheque',
+            message: `¿Está seguro de que desea deshacer el cobro de este cheque de $${cheque.monto.toFixed(2)} y revertirlo a estado pendiente?`,
+            confirmText: 'Deshacer Cobro',
+            cancelText: 'Cancelar',
+            isWarning: true,
+            onConfirm: () => {
+                const isQueuedCobroOnly = queuedChequesToCobrar.some(q => q.chequeId === cheque.id);
+                if (isQueuedCobroOnly) {
+                    setQueuedChequesToCobrar(prev => prev.filter(q => q.chequeId !== cheque.id));
+                } else {
+                    setQueuedChequesToCancelarCobro(prev =>
+                        prev.includes(cheque.id) ? prev : [...prev, cheque.id]
+                    );
+                }
+
+                setHistoricalCheques(prev => prev.map(c =>
+                    c.id === cheque.id ? { ...c, estado: 'PENDIENTE', metodoPagoNombre: undefined } : c
+                ));
+                setChequeSelectedMethods(prev => ({
+                    ...prev,
+                    [cheque.id]: ''
+                }));
+
+                const linkedPaymentId = cheque.pagoVentaId || cheque.pago_venta_id || cheque.pagoDeudaId || cheque.pago_deuda_id;
+                if (linkedPaymentId) {
+                    setHistoricalPayments(prev => prev.filter(p => Number(p.id) !== Number(linkedPaymentId)));
+                }
+
                 setConfirmModalConfig(null);
             },
             onCancel: () => setConfirmModalConfig(null)
@@ -410,7 +458,7 @@ export default function CobrosYPedidosPage() {
 
     const handleRegisterPayment = async () => {
         if (isSubmittingRef.current || isSubmitting) return;
-        if (payments.length === 0 && queuedPaymentsToRemove.length === 0 && queuedChequesToCobrar.length === 0 && queuedChequesToRemove.length === 0) {
+        if (payments.length === 0 && queuedPaymentsToRemove.length === 0 && queuedChequesToCobrar.length === 0 && queuedChequesToRemove.length === 0 && queuedChequesToCancelarCobro.length === 0) {
             return toast.error("No hay cambios para registrar");
         }
 
@@ -426,17 +474,24 @@ export default function CobrosYPedidosPage() {
                 }
             }
 
-            // 2. Process cheque logical deletions
+            // 2. Process queued cheque cobro reversals (before deletions/re-cashing)
+            for (const chequeId of queuedChequesToCancelarCobro) {
+                if (!queuedChequesToRemove.includes(chequeId)) {
+                    await api.post(`/alertas/cheques/${chequeId}/cancelar-cobro`);
+                }
+            }
+
+            // 3. Process cheque logical deletions
             for (const chequeId of queuedChequesToRemove) {
                 await api.delete(`/alertas/cheques/${chequeId}`);
             }
 
-            // 3. Process cheque cashing
+            // 4. Process cheque cashing
             for (const chequeOp of queuedChequesToCobrar) {
                 await api.post(`/alertas/cheques/${chequeOp.chequeId}/cobrar`, null, { params: { metodoPagoId: chequeOp.metodoPagoId } });
             }
 
-            // 4. Process new payments additions
+            // 5. Process new payments additions
             if (payments.length > 0) {
                 const payload = payments.map(p => ({
                     montoPago: p.amount,
@@ -1130,14 +1185,37 @@ export default function CobrosYPedidosPage() {
                                         const methodId = p.metodo_pago_id || p.metodoPagoId;
                                         const methodObj = paymentMethods.find(m => m.id === methodId);
                                         const methodName = methodObj ? methodObj.descripcion : 'Desconocido';
+                                        const isLinkedToCheque = historicalCheques.some(c => {
+                                            const pagoVentaId = c.pagoVentaId || c.pago_venta_id;
+                                            const pagoDeudaId = c.pagoDeudaId || c.pago_deuda_id;
+                                            return (pagoVentaId && Number(pagoVentaId) === Number(p.id)) ||
+                                                (pagoDeudaId && Number(pagoDeudaId) === Number(p.id));
+                                        });
 
                                         return (
                                             <li key={p.id}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                                                 <strong>{formatDate(p.fecha_pago || p.fechaPago)}</strong> - ${p.monto.toFixed(2)}
                                                 <span style={{ color: '#666', fontSize: '0.85em' }}>({methodName})</span>
+                                                {isLinkedToCheque && (
+                                                    <span style={{ color: '#0f766e', backgroundColor: '#ccfbf1', padding: '1px 6px', borderRadius: '4px', fontSize: '0.75em' }}>
+                                                        Cobro Cheque
+                                                    </span>
+                                                )}
                                             </span>
-                                                <button className="payment-modal-list-btn" onClick={() => cancelHistoricalPayment(p.id)} style={{ background: 'none', color: '#dc3545', cursor: 'pointer', borderRadius: '4px', border: '1px solid #dc3545' }} disabled={isSubmitting}>
+                                                <button
+                                                    className="payment-modal-list-btn"
+                                                    onClick={() => cancelHistoricalPayment(p.id)}
+                                                    style={{
+                                                        background: 'none',
+                                                        color: isLinkedToCheque ? '#94a3b8' : '#dc3545',
+                                                        cursor: isLinkedToCheque ? 'not-allowed' : 'pointer',
+                                                        borderRadius: '4px',
+                                                        border: `1px solid ${isLinkedToCheque ? '#cbd5e1' : '#dc3545'}`
+                                                    }}
+                                                    disabled={isSubmitting || isLinkedToCheque}
+                                                    title={isLinkedToCheque ? "Para anular este pago, hágalo desde la sección Cheques Asociados" : undefined}
+                                                >
                                                     Anular
                                                 </button>
                                             </li>
@@ -1275,6 +1353,30 @@ export default function CobrosYPedidosPage() {
                                                         >
                                                             {isCobrandoThis ? '...' : '💰 Cobrar'}
                                                         </button>
+                                                    ) : isCobrado ? (
+                                                        <button
+                                                            className="payment-modal-list-btn"
+                                                            onClick={() => handleCancelarCobroCheque(c)}
+                                                            disabled={isSubmitting}
+                                                            style={{
+                                                                backgroundColor: '#f59e0b',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                margin: '0px',
+                                                                borderRadius: '4px',
+                                                                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                                                                padding: '0px 0px',
+                                                                height: '24px',
+                                                                lineHeight: '24px',
+                                                                boxSizing: 'border-box',
+                                                                whiteSpace: 'nowrap',
+                                                                width: '100%',
+                                                                textAlign: 'center'
+                                                            }}
+                                                            title="Revertir cobro y volver a estado Pendiente"
+                                                        >
+                                                            ↩️ Deshacer
+                                                        </button>
                                                     ) : (
                                                         <div></div> /* Empty cell for alignment */
                                                     )}
@@ -1283,14 +1385,15 @@ export default function CobrosYPedidosPage() {
                                                     <button
                                                         className="payment-modal-list-btn"
                                                         onClick={() => handleRemoveCheque(c)}
+                                                        title={isCobrado ? "Anular cheque y revertir su cobro asociado" : undefined}
                                                         disabled={isSubmitting}
                                                         style={{
                                                             background: 'none',
-                                                            color: '#dc3545',
-                                                            cursor: 'pointer',
+                                                            color: isSubmitting ? '#94a3b8' : '#dc3545',
+                                                            cursor: isSubmitting ? 'not-allowed' : 'pointer',
                                                             margin: '0px',
                                                             borderRadius: '4px',
-                                                            border: '1px solid #dc3545',
+                                                            border: `1px solid ${isSubmitting ? '#cbd5e1' : '#dc3545'}`,
                                                             padding: '0px 0px',
                                                             height: '24px',
                                                             lineHeight: '22px',
@@ -1312,7 +1415,7 @@ export default function CobrosYPedidosPage() {
 
                         <div className="payment-modal-actions">
                             <button className="secondary" onClick={() => setShowPayModal(false)} disabled={isSubmitting}>Cancelar</button>
-                            <button className="primary" onClick={handleRegisterPayment} disabled={isSubmitting || (payments.length === 0 && queuedPaymentsToRemove.length === 0 && queuedChequesToCobrar.length === 0 && queuedChequesToRemove.length === 0)}>
+                            <button className="primary" onClick={handleRegisterPayment} disabled={isSubmitting || (payments.length === 0 && queuedPaymentsToRemove.length === 0 && queuedChequesToCobrar.length === 0 && queuedChequesToRemove.length === 0 && queuedChequesToCancelarCobro.length === 0)}>
                                 {isSubmitting ? 'Registrando...' : 'Confirmar'}
                             </button>
                         </div>

@@ -185,15 +185,20 @@ export default function useCart() {
 
         const mappedPayments = (sale.pagos || []).map(p => {
             const method = availableMethods.find(m => m.id === p.metodoPagoId);
+            const baseName = method ? method.descripcion : 'Pago Registrado';
+            const matchedCheque = (sale.cheques || []).find(c => c.pagoVentaId === p.id);
+            const displayName = matchedCheque ? `Cheque (Cobrado: ${baseName})` : baseName;
             return {
                 id: p.id,
                 methodId: p.metodoPagoId,
-                name: method ? method.descripcion : 'Pago Registrado',
+                name: displayName,
+                isCashedCheque: Boolean(matchedCheque),
+                chequeId: matchedCheque ? matchedCheque.id : null,
                 amount: p.monto,
                 _internalId: Date.now() + Math.random() + p.id
             };
         });
-        const mappedCheques = (sale.cheques || []).filter(c => c.estado !== 'ANULADA').map(c => {
+        const mappedCheques = (sale.cheques || []).filter(c => c.estado === 'PENDIENTE').map(c => {
             return {
                 id: c.id,
                 isCheque: true,

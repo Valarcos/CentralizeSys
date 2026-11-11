@@ -106,6 +106,18 @@ public class AlertaChequeRepository {
         return results.isEmpty() ? Optional.empty() : Optional.of(results.getFirst());
     }
 
+    public Optional<AlertaCheque> findByPagoVentaId(Long pagoVentaId) {
+        String sql = "SELECT ac.*, NULL as metodo_pago_nombre FROM alertas_cheques ac WHERE ac.pago_venta_id = :pagoVentaId";
+        List<AlertaCheque> results = namedJdbcTemplate.query(sql, new MapSqlParameterSource("pagoVentaId", pagoVentaId), rowMapper);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.getFirst());
+    }
+
+    public Optional<AlertaCheque> findByPagoDeudaId(Long pagoDeudaId) {
+        String sql = "SELECT ac.*, NULL as metodo_pago_nombre FROM alertas_cheques ac WHERE ac.pago_deuda_id = :pagoDeudaId";
+        List<AlertaCheque> results = namedJdbcTemplate.query(sql, new MapSqlParameterSource("pagoDeudaId", pagoDeudaId), rowMapper);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.getFirst());
+    }
+
     public void updateEstadoAndPagoVentaId(Long id, String nuevoEstado, Long pagoVentaId) {
         String sql = "UPDATE alertas_cheques SET estado = :nuevoEstado, pago_venta_id = :pagoVentaId WHERE id = :id";
         namedJdbcTemplate.update(sql, new MapSqlParameterSource()

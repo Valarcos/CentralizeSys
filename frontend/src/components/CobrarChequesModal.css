@@ -52,8 +52,13 @@
     transition: background 0.2s;
 }
 
-.ccm-close-btn:hover {
+.ccm-close-btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.35);
+}
+
+.ccm-close-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* --- Summary Row --- */
@@ -138,7 +143,13 @@
 .ccm-row-paid {
     border-color: #d1d5db;
     background: #f9fafb;
-    opacity: 0.7;
+    opacity: 0.85;
+}
+
+.ccm-row-anulada {
+    border-color: #e2e8f0;
+    background: #f8fafc;
+    opacity: 0.65;
 }
 
 /* --- Installment info line --- */
@@ -201,8 +212,27 @@
     color: #64748b;
 }
 
-/* --- Action row (select + cobrar button) --- */
+/* --- Action row (select + cobrar/deshacer/anular buttons) --- */
 .ccm-installment-action {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.ccm-installment-action--cobrado {
+    justify-content: space-between;
+}
+
+.ccm-cobrado-method {
+    font-size: 0.85rem;
+    color: #0f766e;
+    background-color: #ccfbf1;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.ccm-cobrado-actions {
     display: flex;
     gap: 0.5rem;
     align-items: center;
@@ -210,6 +240,7 @@
 
 .ccm-method-select {
     flex: 1;
+    min-width: 150px;
     padding: 0.45rem 0.6rem;
     border: 1.5px solid #cbd5e1;
     border-radius: 6px;
@@ -249,6 +280,53 @@
     transform: none;
 }
 
+.ccm-undo-btn {
+    white-space: nowrap;
+    padding: 0.45rem 0.85rem;
+    background: #f59e0b;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.ccm-undo-btn:hover:not(:disabled) {
+    background: #d97706;
+    transform: translateY(-1px);
+}
+
+.ccm-undo-btn:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.ccm-anular-btn {
+    white-space: nowrap;
+    padding: 0.45rem 0.85rem;
+    background: transparent;
+    color: #dc3545;
+    border: 1px solid #dc3545;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.ccm-anular-btn:hover:not(:disabled) {
+    background: #fef2f2;
+}
+
+.ccm-anular-btn:disabled {
+    color: #94a3b8;
+    border-color: #cbd5e1;
+    cursor: not-allowed;
+}
+
 /* --- Footer --- */
 .ccm-footer {
     padding: 0.75rem 1rem 1rem 1rem;
@@ -267,13 +345,21 @@
 @media (max-width: 480px) {
     .ccm-installment-action {
         flex-direction: column;
+        align-items: stretch;
     }
 
     .ccm-method-select {
         width: 100%;
     }
 
-    .ccm-cobrar-btn {
+    .ccm-cobrado-actions {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .ccm-cobrar-btn,
+    .ccm-undo-btn,
+    .ccm-anular-btn {
         width: 100%;
     }
 }

@@ -122,4 +122,86 @@ class AlertaChequeRepositoryTest extends BaseIntegrationTest {
         // Assert
         assertThat(sum).isEqualTo(400.0); // 100 + 300
     }
+
+    @Test
+    @DisplayName("findByPagoVentaId - returns cheque when pago_venta_id matches")
+    void findByPagoVentaId_ReturnsCheque_WhenMatched() {
+        // Arrange
+        Long ventaId = createTestSale();
+        AlertaCheque cheque = new AlertaCheque();
+        cheque.setVentaId(ventaId);
+        cheque.setMonto(250.0);
+        cheque.setFechaCobro(LocalDate.now());
+        cheque.setEstado("PENDIENTE");
+        Long chequeId = alertaChequeRepository.save(cheque);
+
+        // Insert a real pago_venta to satisfy FK using existing metodo_pago_id 1
+        jdbcTemplate.update("INSERT INTO pagos_venta (id, venta_id, metodo_pago_id, monto, fecha_pago, anulado) VALUES (8888, ?, 1, 250.0, ?, false)", ventaId, LocalDateTime.now());
+
+        // Update with pagoVentaId = 8888L
+        alertaChequeRepository.updateEstadoAndPagoVentaIdAtomic(chequeId, "COBRADO", 8888L, "PENDIENTE");
+
+        // Act
+        java.util.Optional<AlertaCheque> found = alertaChequeRepository.findByPagoVentaId(8888L);
+        java.util.Optional<AlertaCheque> notFound = alertaChequeRepository.findByPagoVentaId(7777L);
+
+        // Assert
+        assertThat(found).isPresent();
+        assertThat(found.get().getId()).isEqualTo(chequeId);
+        assertThat(found.get().getPagoVentaId()).isEqualTo(8888L);
+        assertThat(found.get().getEstado()).isEqualTo("COBRADO");
+        assertThat(notFound).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByPagoDeudaId - returns cheque when pago_deuda_id matches")
+    void findByPagoDeudaId_ReturnsCheque_WhenMatched() {
+        // Arrange
+        Long ventaId = createTestSale();
+        AlertaCheque cheque = new AlertaCheque();
+        cheque.setVentaId(ventaId);
+        cheque.setMonto(350.0);
+        cheque.setFechaCobro(LocalDate.now());
+        cheque.setEstado("PENDIENTE");
+        cheque.setTipoOrigen("DEUDA_FIADO");
+        Long chequeId = alertaChequeRepository.save(cheque);
+
+        // Satisfy FKs: deudores -> pagos_deuda
+        jdbcTemplate.update("INSERT INTO deudores (id, venta_id, cliente_nombre, monto_deuda, fecha_deuda, estado) VALUES (7777, ?, 'Test Deudor', 1000.0, ?, 'PENDIENTE')", ventaId, LocalDateTime.now());
+        jdbcTemplate.update("INSERT INTO pagos_deuda (id, deuda_id, metodo_pago_id, monto, fecha_pago, anulado) VALUES (8889, 7777, 1, 350.0, ?, false)", LocalDateTime.now());
+
+        // Update with pagoDeudaId = 8889L
+        alertaChequeRepository.updateEstadoAndPagoDeudaIdAtomic(chequeId, "COBRADO", 8889L, "PENDIENTE");
+
+        // Act
+        java.util.Optional<AlertaCheque> found = alertaChequeRepository.findByPagoDeudaId(8889L);
+        java.util.Optional<AlertaCheque> notFound = alertaChequeRepository.findByPagoDeudaId(9999L);
+
+        // Assert
+        assertThat(found).isPresent();
+        assertThat(found.get().getId()).isEqualTo(chequeId);
+        assertThat(found.get().getPagoDeudaId()).isEqualTo(8889L);
+        assertThat(found.get().getEstado()).isEqualTo("COBRADO");
+        assertThat(notFound).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByPagoVentaId - returns empty when given null ID")
+    void findByPagoVentaId_ReturnsEmpty_WhenIdIsNull() {
+        // Act
+        java.util.Optional<AlertaCheque> found = alertaChequeRepository.findByPagoVentaId(null);
+
+        // Assert
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByPagoDeudaId - returns empty when given null ID")
+    void findByPagoDeudaId_ReturnsEmpty_WhenIdIsNull() {
+        // Act
+        java.util.Optional<AlertaCheque> found = alertaChequeRepository.findByPagoDeudaId(null);
+
+        // Assert
+        assertThat(found).isEmpty();
+    }
 }

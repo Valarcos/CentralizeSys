@@ -190,7 +190,8 @@ class VentaServiceValidationTest {
 
         com.centralizesys.model.debt.DeudaResponse deuda = new com.centralizesys.model.debt.DeudaResponse();
         deuda.setId(100L);
-        deuda.setMontoDeuda(4000.0); // Debt is 4000, Cheque is 5000
+        deuda.setMontoOriginal(4000.0);
+        deuda.setMontoDeuda(0.0); // Cheque is 5000, exceeds original debt 4000
 
         when(alertaChequeRepository.findById(1L)).thenReturn(Optional.of(cheque));
         when(metodoPagoRepository.findById(1L)).thenReturn(Optional.of(metodo));

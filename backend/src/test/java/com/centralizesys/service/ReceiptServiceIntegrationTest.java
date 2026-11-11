@@ -206,6 +206,12 @@ class ReceiptServiceIntegrationTest extends BaseIntegrationTest {
         VentaReceiptDto saleReceipt = ventaService.getVentaReceipt(pendingId);
         assertEquals(DEPOSIT, saleReceipt.getTotalPagado(), DELTA, "Sale receipt must NOT count pending debt cheques in totalPagado");
         assertEquals(SALE_TOTAL - DEPOSIT, saleReceipt.getSaldoRestante(), DELTA);
+
+        // Fetch debt receipt: totalPagado must reflect the amortized $300 cheque and remaining $200
+        com.centralizesys.model.debt.DeudaReceiptDto deudaReceipt = deudoresService.getDeudaReceipt(deuda.getId());
+        assertEquals(SALE_TOTAL, deudaReceipt.getTotalOriginal(), DELTA);
+        assertEquals(300.0, deudaReceipt.getTotalPagado(), DELTA, "Debt receipt amortized total must include the $300 cheque");
+        assertEquals(200.0, deudaReceipt.getSaldoRestante(), DELTA, "Debt receipt remaining balance must be $200");
     }
 
     @Test

@@ -411,6 +411,16 @@ public class VentaRepository {
         }
     }
 
+    public boolean lockVentaForPaymentProcessing(Long ventaId) {
+        String sql = "SELECT 1 FROM ventas WHERE id = :id AND estado IN ('PENDIENTE', 'ACTIVA') FOR UPDATE";
+        try {
+            List<Integer> result = namedJdbcTemplate.queryForList(sql, new MapSqlParameterSource("id", ventaId), Integer.class);
+            return !result.isEmpty();
+        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+            return false;
+        }
+    }
+
     public boolean lockVentaForReturn(Long ventaId) {
         String sql = "SELECT 1 FROM ventas WHERE id = :id AND estado IN ('ACTIVA', 'DEVUELTA_PARCIAL') FOR UPDATE";
         try {

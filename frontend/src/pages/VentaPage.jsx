@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useOutletContext, useBlocker, useLocation, useNavigate } from 'react-router-dom';
 import useCart from '../hooks/useCart';
 import api from '../services/api';
@@ -824,6 +824,15 @@ export default function VentaPage() {
         setPaymentAmount('');
     };
 
+    const handleRemovePayment = useCallback((internalId) => {
+        const paymentToRemove = payments.find(p => p._internalId === internalId);
+        if (paymentToRemove?.isCashedCheque) {
+            toast.error("Este pago proviene del cobro de un cheque. Para cancelarlo o modificarlo, use el módulo de Cobros y Pedidos.", { duration: 4500 });
+            return;
+        }
+        removePaymentMethod(internalId);
+    }, [payments, removePaymentMethod]);
+
     // Issue #8: Auto-correct handler for overpayment modal
     const handleAutoCorrectPayment = () => {
         setShowOverpaidModal(false);
@@ -1390,9 +1399,9 @@ export default function VentaPage() {
                                 <div className="payment-stack" ref={paymentStackRef}>
                                     {payments.map((p) => (
                                         <div key={p._internalId} className="payment-item">
-                                            <span className="payment-name">{p.name}</span>
+                                            <span className="payment-name" title={p.isCashedCheque ? "Cobrado vía cheque" : undefined}>{p.isCashedCheque ? `🔒 ${p.name}` : p.name}</span>
                                             <span className="payment-amount-label">{formatCurrency(p.amount)}</span>
-                                            <button className="remove-btn-new" onClick={() => removePaymentMethod(p._internalId)}>×</button>
+                                            <button className="remove-btn-new" onClick={() => handleRemovePayment(p._internalId)} title={p.isCashedCheque ? "Pago originado por cheque cobrado" : "Eliminar pago"}>×</button>
                                         </div>
                                     ))}
                                 </div>

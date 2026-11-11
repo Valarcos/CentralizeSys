@@ -102,15 +102,13 @@ public class DeudoresService {
                 throw new BusinessRuleException("Un pago de deuda no puede tener monto negativo.");
             }
         }
-        // ONLY sum cash/transfers. Cheques do NOT reduce the debt instantly.
+        // ERP Standard: Promissory cheques reduce the open account debt immediately upon receipt,
+        // transferring the obligation to the documented Cheques portfolio (salvo buen cobro).
         double totalPago = pagos.stream()
-                .filter(p -> p.getFechaCobro() == null)
                 .mapToDouble(PagoDeudaRequest::getMontoPago)
                 .sum();
 
-        // Ensure at least one payment is > 0 (even if it's a cheque, but here totalPago is cash)
-        double totalIncludingCheques = pagos.stream().mapToDouble(PagoDeudaRequest::getMontoPago).sum();
-        if (totalIncludingCheques <= 0) {
+        if (totalPago <= 0) {
             throw new BusinessRuleException(Constants.ERR_PAYMENT_NEGATIVE);
         }
         return totalPago;
@@ -220,11 +218,17 @@ public class DeudoresService {
         List<PagoDeuda> pagosDeuda = repository.getPagosByDeudaId(id).stream()
                 .filter(p -> !Boolean.TRUE.equals(p.getAnulado()))
                 .toList();
-        double totalPagado = pagosDeuda.stream().mapToDouble(PagoDeuda::getMonto).sum();
 
         List<AlertaCheque> cheques = (ventaReceipt != null)
                 ? ventaReceipt.getCheques()
                 : (deuda.getVentaId() != null ? alertaChequeRepository.findByVentaId(deuda.getVentaId()) : java.util.Collections.emptyList());
+
+        double pagosDeudaTotal = pagosDeuda.stream().mapToDouble(PagoDeuda::getMonto).sum();
+        double chequesDeudaTotal = cheques.stream()
+                .filter(c -> "DEUDA_FIADO".equals(c.getTipoOrigen()) && "PENDIENTE".equals(c.getEstado()))
+                .mapToDouble(AlertaCheque::getMonto)
+                .sum();
+        double totalPagado = Math.round((pagosDeudaTotal + chequesDeudaTotal) * 100.0) / 100.0;
 
         return DeudaReceiptDto.builder()
                 .deuda(deuda)
@@ -233,7 +237,7 @@ public class DeudoresService {
                 .pagosDeuda(pagosDeuda)
                 .cheques(cheques)
                 .totalOriginal(deuda.getMontoOriginal())
-                .totalPagado(Math.round(totalPagado * 100.0) / 100.0)
+                .totalPagado(totalPagado)
                 .saldoRestante(deuda.getMontoDeuda())
                 .build();
     }
@@ -255,6 +259,10 @@ public class DeudoresService {
         if ("ANULADA".equals(deuda.getEstado())) {
             throw new BusinessRuleException("No se puede anular un pago de una deuda ya anulada.");
         }
+
+        alertaChequeRepository.findByPagoDeudaId(pagoId).ifPresent(c -> {
+            throw new BusinessRuleException(Constants.ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT);
+        });
 
         // 3. Update DB Atomically
         int pagoRowsAffected = repository.updatePagoAnulado(pagoId);

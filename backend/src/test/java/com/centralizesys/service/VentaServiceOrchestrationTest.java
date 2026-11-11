@@ -1,6 +1,7 @@
 package com.centralizesys.service;
 
 import com.centralizesys.exception.BusinessRuleException;
+import com.centralizesys.util.Constants;
 import com.centralizesys.model.cheque.AlertaCheque;
 import com.centralizesys.model.cheque.AlertaChequeRequest;
 import com.centralizesys.model.debt.DeudaResponse;
@@ -76,6 +77,7 @@ class VentaServiceOrchestrationTest {
         lenient().when(metodoPagoRepository.findByAcronimo("E")).thenReturn(Optional.of(activeMethod));
         lenient().when(metodoPagoRepository.findByAcronimo("SALDO")).thenReturn(Optional.of(saldoMethod));
         lenient().when(ventaRepository.lockVentaForUpdate(anyLong(), anyString())).thenReturn(true);
+        lenient().when(ventaRepository.lockVentaForPaymentProcessing(anyLong())).thenReturn(true);
     }
 
 
@@ -776,15 +778,17 @@ class VentaServiceOrchestrationTest {
         // Act
         ventaService.cobrarCheque(chequeId, metodoPagoId, authenticatedUserId);
 
-        // Assert: debt must be deducted atomically and cheque linked to the new pago_deuda record
-        verify(deudoresRepository).deductDeudaAtomic(eq(300L), eq(500.0), eq(1000.0));
+        // Assert: ERP Standard - debt was already deducted when cheque was registered;
+        // cobrarCheque records the realized pago_deuda and marks cheque COBRADO without double deduction.
+        verify(deudoresRepository, never()).deductDeudaAtomic(anyLong(), anyDouble(), anyDouble());
+        verify(deudoresRepository).insertarPagoDeudaReturningId(eq(300L), eq(1L), eq(500.0), anyString(), eq(authenticatedUserId));
         verify(alertaChequeRepository).updateEstadoAndPagoDeudaIdAtomic(eq(chequeId), eq("COBRADO"), eq(999L), anyString());
         verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("COBRO_CHEQUE_DEUDA"), anyString());
     }
 
     @Test
-    @DisplayName("E2-UT-06: cancelarCobroCheque restores debt and nulls pago_deuda_id when tipoOrigen is DEUDA_FIADO")
-    void cancelarCobroCheque_DeudaFiado_RestoresDebt() {
+    @DisplayName("E2-UT-06: cancelarCobroCheque voids pago_deuda and returns cheque to PENDIENTE when tipoOrigen is DEUDA_FIADO")
+    void cancelarCobroCheque_DeudaFiado_VoidsPaymentAndReturnsChequeToPending() {
         Long chequeId = 2L;
         Long authenticatedUserId = 10L;
 
@@ -797,23 +801,50 @@ class VentaServiceOrchestrationTest {
         cheque.setPagoDeudaId(999L);
         cheque.setTipoOrigen("DEUDA_FIADO");
 
-        DeudaResponse mockDeuda = new DeudaResponse();
-        mockDeuda.setId(300L);
-        mockDeuda.setMontoDeuda(500.0); // Had $1000 original, $500 paid
-        mockDeuda.setMontoOriginal(1000.0);
-        mockDeuda.setEstado("PARCIAL");
-
         when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
-        when(deudoresRepository.findByVentaId(100L)).thenReturn(Optional.of(mockDeuda));
         lenient().when(alertaChequeRepository.updateEstadoAndPagoDeudaIdAtomic(anyLong(), anyString(), any(), anyString())).thenReturn(1);
 
         // Act
         ventaService.cancelarCobroCheque(chequeId, authenticatedUserId);
 
-        // Assert: debt must be restored and the linked pago_deuda annulled
-        verify(deudoresRepository).addDeudaAtomic(eq(300L), eq(500.0), eq(1000.0));
+        // Assert: payment must be voided, cheque returns to PENDIENTE, but debt is NOT increased because the cheque remains in portfolio
         verify(deudoresRepository).updatePagoAnulado(eq(999L));
+        verify(deudoresRepository, never()).addDeudaAtomic(anyLong(), anyDouble(), anyDouble());
+        verify(alertaChequeRepository).updateEstadoAndPagoDeudaIdAtomic(eq(chequeId), eq("PENDIENTE"), isNull(), eq("COBRADO"));
         verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("CANCELACION_COBRO_CHEQUE_DEUDA"), anyString());
+    }
+
+    @Test
+    @DisplayName("E2-UT-07: anularCheque restores debt and sets status to ANULADA when tipoOrigen is DEUDA_FIADO")
+    void anularCheque_DeudaFiado_RestoresDebtAndCancelsCheque() {
+        Long chequeId = 3L;
+        Long authenticatedUserId = 10L;
+
+        AlertaCheque cheque = new AlertaCheque();
+        cheque.setId(chequeId);
+        cheque.setVentaId(100L);
+        cheque.setMonto(500.0);
+        cheque.setFechaCobro(java.time.LocalDate.now());
+        cheque.setEstado("PENDIENTE");
+        cheque.setTipoOrigen("DEUDA_FIADO");
+
+        DeudaResponse mockDeuda = new DeudaResponse();
+        mockDeuda.setId(300L);
+        mockDeuda.setMontoDeuda(500.0);
+        mockDeuda.setMontoOriginal(1000.0);
+        mockDeuda.setEstado("PARCIAL");
+
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+        when(deudoresRepository.findByVentaId(100L)).thenReturn(Optional.of(mockDeuda));
+        lenient().when(alertaChequeRepository.updateEstadoAndPagoVentaIdAtomic(anyLong(), anyString(), any(), anyString())).thenReturn(1);
+
+        // Act
+        ventaService.anularCheque(chequeId, authenticatedUserId);
+
+        // Assert: debt must be restored to open account and cheque set to ANULADA
+        verify(deudoresRepository).addDeudaAtomic(eq(300L), eq(500.0), eq(1000.0));
+        verify(alertaChequeRepository).updateEstadoAndPagoVentaIdAtomic(eq(chequeId), eq("ANULADA"), isNull(), eq("PENDIENTE"));
+        verify(auditoriaService).registrarAccion(eq(authenticatedUserId), eq("ANULAR_CHEQUE"), contains("eliminación lógica"));
     }
 
     // --- PHASE 2.2 STATE MACHINE & ORCHESTRATION EXPLOITS ---
@@ -946,17 +977,8 @@ class VentaServiceOrchestrationTest {
 
         when(ventaRepository.findDetallesByVentaId(ventaId)).thenReturn(Collections.emptyList());
 
-        try {
-            VentaResponse response = ventaService.modificarCarrito(ventaId, request, usuarioId);
-            assertEquals(3L, response.getClienteId(), "Response should use the fresh client ID from the request.");
-        } catch (Exception e) {
-            try {
-                java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("npe.txt"));
-                e.printStackTrace(pw);
-                pw.close();
-            } catch (Exception ex) {}
-            throw e;
-        }
+        VentaResponse response = ventaService.modificarCarrito(ventaId, request, usuarioId);
+        assertEquals(3L, response.getClienteId(), "Response should use the fresh client ID from the request.");
     }
 
     @Test
@@ -989,6 +1011,552 @@ class VentaServiceOrchestrationTest {
         });
 
         assertTrue(ex.getMessage().contains("Un pedido pendiente no puede ser anónimo"));
+    }
+
+    // --- GROUP: CASHED CHEQUE CART PRESERVATION & SECURITY ---
+
+    @Test
+    @DisplayName("modificarCarrito: Allows update when cashed cheque payment is preserved in request")
+    void modificarCarrito_AllowsPreservedCashedChequePayment() {
+        Long ventaId = 99L;
+        Long usuarioId = 1L;
+
+        Venta pendingSale = new Venta();
+        pendingSale.setId(ventaId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTipoVenta("MINORISTA");
+        pendingSale.setVersion(0);
+        when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        when(ventaRepository.lockVentaForUpdate(ventaId, "PENDIENTE")).thenReturn(true);
+
+        Product p = Product.builder().codigo("P1").descripcion("Producto").precioCosto(50.0).precioMayorista(100.0).precioMinorista(100.0).build();
+        p.setId(1L);
+        when(productRepository.findByIdIncludingInactive(1L)).thenReturn(Optional.of(p));
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        com.centralizesys.model.sales.PagoVenta existingP1 = new com.centralizesys.model.sales.PagoVenta();
+        existingP1.setId(10L);
+        existingP1.setMetodoPagoId(1L);
+        existingP1.setMonto(100.0);
+
+        when(ventaRepository.findPagosActivosByVentaId(ventaId)).thenReturn(List.of(existingP1));
+
+        // Cashed cheque linked to existing payment 10L
+        AlertaCheque cashedCheque = new AlertaCheque(5L, ventaId, 100.0, LocalDate.now(), "COBRADO", 10L, null);
+        lenient().when(alertaChequeRepository.findByVentaId(ventaId)).thenReturn(List.of(cashedCheque));
+        lenient().when(alertaChequeRepository.findByPagoVentaId(10L)).thenReturn(Optional.of(cashedCheque));
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+
+        VentaRequest.PagoRequest pPreserved = new VentaRequest.PagoRequest();
+        pPreserved.setId(10L);
+        pPreserved.setMetodoPagoId(1L);
+        pPreserved.setMonto(100.0);
+        request.setPagos(List.of(pPreserved));
+
+        assertDoesNotThrow(() -> ventaService.modificarCarrito(ventaId, request, usuarioId));
+        verify(ventaRepository, never()).updatePagoAnulado(10L);
+    }
+
+    @Test
+    @DisplayName("modificarCarrito: Throws ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT when cashed cheque payment is dropped")
+    void modificarCarrito_ThrowsWhenCashedChequePaymentDropped() {
+        Long ventaId = 99L;
+        Long usuarioId = 1L;
+
+        Venta pendingSale = new Venta();
+        pendingSale.setId(ventaId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTipoVenta("MINORISTA");
+        pendingSale.setVersion(0);
+        when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        when(ventaRepository.lockVentaForUpdate(ventaId, "PENDIENTE")).thenReturn(true);
+
+        Product p = Product.builder().codigo("P1").descripcion("Producto").precioCosto(50.0).precioMayorista(100.0).precioMinorista(100.0).build();
+        p.setId(1L);
+        when(productRepository.findByIdIncludingInactive(1L)).thenReturn(Optional.of(p));
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        com.centralizesys.model.sales.PagoVenta existingP1 = new com.centralizesys.model.sales.PagoVenta();
+        existingP1.setId(10L);
+        existingP1.setMetodoPagoId(1L);
+        existingP1.setMonto(100.0);
+
+        when(ventaRepository.findPagosActivosByVentaId(ventaId)).thenReturn(List.of(existingP1));
+
+        // Cashed cheque linked to existing payment 10L
+        AlertaCheque cashedCheque = new AlertaCheque(5L, ventaId, 100.0, LocalDate.now(), "COBRADO", 10L, null);
+        lenient().when(alertaChequeRepository.findByVentaId(ventaId)).thenReturn(List.of(cashedCheque));
+        lenient().when(alertaChequeRepository.findByPagoVentaId(10L)).thenReturn(Optional.of(cashedCheque));
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+        request.setPagos(Collections.emptyList()); // Payment 10L dropped!
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.modificarCarrito(ventaId, request, usuarioId);
+        });
+
+        assertEquals(Constants.ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT, ex.getMessage());
+        verify(ventaRepository, never()).updatePagoAnulado(anyLong());
+    }
+
+    @Test
+    @DisplayName("anularPago: Throws ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT when payment is linked to cheque")
+    void anularPago_ThrowsWhenPaymentIsLinkedToCheque() {
+        Long pendingId = 99L;
+        Long pagoId = 10L;
+        Long usuarioId = 1L;
+
+        when(ventaRepository.lockVentaForUpdate(pendingId, "PENDIENTE")).thenReturn(true);
+        Venta pendingSale = new Venta();
+        pendingSale.setId(pendingId);
+        pendingSale.setEstado("PENDIENTE");
+        when(ventaRepository.findById(pendingId)).thenReturn(Optional.of(pendingSale));
+
+        PagoVenta pago = new PagoVenta();
+        pago.setId(pagoId);
+        pago.setMonto(200.0);
+        pago.setMetodoPagoId(1L);
+        when(ventaRepository.getMontoPagoActivo(pagoId, pendingId)).thenReturn(200.0);
+        when(ventaRepository.findPagosByVentaId(pendingId)).thenReturn(List.of(pago));
+
+        AlertaCheque cheque = new AlertaCheque(5L, pendingId, 200.0, LocalDate.now(), "COBRADO", pagoId, null);
+        when(alertaChequeRepository.findByPagoVentaId(pagoId)).thenReturn(Optional.of(cheque));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.anularPago(pendingId, pagoId, usuarioId);
+        });
+
+        assertEquals(Constants.ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT, ex.getMessage());
+        verify(ventaRepository, never()).updatePagoAnulado(anyLong());
+        verify(auditoriaService, never()).registrarAccion(anyLong(), anyString(), anyString());
+    }
+
+    @Test
+    @DisplayName("anularPago: Successfully annuls payment and records audit when not linked to cheque")
+    void anularPago_Success_WhenNotLinkedToCheque() {
+        Long pendingId = 99L;
+        Long pagoId = 10L;
+        Long usuarioId = 1L;
+
+        when(ventaRepository.lockVentaForUpdate(pendingId, "PENDIENTE")).thenReturn(true);
+        Venta pendingSale = new Venta();
+        pendingSale.setId(pendingId);
+        pendingSale.setEstado("PENDIENTE");
+        when(ventaRepository.findById(pendingId)).thenReturn(Optional.of(pendingSale));
+
+        PagoVenta pago = new PagoVenta();
+        pago.setId(pagoId);
+        pago.setMonto(200.0);
+        pago.setMetodoPagoId(1L);
+        when(ventaRepository.getMontoPagoActivo(pagoId, pendingId)).thenReturn(200.0);
+        when(ventaRepository.findPagosByVentaId(pendingId)).thenReturn(List.of(pago));
+
+        when(alertaChequeRepository.findByPagoVentaId(pagoId)).thenReturn(Optional.empty());
+
+        assertDoesNotThrow(() -> ventaService.anularPago(pendingId, pagoId, usuarioId));
+
+        verify(ventaRepository).updatePagoAnulado(pagoId);
+        verify(auditoriaService).registrarAccion(usuarioId, "ANULAR_PAGO_PENDIENTE", "Pago ID: " + pagoId + " del Pedido ID: " + pendingId + " por $200.0 anulado.");
+    }
+
+    @Test
+    @DisplayName("cobrarCheque: Throws ERR_VENTA_CONCURRENT_MODIFICATION when lockVentaForPaymentProcessing fails")
+    void cobrarCheque_AcquiresLockAndThrowsWhenLockFails() {
+        Long chequeId = 1L;
+        Long metodoPagoId = 1L;
+        Long authenticatedUserId = 2L;
+        Long ventaId = 100L;
+
+        AlertaCheque cheque = new AlertaCheque(
+                chequeId, ventaId, 500.0, LocalDate.now(), "PENDIENTE", null, null
+        );
+
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+        when(ventaRepository.lockVentaForPaymentProcessing(ventaId)).thenReturn(false);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.cobrarCheque(chequeId, metodoPagoId, authenticatedUserId);
+        });
+
+        assertEquals(Constants.ERR_VENTA_CONCURRENT_MODIFICATION, ex.getMessage());
+        verify(ventaRepository, never()).savePagoUnicoReturningId(anyLong(), anyLong(), anyDouble(), anyLong());
+    }
+
+    @Test
+    @DisplayName("cancelarCobroCheque: Throws ERR_VENTA_CONCURRENT_MODIFICATION when lockVentaForPaymentProcessing fails")
+    void cancelarCobroCheque_AcquiresLockAndThrowsWhenLockFails() {
+        Long chequeId = 1L;
+        Long authenticatedUserId = 2L;
+        Long ventaId = 100L;
+
+        AlertaCheque cheque = new AlertaCheque(
+                chequeId, ventaId, 500.0, LocalDate.now(), "COBRADO", 999L, null
+        );
+
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+        when(ventaRepository.lockVentaForPaymentProcessing(ventaId)).thenReturn(false);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.cancelarCobroCheque(chequeId, authenticatedUserId);
+        });
+
+        assertEquals(Constants.ERR_VENTA_CONCURRENT_MODIFICATION, ex.getMessage());
+        verify(ventaRepository, never()).anularPagoVentaById(anyLong());
+    }
+
+    @Test
+    @DisplayName("cobrarCheque: Throws BusinessRuleException when cheque is not in PENDIENTE state")
+    void cobrarCheque_ThrowsWhenChequeNotPendiente() {
+        Long chequeId = 1L;
+        Long metodoPagoId = 1L;
+        Long authenticatedUserId = 2L;
+
+        AlertaCheque cheque = new AlertaCheque(
+                chequeId, 100L, 500.0, LocalDate.now(), "COBRADO", 999L, null
+        );
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.cobrarCheque(chequeId, metodoPagoId, authenticatedUserId);
+        });
+
+        assertEquals("El cheque ya fue cobrado o anulado.", ex.getMessage());
+        verify(ventaRepository, never()).savePagoUnicoReturningId(anyLong(), anyLong(), anyDouble(), anyLong());
+    }
+
+    @Test
+    @DisplayName("cobrarCheque: Throws BusinessRuleException when payment method is inactive")
+    void cobrarCheque_ThrowsWhenMetodoPagoInactive() {
+        Long chequeId = 1L;
+        Long metodoPagoId = 5L;
+        Long authenticatedUserId = 2L;
+
+        AlertaCheque cheque = new AlertaCheque(
+                chequeId, 100L, 500.0, LocalDate.now(), "PENDIENTE", null, null
+        );
+        com.centralizesys.model.sales.MetodoPago inactiveMethod = new com.centralizesys.model.sales.MetodoPago();
+        inactiveMethod.setId(metodoPagoId);
+        inactiveMethod.setActivo(false);
+
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+        when(metodoPagoRepository.findById(metodoPagoId)).thenReturn(Optional.of(inactiveMethod));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.cobrarCheque(chequeId, metodoPagoId, authenticatedUserId);
+        });
+
+        assertEquals("El método de pago seleccionado no está activo.", ex.getMessage());
+        verify(ventaRepository, never()).savePagoUnicoReturningId(anyLong(), anyLong(), anyDouble(), anyLong());
+    }
+
+    @Test
+    @DisplayName("cobrarCheque: Throws BusinessRuleException when concurrent atomic update returns 0 rows")
+    void cobrarCheque_ThrowsWhenConcurrentUpdateFails() {
+        Long chequeId = 1L;
+        Long metodoPagoId = 1L;
+        Long authenticatedUserId = 2L;
+        Long ventaId = 100L;
+
+        AlertaCheque cheque = new AlertaCheque(
+                chequeId, ventaId, 500.0, LocalDate.now(), "PENDIENTE", null, null
+        );
+
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+        when(ventaRepository.savePagoUnicoReturningId(ventaId, metodoPagoId, 500.0, authenticatedUserId)).thenReturn(999L);
+        when(alertaChequeRepository.updateEstadoAndPagoVentaIdAtomic(chequeId, "COBRADO", 999L, "PENDIENTE")).thenReturn(0);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.cobrarCheque(chequeId, metodoPagoId, authenticatedUserId);
+        });
+
+        assertEquals("El cheque ya fue cobrado o anulado concurrentemente.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("cancelarCobroCheque: Throws BusinessRuleException when cheque is not in COBRADO state")
+    void cancelarCobroCheque_ThrowsWhenChequeNotCobrado() {
+        Long chequeId = 1L;
+        Long authenticatedUserId = 2L;
+
+        AlertaCheque cheque = new AlertaCheque(
+                chequeId, 100L, 500.0, LocalDate.now(), "PENDIENTE", null, null
+        );
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.cancelarCobroCheque(chequeId, authenticatedUserId);
+        });
+
+        assertEquals("El cheque no está cobrado.", ex.getMessage());
+        verify(ventaRepository, never()).anularPagoVentaById(anyLong());
+    }
+
+    @Test
+    @DisplayName("cancelarCobroCheque: Throws BusinessRuleException when pagoVentaId is null for standard sale cheque")
+    void cancelarCobroCheque_ThrowsWhenPagoVentaIdIsNull() {
+        Long chequeId = 1L;
+        Long authenticatedUserId = 2L;
+
+        AlertaCheque cheque = new AlertaCheque(
+                chequeId, 100L, 500.0, LocalDate.now(), "COBRADO", null, null
+        );
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.cancelarCobroCheque(chequeId, authenticatedUserId);
+        });
+
+        assertEquals("El cheque no tiene un pago asociado.", ex.getMessage());
+        verify(ventaRepository, never()).anularPagoVentaById(anyLong());
+    }
+
+    @Test
+    @DisplayName("cancelarCobroCheque: Throws BusinessRuleException when concurrent atomic update returns 0 rows")
+    void cancelarCobroCheque_ThrowsWhenConcurrentUpdateFails() {
+        Long chequeId = 1L;
+        Long authenticatedUserId = 2L;
+        Long ventaId = 100L;
+        Long pagoVentaId = 999L;
+
+        AlertaCheque cheque = new AlertaCheque(
+                chequeId, ventaId, 500.0, LocalDate.now(), "COBRADO", pagoVentaId, null
+        );
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+        when(alertaChequeRepository.updateEstadoAndPagoVentaIdAtomic(chequeId, "PENDIENTE", null, "COBRADO")).thenReturn(0);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.cancelarCobroCheque(chequeId, authenticatedUserId);
+        });
+
+        assertEquals("El cheque fue modificado concurrentemente.", ex.getMessage());
+        verify(ventaRepository).anularPagoVentaById(pagoVentaId);
+    }
+
+    @Test
+    @DisplayName("cancelarCobroCheque: Throws BusinessRuleException when pagoDeudaId is null for DEUDA_FIADO cheque")
+    void cancelarCobroCheque_DeudaFiado_ThrowsWhenPagoDeudaIdIsNull() {
+        Long chequeId = 1L;
+        Long authenticatedUserId = 2L;
+
+        AlertaCheque cheque = new AlertaCheque();
+        cheque.setId(chequeId);
+        cheque.setVentaId(100L);
+        cheque.setEstado("COBRADO");
+        cheque.setTipoOrigen("DEUDA_FIADO");
+        cheque.setPagoDeudaId(null);
+
+        when(alertaChequeRepository.findById(chequeId)).thenReturn(Optional.of(cheque));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.cancelarCobroCheque(chequeId, authenticatedUserId);
+        });
+
+        assertEquals("El cheque de deuda no tiene un pago asociado.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("anularPago: Throws BusinessRuleException when sale lock cannot be acquired")
+    void anularPago_ThrowsWhenSaleLockFails() {
+        Long pendingId = 99L;
+        Long pagoId = 10L;
+        Long usuarioId = 1L;
+
+        when(ventaRepository.lockVentaForUpdate(pendingId, "PENDIENTE")).thenReturn(false);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.anularPago(pendingId, pagoId, usuarioId);
+        });
+
+        assertEquals("El pedido no se encuentra pendiente o fue modificado concurrentemente.", ex.getMessage());
+        verify(ventaRepository, never()).updatePagoAnulado(anyLong());
+    }
+
+    @Test
+    @DisplayName("anularPago: Throws BusinessRuleException when sale is not in PENDIENTE state")
+    void anularPago_ThrowsWhenSaleNotPendiente() {
+        Long pendingId = 99L;
+        Long pagoId = 10L;
+        Long usuarioId = 1L;
+
+        when(ventaRepository.lockVentaForUpdate(pendingId, "PENDIENTE")).thenReturn(true);
+        Venta completedSale = new Venta();
+        completedSale.setId(pendingId);
+        completedSale.setEstado("ACTIVA");
+        when(ventaRepository.findById(pendingId)).thenReturn(Optional.of(completedSale));
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.anularPago(pendingId, pagoId, usuarioId);
+        });
+
+        assertEquals("Solo se pueden anular pagos de pedidos en estado PENDIENTE.", ex.getMessage());
+        verify(ventaRepository, never()).updatePagoAnulado(anyLong());
+    }
+
+    @Test
+    @DisplayName("anularPago: Throws BusinessRuleException when payment does not exist or is already annulled")
+    void anularPago_ThrowsWhenPaymentNotFoundOrAlreadyAnnulled() {
+        Long pendingId = 99L;
+        Long pagoId = 10L;
+        Long usuarioId = 1L;
+
+        when(ventaRepository.lockVentaForUpdate(pendingId, "PENDIENTE")).thenReturn(true);
+        Venta pendingSale = new Venta();
+        pendingSale.setId(pendingId);
+        pendingSale.setEstado("PENDIENTE");
+        when(ventaRepository.findById(pendingId)).thenReturn(Optional.of(pendingSale));
+        when(ventaRepository.findPagosByVentaId(pendingId)).thenReturn(Collections.emptyList());
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.anularPago(pendingId, pagoId, usuarioId);
+        });
+
+        assertEquals("El pago no existe, no pertenece a este pedido o ya está anulado.", ex.getMessage());
+        verify(ventaRepository, never()).updatePagoAnulado(anyLong());
+    }
+
+    @Test
+    @DisplayName("anularPago: Restores Saldo a Favor to client when payment method is SALDO")
+    void anularPago_RestoresSaldoAFavor_WhenMethodIsSaldo() {
+        Long pendingId = 99L;
+        Long pagoId = 10L;
+        Long clienteId = 5L;
+        Long usuarioId = 1L;
+        Double monto = 150.0;
+
+        when(ventaRepository.lockVentaForUpdate(pendingId, "PENDIENTE")).thenReturn(true);
+        Venta pendingSale = new Venta();
+        pendingSale.setId(pendingId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setClienteId(clienteId);
+        when(ventaRepository.findById(pendingId)).thenReturn(Optional.of(pendingSale));
+
+        PagoVenta pago = new PagoVenta();
+        pago.setId(pagoId);
+        pago.setMonto(monto);
+        pago.setMetodoPagoId(99L);
+        MetodoPago saldoMethod = new MetodoPago();
+        saldoMethod.setId(99L);
+        saldoMethod.setDescripcion("Saldo a Favor");
+        saldoMethod.setActivo(true);
+        saldoMethod.setAcronimo("SALDO");
+        when(metodoPagoRepository.findById(99L)).thenReturn(Optional.of(saldoMethod));
+        when(ventaRepository.getMontoPagoActivo(pagoId, pendingId)).thenReturn(monto);
+        when(ventaRepository.findPagosByVentaId(pendingId)).thenReturn(List.of(pago));
+        when(alertaChequeRepository.findByPagoVentaId(pagoId)).thenReturn(Optional.empty());
+
+        assertDoesNotThrow(() -> ventaService.anularPago(pendingId, pagoId, usuarioId));
+
+        verify(clienteRepository).addSaldo(clienteId, monto);
+        verify(ventaRepository).updatePagoAnulado(pagoId);
+        verify(auditoriaService).registrarAccion(usuarioId, "ANULAR_PAGO_PENDIENTE", "Pago ID: " + pagoId + " del Pedido ID: " + pendingId + " por $150.0 anulado.");
+    }
+
+    @Test
+    @DisplayName("modificarCarrito: Allows preserved cashed cheque payment and annuls dropped regular payment")
+    void modificarCarrito_AllowsPreservedCashedChequeAndAnnulsRegularPayment() {
+        Long ventaId = 99L;
+        Long usuarioId = 1L;
+
+        Venta pendingSale = new Venta();
+        pendingSale.setId(ventaId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTipoVenta("MINORISTA");
+        pendingSale.setVersion(0);
+        when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        when(ventaRepository.lockVentaForUpdate(ventaId, "PENDIENTE")).thenReturn(true);
+
+        Product p = Product.builder().codigo("P1").descripcion("Producto").precioCosto(50.0).precioMayorista(200.0).precioMinorista(200.0).build();
+        p.setId(1L);
+        when(productRepository.findByIdIncludingInactive(1L)).thenReturn(Optional.of(p));
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        PagoVenta pagoCash = new PagoVenta();
+        pagoCash.setId(10L);
+        pagoCash.setMetodoPagoId(1L);
+        pagoCash.setMonto(50.0);
+
+        PagoVenta pagoCheque = new PagoVenta();
+        pagoCheque.setId(20L);
+        pagoCheque.setMetodoPagoId(1L);
+        pagoCheque.setMonto(150.0);
+
+        when(ventaRepository.findPagosActivosByVentaId(ventaId)).thenReturn(List.of(pagoCash, pagoCheque));
+
+        AlertaCheque cashedCheque = new AlertaCheque(5L, ventaId, 150.0, LocalDate.now(), "COBRADO", 20L, null);
+        lenient().when(alertaChequeRepository.findByVentaId(ventaId)).thenReturn(List.of(cashedCheque));
+        lenient().when(alertaChequeRepository.findByPagoVentaId(20L)).thenReturn(Optional.of(cashedCheque));
+        lenient().when(alertaChequeRepository.findByPagoVentaId(10L)).thenReturn(Optional.empty());
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+
+        VentaRequest.PagoRequest pPreserved = new VentaRequest.PagoRequest();
+        pPreserved.setId(20L);
+        pPreserved.setMetodoPagoId(1L);
+        pPreserved.setMonto(150.0);
+        request.setPagos(List.of(pPreserved));
+
+        assertDoesNotThrow(() -> ventaService.modificarCarrito(ventaId, request, usuarioId));
+
+        verify(ventaRepository).updatePagoAnulado(10L);
+        verify(ventaRepository, never()).updatePagoAnulado(20L);
+    }
+
+    @Test
+    @DisplayName("modificarCarrito: Throws ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT when request pagos is null and cashed cheque exists")
+    void modificarCarrito_ThrowsWhenPagosIsNullAndCashedChequeExists() {
+        Long ventaId = 99L;
+        Long usuarioId = 1L;
+
+        Venta pendingSale = new Venta();
+        pendingSale.setId(ventaId);
+        pendingSale.setEstado("PENDIENTE");
+        pendingSale.setTipoVenta("MINORISTA");
+        pendingSale.setVersion(0);
+        when(ventaRepository.findById(ventaId)).thenReturn(Optional.of(pendingSale));
+        when(ventaRepository.lockVentaForUpdate(ventaId, "PENDIENTE")).thenReturn(true);
+
+        Product p = Product.builder().codigo("P1").descripcion("Producto").precioCosto(50.0).precioMayorista(100.0).precioMinorista(100.0).build();
+        p.setId(1L);
+        when(productRepository.findByIdIncludingInactive(1L)).thenReturn(Optional.of(p));
+
+        VentaRequest.ItemRequest item = new VentaRequest.ItemRequest();
+        item.setProductoId(1L);
+        item.setCantidad(1L);
+
+        PagoVenta existingP1 = new PagoVenta();
+        existingP1.setId(10L);
+        existingP1.setMetodoPagoId(1L);
+        existingP1.setMonto(100.0);
+
+        when(ventaRepository.findPagosActivosByVentaId(ventaId)).thenReturn(List.of(existingP1));
+
+        AlertaCheque cashedCheque = new AlertaCheque(5L, ventaId, 100.0, LocalDate.now(), "COBRADO", 10L, null);
+        lenient().when(alertaChequeRepository.findByVentaId(ventaId)).thenReturn(List.of(cashedCheque));
+        lenient().when(alertaChequeRepository.findByPagoVentaId(10L)).thenReturn(Optional.of(cashedCheque));
+
+        VentaRequest request = new VentaRequest();
+        request.setItems(List.of(item));
+        request.setPagos(null);
+
+        BusinessRuleException ex = assertThrows(BusinessRuleException.class, () -> {
+            ventaService.modificarCarrito(ventaId, request, usuarioId);
+        });
+
+        assertEquals(Constants.ERR_CANNOT_DELETE_CASHED_CHEQUE_PAYMENT, ex.getMessage());
+        verify(ventaRepository, never()).updatePagoAnulado(anyLong());
     }
 
     @Test
